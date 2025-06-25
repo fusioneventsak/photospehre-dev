@@ -80,7 +80,7 @@ const CollageModerationPage: React.FC = () => {
   const handleDeletePhoto = async (photoId: string) => {
     if (deletingPhotos.has(photoId)) return;
     
-    console.log('🛡️ MODERATION: handleDeletePhoto called with ID:', photoId, 'from moderation page');
+    console.log('🛡️ MODERATION: handleDeletePhoto called with ID:', photoId);
     
     const confirmed = window.confirm('Delete this photo? It will be removed from all views immediately.');
     if (!confirmed) return;
@@ -90,13 +90,13 @@ const CollageModerationPage: React.FC = () => {
     try {
       console.log('🗑️ MODERATION: Deleting photo:', photoId);
       console.log('🛡️ MODERATION: Photos before deletion:', photos.length);
-      console.log('🛡️ MODERATION: Current photo IDs before deletion:', photos.map(p => p.id.slice(-6)));
+      console.log('🛡️ MODERATION: Current photo IDs before deletion:', photos.map(p => p.id.slice(-6)).join(', '));
       
       await deletePhoto(photoId);
       
       console.log('✅ MODERATION: Photo deleted successfully');
       console.log('🛡️ MODERATION: Photos after deletion:', photos.length);
-      console.log('🛡️ MODERATION: Current photo IDs after deletion:', photos.map(p => p.id.slice(-6)));
+      console.log('🛡️ MODERATION: Current photo IDs after deletion:', photos.map(p => p.id.slice(-6)).join(', '));
       
       // Close modal if deleted photo was selected
       if (selectedPhoto?.id === photoId) {
@@ -273,7 +273,7 @@ const CollageModerationPage: React.FC = () => {
                   <div className="aspect-square relative">
                     <img
                       src={photo.url}
-                      alt="Uploaded photo"
+                      alt={`Photo ${photo.id.slice(-6)}`}
                       className="w-full h-full object-cover cursor-pointer"
                       onClick={() => openPhotoPreview(photo)}
                       data-photo-id={photo.id}
@@ -307,9 +307,9 @@ const CollageModerationPage: React.FC = () => {
                   <div className="p-3">
                     <p className="text-xs text-gray-400">
                       Uploaded: {new Date(photo.created_at).toLocaleString()}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      ID: {photo.id.slice(-8)}
+                    </p> 
+                    <p className="text-xs font-mono text-gray-500 mt-1">
+                      ID: {photo.id.slice(-6)}
                     </p>
                   </div>
                 </div>
