@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { useCollageStore } from '../store/collageStore';
 import { ErrorBoundary } from 'react-error-boundary';
-import CollageScene from '../components/three/CollageScene';
+import CollageScene from '../components/CollageScene';
 import PhotoUploader from '../components/collage/PhotoUploader';
 import RealtimeDebugPanel from '../components/debug/RealtimeDebugPanel';
 
@@ -228,7 +228,6 @@ const CollageViewerPage: React.FC = () => {
         resetKeys={[currentCollage.id, safePhotos.length]}
       >
         <CollageScene 
-          photos={safePhotos}
           settings={currentCollage.settings}
           onSettingsChange={(newSettings) => {
             console.log('🎛️ Settings changed from viewer:', newSettings);
