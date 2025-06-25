@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { X, Trash2, AlertCircle, RefreshCw } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, Trash2, AlertCircle, RefreshCw, Eye } from 'lucide-react';
 import { Photo } from '../../store/collageStore';
 import { addCacheBustToUrl } from '../../lib/supabase';
 import { useCollageStore } from '../../store/collageStore';
 
 type PhotoModerationModalProps = {
-  key?: string; // Add key prop to force re-render
   photos: Photo[];
   onClose: () => void;
 };
@@ -18,22 +17,8 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const { deletePhoto, fetchPhotosByCollageId } = useCollageStore();
-  // Use a local copy of photos to avoid UI flicker during deletion
-  const [localPhotos, setLocalPhotos] = useState<Photo[]>(photos);
-  // Use a local copy of photos to avoid UI flicker during deletion
-  const [localPhotos, setLocalPhotos] = useState<Photo[]>(photos);
   
   const collageId = photos.length > 0 ? photos[0].collage_id : null;
-
-  // Update local photos when props change
-  useEffect(() => {
-    setLocalPhotos(photos);
-  }, [photos]);
-
-  // Update local photos when props change
-  useEffect(() => {
-    setLocalPhotos(photos);
-  }, [photos]);
 
   const handleDeletePhoto = async (photo: Photo) => {
     setDeletingPhotoId(photo.id);
@@ -43,30 +28,14 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
     if (selectedPhoto?.id === photo.id) {
       setSelectedPhoto(null);
     }
-
-    // Close preview if this was the selected photo
-    if (selectedPhoto?.id === photo.id) {
-      setSelectedPhoto(null);
-    }
-    
-    console.log('📸 MODAL: handleDeletePhoto called with ID:', photo.id);
     
     console.log('📸 MODAL: handleDeletePhoto called with ID:', photo.id);
     
     try {
       console.log('🗑️ Attempting to delete photo:', photo.id);
-      console.log('📸 MODAL: Photos before deletion:', localPhotos.length);
-      
-      console.log('📸 MODAL: Photos before deletion:', localPhotos.length);
       
       // Use the store's delete method
       await deletePhoto(photo.id);
-      
-      // Update local state immediately for better UX
-      setLocalPhotos(prevPhotos => prevPhotos.filter(p => p.id !== photo.id));
-      
-      console.log('📸 MODAL: Delete operation completed');
-      console.log('📸 MODAL: Photos after deletePhoto call:', localPhotos.length);
       
       console.log('✅ Photo deleted successfully');
     } catch (error: any) {
@@ -81,28 +50,13 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
     if (!collageId) return;
 
     console.log('📸 MODAL: Manual refresh triggered for collage:', collageId);
-    console.log('📸 MODAL: Manual refresh triggered for collage:', collageId);
     setRefreshing(true);
     setError(null);
     
     try {
       // Use the store's fetch method
-      const result = await fetchPhotosByCollageId(collageId);
+      await fetchPhotosByCollageId(collageId);
       console.log('📸 MODAL: Manual refresh completed');
-      
-      // Update local state with fresh data
-      if (result) {
-        setLocalPhotos(result);
-      }
-      console.log('📸 MODAL: Manual refresh completed');
-      
-      // Update local state with fresh data
-      // Update local state immediately for better UX
-      setLocalPhotos(prevPhotos => prevPhotos.filter(p => p.id !== photo.id));
-      
-      console.log('📸 MODAL: Delete operation completed');
-      console.log('📸 MODAL: Photos after deletePhoto call:', localPhotos.length);
-      
     } catch (err: any) {
       console.error('Failed to refresh photos:', err);
       setError(`Failed to refresh photos: ${err.message}`);
@@ -150,24 +104,18 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
         )}
 
         <div className="p-4 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 overflow-y-auto max-h-[calc(90vh-120px)]">
-          {localPhotos.length > 0 ? (
-            localPhotos.map((photo) => (
+          {photos.length > 0 ? (
+            photos.map((photo) => (
               <div
                 key={photo.id}
                 className="relative group aspect-[2/3] rounded-lg overflow-hidden cursor-pointer"
                 onClick={() => setSelectedPhoto(photo)}
-                data-photo-id={photo.id}
-                data-photo-id={photo.id}
                 data-photo-id={photo.id}
               >
                 <img
                   src={addCacheBustToUrl(photo.url)}
                   alt="Collage photo"
                   className="w-full h-full object-cover"
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    target.src = `https://via.placeholder.com/300x450?text=Error+${photo.id.slice(-4)}`;
-                  }}
                   onError={(e) => {
                     const target = e.target as HTMLImageElement;
                     target.src = `https://via.placeholder.com/300x450?text=Error+${photo.id.slice(-4)}`;
