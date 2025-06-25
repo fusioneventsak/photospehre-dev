@@ -4,7 +4,8 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
 import * as THREE from 'three';
 import { type SceneSettings } from '../../store/sceneStore';
-import { PatternFactory, SlotManager } from './patterns/PatternFactory';
+import { PatternFactory } from './patterns/PatternFactory';
+import SlotManager from './patterns/SlotManager';
 import { addCacheBustToUrl } from '../../lib/supabase';
 
 type Photo = {
@@ -328,7 +329,7 @@ const AnimationController: React.FC<{
   const updatePositions = useCallback((time: number = 0) => {
     try {
       // Use the ref value to avoid dependency on photos array
-      const currentPhotos = photosRef.current;
+      const currentPhotos = photosRef.current || [];
       const safePhotos = Array.isArray(currentPhotos) ? currentPhotos.filter(p => p && p.id) : [];
       const safeSettings = { ...settings };
 
@@ -350,10 +351,9 @@ const AnimationController: React.FC<{
       // Get STABLE slot assignments - only new photos get new slots
       const slotAssignments = slotManagerRef.current.assignSlots(safePhotos);
       
-      // Log slot assignments for debugging
-      if (safePhotos.length > 0) {
-        console.log(`🎮 Slot assignments: ${slotAssignments.size} slots assigned`);
-      }
+      // Get slot manager stats for debugging
+      const stats = slotManagerRef.current.getStats();
+      console.log(`🎮 Slot manager stats:`, stats);
       
       // Generate pattern positions with error handling
       let patternState;
@@ -385,9 +385,6 @@ const AnimationController: React.FC<{
       for (const photo of safePhotos) {
         const slotIndex = slotAssignments.get(photo.id);
         if (slotIndex !== undefined && slotIndex < (safeSettings.photoCount || 100)) {  
-          // Log when a real photo is assigned to a slot
-          console.log(`🎮 Real photo ${photo.id.slice(-6)} assigned to slot ${slotIndex}`);
-          
           photosWithPositions.push({
             ...photo,
             targetPosition: patternState.positions[slotIndex] || [0, 0, 0],
@@ -401,7 +398,6 @@ const AnimationController: React.FC<{
       // Add empty slots for remaining positions - STABLE ORDER
       for (let i = 0; i < (safeSettings.photoCount || 100); i++) {
         const hasPhoto = photosWithPositions.some(p => p.slotIndex === i);
-        
         if (!hasPhoto) {
           photosWithPositions.push({
             id: `placeholder-${i}`, // Stable ID for empty slots
@@ -412,10 +408,11 @@ const AnimationController: React.FC<{
             slotIndex: i,
           });
         }
-        
-        // Log the total number of empty slots
-        console.log(`🎮 Empty slots: ${photosWithPositions.filter(p => p.id.startsWith('placeholder-')).length}`);
       }
+      
+      // Log the total number of empty slots
+      const emptySlotCount = photosWithPositions.filter(p => p.id.startsWith('placeholder-')).length;
+      console.log(`🎮 Empty slots: ${emptySlotCount}`);
       
       // CRITICAL: Always sort by slot index for consistent order
       photosWithPositions.sort((a, b) => a.slotIndex - b.slotIndex);
@@ -424,7 +421,7 @@ const AnimationController: React.FC<{
       const positionsChanged = photosWithPositions.length !== lastPositionsRef.current.length ||
         photosWithPositions.some((photo, index) => {
           // If this index doesn't exist in the previous array, it's a change
-          if (index >= lastPositionsRef.current.length) {
+          if (!lastPositionsRef.current || index >= lastPositionsRef.current.length) {
             return true;
           }
           
@@ -445,7 +442,7 @@ const AnimationController: React.FC<{
       if (positionsChanged) {
         // Log when positions are updated
         if (photosWithPositions.length !== lastPositionsRef.current.length) {
-          console.log(`🎮 Positions count changed: ${lastPositionsRef.current.length} -> ${photosWithPositions.length}`);
+          console.log(`🎮 Positions count changed: ${lastPositionsRef.current?.length || 0} -> ${photosWithPositions.length}`);
           console.log(`🎮 Real photos: ${photosWithPositions.filter(p => !p.id.startsWith('placeholder-')).length}`);
           console.log(`🎮 Empty slots: ${photosWithPositions.filter(p => p.id.startsWith('placeholder-')).length}`);
         }
@@ -488,7 +485,7 @@ const AnimationController: React.FC<{
   useEffect(() => {
     if (currentPhotoIds !== lastPhotoIds.current) {
       const oldIds = lastPhotoIds.current ? lastPhotoIds.current.split(',').filter(Boolean) : [];
-      const newIds = currentPhotoIds ? currentPhotoIds.split(',').filter(Boolean) : [];
+      const newIds = currentPhotoIds.split(',').filter(Boolean);
       
       // Calculate added and removed IDs
       const addedIds = newIds.filter(id => !oldIds.includes(id));
@@ -504,8 +501,11 @@ const AnimationController: React.FC<{
         if (removedIds.length > 0) {
           console.log('🗑️ Removed photo IDs:', removedIds.map(id => id.slice(-6)));
           
-          // Force update positions when photos are removed
-          updatePositions(0);
+          // CRITICAL FIX: Force immediate position update when photos are removed
+          setTimeout(() => {
+            console.log('🗑️ Forcing position update after photo removal');
+            updatePositions(0);
+          }, 50);
         }
       }
       
@@ -542,17 +542,20 @@ const AnimationController: React.FC<{
   // Only re-render if photos array reference changes or settings change
   const photosChanged = prevProps.photos !== nextProps.photos;
   const settingsChanged = prevProps.settings !== nextProps.settings;
+  const photoCountChanged = prevProps.photos.length !== nextProps.photos.length;
   
   if (photosChanged) {
     console.log('🎮 AnimationController photos changed:', 
-      `${prevProps.photos.length} -> ${nextProps.photos.length}`);
+      `${prevProps.photos.length} -> ${nextProps.photos.length}`,
+      photoCountChanged ? '(count changed)' : '(reference changed)');
   }
   
   if (settingsChanged) {
     console.log('🎮 AnimationController settings changed');
   }
   
-  return !photosChanged && !settingsChanged;
+  // CRITICAL FIX: Always re-render when photo count changes
+  return !photosChanged && !settingsChanged && !photoCountChanged;
 });
 
 // Background renderer
@@ -688,7 +691,10 @@ const PhotoMesh: React.FC<{
   shouldFaceCamera: boolean;
   brightness: number;
 }> = React.memo(({ photo, size, emptySlotColor, pattern, shouldFaceCamera, brightness }) => {  
-  console.log(`🖼️ PhotoMesh render - ID: ${photo.id.slice(-6)}, URL: ${photo.url ? 'has image' : 'empty slot'}, Slot: ${photo.slotIndex}`);
+  // Only log real photos, not placeholders
+  if (!photo.id.startsWith('placeholder-')) {
+    console.log(`🖼️ PhotoMesh render - ID: ${photo.id.slice(-6)}, URL: ${photo.url ? 'has image' : 'empty slot'}, Slot: ${photo.slotIndex}`);
+  }
   
   const meshRef = useRef<THREE.Mesh>(null);
   const { camera } = useThree();
@@ -707,10 +713,16 @@ const PhotoMesh: React.FC<{
   }, []);
 
   useEffect(() => {
-    console.log(`🖼️ PhotoMesh useEffect[photo.url] - ID: ${photo.id.slice(-6)}, URL: ${photo.url ? 'has image' : 'empty slot'}`);
+    // Only log for real photos, not placeholders
+    if (!photo.id.startsWith('placeholder-')) {
+      console.log(`🖼️ PhotoMesh useEffect[photo.url] - ID: ${photo.id.slice(-6)}, URL: ${photo.url ? 'has image' : 'empty slot'}`);
+    }
     
     if (!photo.url) {
-      console.log(`🖼️ Empty slot detected for ID: ${photo.id.slice(-6)}, Slot: ${photo.slotIndex}`);
+      // Only log for real photos, not placeholders
+      if (!photo.id.startsWith('placeholder-')) {
+        console.log(`🖼️ Empty slot detected for ID: ${photo.id.slice(-6)}, Slot: ${photo.slotIndex}`);
+      }
       setIsLoading(false);
       setTexture(null);
       setHasError(false);
@@ -722,7 +734,10 @@ const PhotoMesh: React.FC<{
     setHasError(false);
 
     const handleLoad = (loadedTexture: THREE.Texture) => {
-      console.log(`🖼️ Texture loaded for ID: ${photo.id.slice(-6)}, Slot: ${photo.slotIndex}`);
+      // Only log for real photos, not placeholders
+      if (!photo.id.startsWith('placeholder-')) {
+        console.log(`🖼️ Texture loaded for ID: ${photo.id.slice(-6)}, Slot: ${photo.slotIndex}`);
+      }
       loadedTexture.minFilter = THREE.LinearFilter;
       loadedTexture.magFilter = THREE.LinearFilter;
       loadedTexture.format = THREE.RGBAFormat;
@@ -732,7 +747,10 @@ const PhotoMesh: React.FC<{
     };
 
     const handleError = () => {
-      console.log(`🖼️ Texture load ERROR for ID: ${photo.id.slice(-6)}, URL: ${photo.url}`);
+      // Only log for real photos, not placeholders
+      if (!photo.id.startsWith('placeholder-')) {
+        console.log(`🖼️ Texture load ERROR for ID: ${photo.id.slice(-6)}, URL: ${photo.url}`);
+      }
       setHasError(true);
       setIsLoading(false);
     };
@@ -745,7 +763,10 @@ const PhotoMesh: React.FC<{
 
     return () => {
       if (texture) {
-        console.log(`🖼️ Disposing texture for ID: ${photo.id.slice(-6)}`);
+        // Only log for real photos, not placeholders
+        if (!photo.id.startsWith('placeholder-')) {
+          console.log(`🖼️ Disposing texture for ID: ${photo.id.slice(-6)}`);
+        }
         texture.dispose();
       }
     };
@@ -800,7 +821,10 @@ const PhotoMesh: React.FC<{
   // FIXED: Material with correct empty slot color handling
   const material = useMemo(() => {
     if (texture) {
-      console.log(`🖼️ Creating photo material for ID: ${photo.id.slice(-6)}, Slot: ${photo.slotIndex}`);
+      // Only log for real photos, not placeholders
+      if (!photo.id.startsWith('placeholder-')) {
+        console.log(`🖼️ Creating photo material for ID: ${photo.id.slice(-6)}, Slot: ${photo.slotIndex}`);
+      }
       const brightnessMaterial = new THREE.MeshStandardMaterial({
         map: texture,
         transparent: true,
@@ -814,7 +838,10 @@ const PhotoMesh: React.FC<{
       return brightnessMaterial;
     } else {
       // FIXED: Empty slot material using EXACT emptySlotColor setting
-      console.log(`🖼️ Creating EMPTY SLOT material for ID: ${photo.id.slice(-6)}, Slot: ${photo.slotIndex}, Color: ${emptySlotColor}`);
+      // Only log for real photos, not placeholders
+      if (!photo.id.startsWith('placeholder-')) {
+        console.log(`🖼️ Creating EMPTY SLOT material for ID: ${photo.id.slice(-6)}, Slot: ${photo.slotIndex}, Color: ${emptySlotColor}`);
+      }
       const canvas = document.createElement('canvas');
       canvas.width = 512;
       canvas.height = 512;
@@ -854,7 +881,7 @@ const PhotoMesh: React.FC<{
   return (
     <mesh
       ref={meshRef}
-      name={`photo-${photo.id.slice(-6)}-slot-${photo.slotIndex}`}
+      name={photo.id.startsWith('placeholder-') ? `placeholder-${photo.slotIndex}` : `photo-${photo.id.slice(-6)}-slot-${photo.slotIndex}`}
       material={material}
       castShadow
       receiveShadow
@@ -874,7 +901,7 @@ const PhotoMesh: React.FC<{
     prevProps.photo.targetPosition.every((pos, i) => 
       Math.abs(pos - nextProps.photo.targetPosition[i]) < 0.001
     )
-  ) || (prevProps.photo.url === '' && nextProps.photo.url === '');
+  );
 });
 
 // Photo renderer with stable keys
@@ -914,7 +941,9 @@ const PhotoDebugger: React.FC<{ photos: Photo[] }> = ({ photos }) => {
 
 // Main CollageScene component
 const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSettingsChange }) => {
-  console.log(`🎬 COLLAGE SCENE RENDER: Photos array reference:`, photos);
+  // Log photo count and IDs for debugging
+  console.log(`🎬 COLLAGE SCENE RENDER: {photoCount: ${photos.length}, settingsPhotoCount: ${settings.photoCount}}`);
+  
   const [photosWithPositions, setPhotosWithPositions] = useState<PhotoWithPosition[]>([]);
 
   const safePhotos = Array.isArray(photos) ? photos : [];
@@ -941,7 +970,7 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
   console.log('🎬 COLLAGE SCENE RENDER:', {
     photoCount: safePhotos.length,
     settingsPhotoCount: safeSettings.photoCount,
-    positionsCount: photosWithPositions.length, 
+    positionsCount: photosWithPositions.length,
     emptySlotCount: photosWithPositions.filter(p => !p.url).length,
     emptySlotColor: safeSettings.emptySlotColor
   });

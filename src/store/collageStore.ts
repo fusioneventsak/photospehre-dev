@@ -171,7 +171,7 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
   // Remove photo from state - ENHANCED
   removePhotoFromState: (photoId: string) => {
     console.log('🗑️ BEFORE removePhotoFromState - Current photos count:', get().photos.length);
-    console.log('🗑️ Removing photo with ID:', photoId, 'from state');
+    console.log('🗑️ Removing photo with ID:', photoId);
     
     set((state) => {
       const beforeCount = state.photos.length;
@@ -188,7 +188,7 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
       
       if (beforeCount === afterCount) {
         console.log('⚠️ WARNING: Photo not found in state for removal:', photoId);
-        console.log('⚠️ Current photo IDs:', state.photos.map(p => p.id.slice(-4)));
+        console.log('⚠️ Current photo IDs:', state.photos.map(p => p.id.slice(-6)));
         
         // CRITICAL: Even if the photo wasn't found, we still want to return a new state object
         // to trigger a re-render and force the UI to update
@@ -200,7 +200,7 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
       
       const newState = {
         photos: newPhotos,
-        lastRefreshTime: Date.now() // Force update timestamp to trigger re-renders
+        lastRefreshTime: Date.now() // Force update timestamp to trigger re-renders in all components
       };
       
       console.log('🗑️ Setting new state:', newState);
@@ -754,7 +754,7 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
       // Delete from database first
       const { error: deleteDbError } = await supabase
         .from('photos')
-        .delete() 
+        .delete()
         .eq('id', photoId);
 
       if (deleteDbError) {
@@ -762,13 +762,13 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
         throw deleteDbError;
       } else {
         console.log('✅ Photo record deleted from database, ID:', photoId);
-        
-        // CRITICAL: Remove from local state immediately for instant feedback
-        // This ensures the UI updates even if realtime notification fails
-        get().removePhotoFromState(photoId);
-        console.log('🗑️ removePhotoFromState called from deletePhoto');
-        console.log('🗑️ Photos count AFTER removePhotoFromState:', get().photos.length);
       }
+
+      // CRITICAL: Remove from local state immediately for instant feedback
+      // This ensures the UI updates even if realtime notification fails
+      get().removePhotoFromState(photoId);
+      console.log('🗑️ removePhotoFromState called from deletePhoto');
+      console.log('🗑️ Photos count AFTER removePhotoFromState:', get().photos.length);
 
       // Delete from storage
       try {
@@ -790,8 +790,8 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
       console.log('✅ Photo deletion process completed for ID:', photoId);
       console.log('🗑️ Final photos count:', get().photos.length);
       
-      // Return the deleted photo ID to confirm success
-      return photoId;
+      // Return void to match the function signature
+      return;
     } catch (error: any) {
       console.error('❌ Delete photo error:', error);
       throw error;
