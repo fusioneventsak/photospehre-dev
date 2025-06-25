@@ -3,7 +3,8 @@ import {
   createBrowserRouter, 
   RouterProvider, 
   Route, 
-  createRoutesFromElements 
+  createRoutesFromElements,
+  Navigate
 } from 'react-router-dom';
 
 // Pages
@@ -28,6 +29,9 @@ const router = createBrowserRouter(
       <Route path="/join" element={<JoinCollage />} />
       <Route path="/collage/:code" element={<CollageViewerPage />} />
       <Route path="/photobooth/:code" element={<PhotoboothPage />} />
+      
+      {/* Redirect for common typo */}
+      <Route path="/dashbaord" element={<Navigate to="/dashboard" replace />} />
       
       {/* Protected routes - require authentication */}
       <Route path="/dashboard" element={<DashboardPage />} />
