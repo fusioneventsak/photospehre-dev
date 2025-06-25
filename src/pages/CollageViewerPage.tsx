@@ -86,6 +86,7 @@ const CollageViewerPage: React.FC = () => {
 
   // Normalize code to uppercase for consistent database lookup
   const normalizedCode = code?.toUpperCase();
+  console.log('🔍 VIEWER: normalizedCode =', normalizedCode, 'currentCollage =', currentCollage?.id);
 
   // Load collage (which will set up real-time subscription)
   useEffect(() => {
