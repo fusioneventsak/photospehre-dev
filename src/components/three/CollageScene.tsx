@@ -399,6 +399,7 @@ const AnimationController: React.FC<{
       // Generate pattern positions with error handling
       let patternState;
       try {
+        // Make sure we're passing the full settings object with patterns
         const pattern = PatternFactory.createPattern(
           safeSettings.animationPattern || 'grid', 
           safeSettings, 
@@ -456,10 +457,15 @@ const AnimationController: React.FC<{
       // Only update if positions actually changed significantly
       const positionsChanged = photosWithPositions.length !== lastPositionsRef.current.length ||
         photosWithPositions.some((photo, index) => {
+          if (index >= lastPositionsRef.current.length) return true;
+          
           const lastPhoto = lastPositionsRef.current[index];
-          return !lastPhoto || 
-                 lastPhoto.id !== photo.id ||
-                 lastPhoto.targetPosition.some((pos, i) => Math.abs(pos - photo.targetPosition[i]) > 0.001);
+          if (!lastPhoto || lastPhoto.id !== photo.id) return true;
+          
+          // Check if position has changed significantly
+          return lastPhoto.targetPosition.some((pos, i) => 
+            Math.abs(pos - photo.targetPosition[i]) > 0.001
+          );
         });
 
       if (positionsChanged) {

@@ -4,7 +4,7 @@ export class WavePattern extends BasePattern {
   generatePositions(time: number): PatternState {
     const positions: Position[] = [];
     const rotations: [number, number, number][] = [];
-    const spacing = this.settings.photoSize * (1 + this.settings.photoSpacing);
+    const spacing = this.settings.photoSize * (1 + (this.settings.patterns?.wave?.spacing || this.settings.photoSpacing || 0.15));
     const totalPhotos = Math.min(this.settings.photoCount, 500);
     
     // Calculate grid dimensions based on total photos
@@ -25,8 +25,8 @@ export class WavePattern extends BasePattern {
       
       // Calculate wave height based on distance from center
       const distanceFromCenter = Math.sqrt(x * x + z * z);
-      const amplitude = 15;
-      const frequency = 0.3;
+      const amplitude = this.settings.patterns?.wave?.amplitude || 15;
+      const frequency = this.settings.patterns?.wave?.frequency || 0.3;
       
       let y = this.settings.wallHeight;
       

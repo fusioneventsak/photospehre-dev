@@ -9,12 +9,12 @@ export class GridPattern extends BasePattern {
     const totalPhotos = Math.min(this.settings.photoCount, 500);
     
     // Calculate grid dimensions with aspect ratio
-    const aspectRatio = this.settings.gridAspectRatio || 1.0;
+    const aspectRatio = this.settings.patterns?.grid?.aspectRatio || this.settings.gridAspectRatio || 1.0;
     const columns = Math.ceil(Math.sqrt(totalPhotos * aspectRatio));
     const rows = Math.ceil(totalPhotos / columns);
     
     const photoSize = this.settings.photoSize || 4.0;
-    const spacingPercentage = this.settings.photoSpacing || 0; // 0 to 1 (0% to 100%)
+    const spacingPercentage = this.settings.patterns?.grid?.spacing || this.settings.photoSpacing || 0; // 0 to 1 (0% to 100%)
     
     // FIXED: True edge-to-edge when spacing is 0, equal spacing when spacing > 0
     let horizontalSpacing, verticalSpacing;
@@ -33,7 +33,7 @@ export class GridPattern extends BasePattern {
     }
     
     // Wall positioning
-    const wallHeight = this.settings.wallHeight || 0;
+    const wallHeight = this.settings.patterns?.grid?.wallHeight || this.settings.wallHeight || 0;
     
     // Calculate total wall dimensions
     const totalWallWidth = (columns - 1) * horizontalSpacing;

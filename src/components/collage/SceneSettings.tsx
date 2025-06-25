@@ -166,58 +166,232 @@ const SceneSettings: React.FC<{
         <div>
           <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
             <Grid className="h-4 w-4 mr-2" />
-            Grid Wall Settings
+            {settings.animationPattern === 'grid' ? 'Grid Wall Settings' : 'Pattern Settings'}
           </h4>
           
           <div className="space-y-4">
-            <div>
-              <label className="block text-sm text-gray-300 mb-2">
-                Wall Height
-                <span className="ml-2 text-xs text-gray-400">{settings.wallHeight.toFixed(1)} units</span>
-              </label>
-              <input
-                type="range"
-                min="0"
-                max="30"
-                step="0.5"
-                value={settings.wallHeight}
-                onChange={(e) => onSettingsChange({ 
-                  wallHeight: parseFloat(e.target.value) 
-                }, true)}
-                className="w-full bg-gray-800"
-              />
-              <p className="mt-1 text-xs text-gray-400">
-                Adjust the vertical position of the photo wall
-              </p>
-            </div>
+            {settings.animationPattern === 'grid' && (
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">
+                  Wall Height
+                  <span className="ml-2 text-xs text-gray-400">{settings.patterns.grid.wallHeight.toFixed(1)} units</span>
+                </label>
+                <input
+                  type="range"
+                  min="0"
+                  max="30"
+                  step="0.5"
+                  value={settings.patterns.grid.wallHeight}
+                  onChange={(e) => onSettingsChange({ 
+                    patterns: {
+                      grid: {
+                        wallHeight: parseFloat(e.target.value)
+                      }
+                    }
+                  }, true)}
+                  className="w-full bg-gray-800"
+                />
+                <p className="mt-1 text-xs text-gray-400">
+                  Adjust the vertical position of the photo wall
+                </p>
+              </div>
+            )}
 
-            <div>
-              <label className="block text-sm text-gray-300 mb-2">
-                Photo Spacing
-                <span className="ml-2 text-xs text-gray-400">
-                  {settings.photoSpacing === 0 ? 'Solid Wall' : `${(settings.photoSpacing * 200).toFixed(0)}% gaps`}
-                </span>
-              </label>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.01"
-                value={settings.photoSpacing}
-                onChange={(e) => onSettingsChange({ 
-                  photoSpacing: parseFloat(e.target.value) 
-                }, true)}
-                className="w-full bg-gray-800"
-              />
-              <p className="mt-1 text-xs text-gray-400">
-                {settings.photoSpacing === 0 
-                  ? '🧱 Edge-to-edge solid wall (no gaps)'
-                  : settings.photoSpacing < 0.5
-                  ? '📐 Small gaps between photos'
-                  : '🎯 Large gaps between photos'
-                }
-              </p>
-            </div>
+            {settings.animationPattern === 'grid' && (
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">
+                  Photo Spacing
+                  <span className="ml-2 text-xs text-gray-400">
+                    {settings.patterns.grid.spacing === 0 ? 'Solid Wall' : `${(settings.patterns.grid.spacing * 200).toFixed(0)}% gaps`}
+                  </span>
+                </label>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  value={settings.patterns.grid.spacing}
+                  onChange={(e) => onSettingsChange({ 
+                    patterns: {
+                      grid: {
+                        spacing: parseFloat(e.target.value)
+                      }
+                    }
+                  }, true)}
+                  className="w-full bg-gray-800"
+                />
+                <p className="mt-1 text-xs text-gray-400">
+                  {settings.patterns.grid.spacing === 0 
+                    ? '🧱 Edge-to-edge solid wall (no gaps)'
+                    : settings.patterns.grid.spacing < 0.5
+                    ? '📐 Small gaps between photos'
+                    : '🎯 Large gaps between photos'
+                  }
+                </p>
+              </div>
+            )}
+
+            {settings.animationPattern === 'float' && (
+              <>
+                <div>
+                  <label className="block text-sm text-gray-300 mb-2">
+                    Float Height
+                    <span className="ml-2 text-xs text-gray-400">{settings.patterns.float.height.toFixed(1)} units</span>
+                  </label>
+                  <input
+                    type="range"
+                    min="10"
+                    max="100"
+                    step="5"
+                    value={settings.patterns.float.height}
+                    onChange={(e) => onSettingsChange({ 
+                      patterns: {
+                        float: {
+                          height: parseFloat(e.target.value)
+                        }
+                      }
+                    }, true)}
+                    className="w-full bg-gray-800"
+                  />
+                  <p className="mt-1 text-xs text-gray-400">
+                    Maximum height photos will float to before recycling
+                  </p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm text-gray-300 mb-2">
+                    Spread Distance
+                    <span className="ml-2 text-xs text-gray-400">{settings.patterns.float.spread.toFixed(1)} units</span>
+                  </label>
+                  <input
+                    type="range"
+                    min="5"
+                    max="50"
+                    step="1"
+                    value={settings.patterns.float.spread}
+                    onChange={(e) => onSettingsChange({ 
+                      patterns: {
+                        float: {
+                          spread: parseFloat(e.target.value)
+                        }
+                      }
+                    }, true)}
+                    className="w-full bg-gray-800"
+                  />
+                  <p className="mt-1 text-xs text-gray-400">
+                    How far apart photos are spread horizontally
+                  </p>
+                </div>
+              </>
+            )}
+
+            {settings.animationPattern === 'wave' && (
+              <>
+                <div>
+                  <label className="block text-sm text-gray-300 mb-2">
+                    Wave Amplitude
+                    <span className="ml-2 text-xs text-gray-400">{settings.patterns.wave.amplitude.toFixed(1)} units</span>
+                  </label>
+                  <input
+                    type="range"
+                    min="1"
+                    max="20"
+                    step="0.5"
+                    value={settings.patterns.wave.amplitude}
+                    onChange={(e) => onSettingsChange({ 
+                      patterns: {
+                        wave: {
+                          amplitude: parseFloat(e.target.value)
+                        }
+                      }
+                    }, true)}
+                    className="w-full bg-gray-800"
+                  />
+                  <p className="mt-1 text-xs text-gray-400">
+                    Height of the wave peaks
+                  </p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm text-gray-300 mb-2">
+                    Wave Frequency
+                    <span className="ml-2 text-xs text-gray-400">{settings.patterns.wave.frequency.toFixed(2)}</span>
+                  </label>
+                  <input
+                    type="range"
+                    min="0.1"
+                    max="2"
+                    step="0.05"
+                    value={settings.patterns.wave.frequency}
+                    onChange={(e) => onSettingsChange({ 
+                      patterns: {
+                        wave: {
+                          frequency: parseFloat(e.target.value)
+                        }
+                      }
+                    }, true)}
+                    className="w-full bg-gray-800"
+                  />
+                  <p className="mt-1 text-xs text-gray-400">
+                    How close together the wave peaks are
+                  </p>
+                </div>
+              </>
+            )}
+
+            {settings.animationPattern === 'spiral' && (
+              <>
+                <div>
+                  <label className="block text-sm text-gray-300 mb-2">
+                    Spiral Radius
+                    <span className="ml-2 text-xs text-gray-400">{settings.patterns.spiral.radius.toFixed(1)} units</span>
+                  </label>
+                  <input
+                    type="range"
+                    min="5"
+                    max="30"
+                    step="1"
+                    value={settings.patterns.spiral.radius}
+                    onChange={(e) => onSettingsChange({ 
+                      patterns: {
+                        spiral: {
+                          radius: parseFloat(e.target.value)
+                        }
+                      }
+                    }, true)}
+                    className="w-full bg-gray-800"
+                  />
+                  <p className="mt-1 text-xs text-gray-400">
+                    Width of the spiral
+                  </p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm text-gray-300 mb-2">
+                    Height Step
+                    <span className="ml-2 text-xs text-gray-400">{settings.patterns.spiral.heightStep.toFixed(2)} units</span>
+                  </label>
+                  <input
+                    type="range"
+                    min="0.1"
+                    max="2"
+                    step="0.1"
+                    value={settings.patterns.spiral.heightStep}
+                    onChange={(e) => onSettingsChange({ 
+                      patterns: {
+                        spiral: {
+                          heightStep: parseFloat(e.target.value)
+                        }
+                      }
+                    }, true)}
+                    className="w-full bg-gray-800"
+                  />
+                  <p className="mt-1 text-xs text-gray-400">
+                    Vertical spacing between spiral layers
+                  </p>
+                </div>
+              </>
+            )}
 
             <div>
               <label className="block text-sm text-gray-300 mb-2">
@@ -237,10 +411,22 @@ const SceneSettings: React.FC<{
                     case 'custom': break;
                   }
                   
-                  onSettingsChange({
-                    gridAspectRatioPreset: preset,
-                    gridAspectRatio: ratio
-                  });
+                  if (settings.animationPattern === 'grid') {
+                    onSettingsChange({
+                      gridAspectRatioPreset: preset,
+                      gridAspectRatio: ratio,
+                      patterns: {
+                        grid: {
+                          aspectRatio: ratio
+                        }
+                      }
+                    });
+                  } else {
+                    onSettingsChange({
+                      gridAspectRatioPreset: preset,
+                      gridAspectRatio: ratio
+                    });
+                  }
                 }}
                 className="w-full bg-gray-800 border border-gray-700 rounded-md py-2 px-3 text-white"
               >
@@ -264,9 +450,23 @@ const SceneSettings: React.FC<{
                   max="3"
                   step="0.1"
                   value={settings.gridAspectRatio}
-                  onChange={(e) => onSettingsChange({ 
-                    gridAspectRatio: parseFloat(e.target.value) 
-                  })}
+                  onChange={(e) => {
+                    const value = parseFloat(e.target.value);
+                    if (settings.animationPattern === 'grid') {
+                      onSettingsChange({ 
+                        gridAspectRatio: value,
+                        patterns: {
+                          grid: {
+                            aspectRatio: value
+                          }
+                        }
+                      });
+                    } else {
+                      onSettingsChange({ 
+                        gridAspectRatio: value
+                      });
+                    }
+                  }}
                   className="w-full bg-gray-800"
                 />
               </div>

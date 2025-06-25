@@ -10,14 +10,15 @@ export class SpiralPattern extends BasePattern {
     const animationTime = time * speed * 2;
     
     // Tornado parameters
-    const baseRadius = 3; // Narrow radius at ground level (bottom of funnel)
-    const topRadius = 30; // Wide radius at top (top of funnel)
+    const baseRadius = 3; // Narrow radius at ground level
+    const topRadius = this.settings.patterns?.spiral?.radius || 30; // Wide radius at top
     const maxHeight = 40; // Height of the spiral
     const rotationSpeed = 0.8; // Speed of rotation
     const orbitalChance = 0.2; // 20% chance for a photo to be on an outer orbit
     
     // Distribution parameters
-    const verticalBias = 0.7; // Bias towards bottom for density
+    const verticalBias = 0.7; // Bias towards bottom
+    const heightStep = this.settings.patterns?.spiral?.heightStep || 0.5; // Vertical spacing between spiral layers
     
     for (let i = 0; i < totalPhotos; i++) {
       // Generate random but consistent values for each photo
@@ -30,7 +31,8 @@ export class SpiralPattern extends BasePattern {
       
       // Height distribution - biased towards bottom for density
       let normalizedHeight = Math.pow(randomSeed2, verticalBias);
-      const y = this.settings.wallHeight + normalizedHeight * maxHeight;
+      // Apply height step to create more defined spiral layers
+      const y = this.settings.wallHeight + normalizedHeight * maxHeight * heightStep;
       
       // Calculate radius at this height (funnel shape)
       const funnelRadius = baseRadius + (topRadius - baseRadius) * normalizedHeight;
