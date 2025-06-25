@@ -5,7 +5,7 @@ import { addCacheBustToUrl } from '../../lib/supabase';
 import { useCollageStore } from '../../store/collageStore';
 
 type PhotoModerationModalProps = {
-  photos: Photo[];
+  photos: Photo[]; // This is now directly from the store
   onClose: () => void;
 };
 
@@ -18,8 +18,8 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   
-  // Get store methods directly
-  const { deletePhoto, fetchPhotosByCollageId, photos: storePhotos } = useCollageStore();
+  // Get store methods directly - we don't need storePhotos since we're using the photos prop
+  const { deletePhoto, fetchPhotosByCollageId } = useCollageStore();
   
   // Get collage ID from the first photo
   const collageId = photos.length > 0 ? photos[0].collage_id : null;

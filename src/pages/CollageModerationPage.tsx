@@ -2,11 +2,12 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ChevronLeft, Shield, RefreshCw, Trash2, Eye, AlertCircle } from 'lucide-react';
-import { useCollageStore } from '../store/collageStore';
+import { useCollageStore, Photo } from '../store/collageStore';
 import PhotoModerationModal from '../components/collage/PhotoModerationModal';
 import Layout from '../components/layout/Layout';
 import RealtimeStatus from '../components/debug/RealtimeStatus';
 import RealtimeDebugPanel from '../components/debug/RealtimeDebugPanel';
+import { useCallback } from 'react';
 
 const CollageModerationPage: React.FC = () => {  
   console.log('🛡️ MODERATION PAGE RENDER');
@@ -38,8 +39,7 @@ const CollageModerationPage: React.FC = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [deletingPhotos, setDeletingPhotos] = useState<Set<string>>(new Set());
-  const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
-  const [photoList, setPhotoList] = useState<Photo[]>([]);
+  const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null); 
   const [showModerationModal, setShowModerationModal] = useState(false);
   const [showDebugPanel, setShowDebugPanel] = useState(false);
 
@@ -48,11 +48,6 @@ const CollageModerationPage: React.FC = () => {
     console.log('🛡️ MODERATION: Photos array changed!');
     console.log('🛡️ Moderation photo count:', safePhotos.length);
     console.log('🛡️ Moderation photo IDs:', safePhotos.map(p => p.id.slice(-4)));
-  }, [safePhotos]);
-
-  // Update local photo list when store photos change
-  useEffect(() => {
-    setPhotoList(safePhotos);
   }, [safePhotos]);
 
   // Simple subscription setup
@@ -87,7 +82,8 @@ const CollageModerationPage: React.FC = () => {
     }
   };
 
-  const handleDeletePhoto = async (photoId: string) => {
+  // Wrap handleDeletePhoto in useCallback to ensure it always has the latest photos array
+  const handleDeletePhoto = useCallback(async (photoId: string) => {
     if (deletingPhotos.has(photoId)) return;
     
     console.log('🛡️ MODERATION: handleDeletePhoto called with ID:', photoId);
@@ -121,13 +117,13 @@ const CollageModerationPage: React.FC = () => {
         alert(errorMsg);
       }
     } finally {
-      setDeletingPhotos(prev => {
+      setDeletingPhotos((prev) => {
         const newSet = new Set(prev);
         newSet.delete(photoId);
         return newSet;
       });
     }
-  };
+  }, [photos, deletePhoto, deletingPhotos, selectedPhoto]);
 
   const openPhotoPreview = (photo: Photo) => {
     setSelectedPhoto(photo);
@@ -404,7 +400,7 @@ const CollageModerationPage: React.FC = () => {
       {/* Moderation Modal */}
       {showModerationModal && (
         <PhotoModerationModal 
-          photos={photoList} 
+          photos={safePhotos} 
           onClose={() => setShowModerationModal(false)} 
         />
       )}
