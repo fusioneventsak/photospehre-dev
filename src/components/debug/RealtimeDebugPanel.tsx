@@ -20,10 +20,10 @@ const RealtimeDebugPanel: React.FC<RealtimeDebugPanelProps> = ({ collageId, onCl
       return;
     }
 
-    console.log('🔍 DEBUG PANEL: Setting up NEW realtime monitor for collage:', collageId);
+    console.log('🔍 DEBUG PANEL: Setting up realtime monitor for collage:', collageId);
     
-    // Create a unique channel name with timestamp to avoid conflicts
-    const channelName = `debug_photos_${collageId}_${Date.now().toString(36)}`;
+    // Use a simpler channel name without timestamp to ensure consistent naming
+    const channelName = `debug_photos_${collageId}`;
     console.log('🔍 DEBUG PANEL: Creating channel:', channelName);
     
     // Set up realtime subscription
@@ -81,6 +81,7 @@ const RealtimeDebugPanel: React.FC<RealtimeDebugPanelProps> = ({ collageId, onCl
                 setPhotoCount(count);
               } else if (error) {
                 console.error('🔍 DEBUG PANEL: Error fetching photo count:', error);
+                setLastError(`Error fetching count: ${error.message}`);
               }
             });
         }

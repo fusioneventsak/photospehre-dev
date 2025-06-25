@@ -216,17 +216,14 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
     // Clean up existing
     get().cleanupRealtimeSubscription();
     
-    const existingChannel = get().realtimeChannel;
-    if (existingChannel) {
-      console.log('🧹 Cleaning up existing channel before creating new one');
-      existingChannel.unsubscribe();
-      set({ realtimeChannel: null, isRealtimeConnected: false });
-    }
+    // Ensure any existing channel is properly cleaned up
+    get().cleanupRealtimeSubscription();
 
     console.log('🚀 Setting up realtime subscription for collage:', collageId);
 
     // Create a unique channel name with timestamp to avoid conflicts
-    const channelName = `photos_${collageId}_${Date.now()}`;
+    // Use a consistent naming pattern without timestamp to avoid multiple channels
+    const channelName = `photos_${collageId}`;
     console.log('🚀 Creating channel:', channelName);
     
     const channel = supabase
@@ -249,21 +246,28 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
           else if (payload.eventType === 'DELETE' && payload.old) {
             console.log('🗑️ REALTIME DELETE:', payload.old.id, 'for collage:', collageId);
             // Force immediate state update for deletions
-            const photoId = payload.old.id;
-            console.log('🗑️ REALTIME: Calling removePhotoFromState for ID:', photoId);
-            get().removePhotoFromState(photoId);
+            try {
+              const photoId = payload.old.id;
+              console.log('🗑️ REALTIME: Calling removePhotoFromState for ID:', photoId);
+              
+              // CRITICAL: Force immediate state update for deletions
+              get().removePhotoFromState(photoId);
+              
+              // Double-check that the photo was actually removed
+              setTimeout(() => {
+                const { photos } = get();
+                const stillExists = photos.some(p => p.id === photoId);
+                if (stillExists) {
+                  console.log('⚠️ Photo still exists after deletion, forcing another removal:', photoId);
+                  get().removePhotoFromState(photoId);
+                } else {
+                  console.log('✅ Verified photo was removed from state:', photoId);
+                }
+              }, 100);
+            } catch (error) {
+              console.error('❌ Error handling DELETE event:', error);
+            }
             
-            // Double-check that the photo was actually removed
-            setTimeout(() => {
-              const { photos } = get();
-              const stillExists = photos.some(p => p.id === photoId);
-              if (stillExists) {
-                console.log('⚠️ Photo still exists after deletion, forcing another removal:', photoId);
-                get().removePhotoFromState(photoId);
-              } else {
-                console.log('✅ Verified photo was removed from state:', photoId);
-              }
-            }, 100); // Quick check to verify removal
           }
           else if (payload.eventType === 'UPDATE' && payload.new) {
             console.log('📝 REALTIME UPDATE:', payload.new.id, 'for collage:', collageId);
@@ -300,9 +304,13 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
   cleanupRealtimeSubscription: () => {
     const channel = get().realtimeChannel;
     
-    console.log('🧹 Cleaning up realtime subscription');
-    if (channel) channel.unsubscribe();
-    console.log('🧹 Channel unsubscribed');
+    if (channel) {
+      console.log('🧹 Cleaning up realtime subscription for channel:', channel.topic);
+      channel.unsubscribe();
+      console.log('🧹 Channel unsubscribed');
+    } else {
+      console.log('🧹 No channel to clean up');
+    }
     
     set({ realtimeChannel: null, isRealtimeConnected: false });
     get().stopPolling();
@@ -742,8 +750,9 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
   // Enhanced delete with better error handling
   deletePhoto: async (photoId: string) => {
     try {
-      console.log('🗑️ STORE: Starting photo deletion process for ID:', photoId, 'from database');
-      console.log('🗑️ Photos count BEFORE database deletion:', get().photos.length);
+      console.log('🗑️ STORE: Starting photo deletion for ID:', photoId);
+      console.log('🗑️ Photos count BEFORE deletion:', get().photos.length);
+      console.log('🗑️ Current photo IDs BEFORE deletion:', get().photos.map(p => p.id.slice(-6)));
       
       // First, get the photo to find the storage path
       const { data: photo, error: fetchError } = await supabase
@@ -778,7 +787,7 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
       if (deleteDbError) {
         console.error('❌ Database delete error:', deleteDbError);
         throw deleteDbError;
-      } else {
+      } else {        
         console.log('✅ Photo record deleted from database, ID:', photoId);
         console.log('🗑️ Photos count AFTER database deletion, BEFORE state update:', get().photos.length);
         
@@ -786,7 +795,12 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
         // This ensures the UI updates even if realtime notification fails
         console.log('🗑️ Calling removePhotoFromState from deletePhoto');
         get().removePhotoFromState(photoId);
-        console.log('🗑️ Photos count AFTER removePhotoFromState:', get().photos.length);
+        
+        // Log the current state after removal
+        setTimeout(() => {
+          console.log('🗑️ Photos count AFTER removePhotoFromState:', get().photos.length);
+          console.log('🗑️ Current photo IDs AFTER deletion:', get().photos.map(p => p.id.slice(-6)));
+        }, 0);
       }
 
       // Delete from storage
