@@ -20,8 +20,15 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
   const { deletePhoto, fetchPhotosByCollageId } = useCollageStore();
   // Use a local copy of photos to avoid UI flicker during deletion
   const [localPhotos, setLocalPhotos] = useState<Photo[]>(photos);
+  // Use a local copy of photos to avoid UI flicker during deletion
+  const [localPhotos, setLocalPhotos] = useState<Photo[]>(photos);
   
   const collageId = photos.length > 0 ? photos[0].collage_id : null;
+
+  // Update local photos when props change
+  useEffect(() => {
+    setLocalPhotos(photos);
+  }, [photos]);
 
   // Update local photos when props change
   useEffect(() => {
@@ -36,11 +43,20 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
     if (selectedPhoto?.id === photo.id) {
       setSelectedPhoto(null);
     }
+
+    // Close preview if this was the selected photo
+    if (selectedPhoto?.id === photo.id) {
+      setSelectedPhoto(null);
+    }
+    
+    console.log('📸 MODAL: handleDeletePhoto called with ID:', photo.id);
     
     console.log('📸 MODAL: handleDeletePhoto called with ID:', photo.id);
     
     try {
       console.log('🗑️ Attempting to delete photo:', photo.id);
+      console.log('📸 MODAL: Photos before deletion:', localPhotos.length);
+      
       console.log('📸 MODAL: Photos before deletion:', localPhotos.length);
       
       // Use the store's delete method
@@ -63,7 +79,8 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
   
   const handleRefresh = async () => {
     if (!collageId) return;
-    
+
+    console.log('📸 MODAL: Manual refresh triggered for collage:', collageId);
     console.log('📸 MODAL: Manual refresh triggered for collage:', collageId);
     setRefreshing(true);
     setError(null);
@@ -77,6 +94,15 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
       if (result) {
         setLocalPhotos(result);
       }
+      console.log('📸 MODAL: Manual refresh completed');
+      
+      // Update local state with fresh data
+      // Update local state immediately for better UX
+      setLocalPhotos(prevPhotos => prevPhotos.filter(p => p.id !== photo.id));
+      
+      console.log('📸 MODAL: Delete operation completed');
+      console.log('📸 MODAL: Photos after deletePhoto call:', localPhotos.length);
+      
     } catch (err: any) {
       console.error('Failed to refresh photos:', err);
       setError(`Failed to refresh photos: ${err.message}`);
@@ -132,11 +158,16 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
                 onClick={() => setSelectedPhoto(photo)}
                 data-photo-id={photo.id}
                 data-photo-id={photo.id}
+                data-photo-id={photo.id}
               >
                 <img
                   src={addCacheBustToUrl(photo.url)}
                   alt="Collage photo"
                   className="w-full h-full object-cover"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.src = `https://via.placeholder.com/300x450?text=Error+${photo.id.slice(-4)}`;
+                  }}
                   onError={(e) => {
                     const target = e.target as HTMLImageElement;
                     target.src = `https://via.placeholder.com/300x450?text=Error+${photo.id.slice(-4)}`;

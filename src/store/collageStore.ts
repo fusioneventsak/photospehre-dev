@@ -219,6 +219,11 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
       currentChannel.unsubscribe();
       set({ realtimeChannel: null, isRealtimeConnected: false });
     }
+    if (currentChannel) {
+      console.log('🧹 Cleaning up existing channel before creating new one');
+      currentChannel.unsubscribe();
+      set({ realtimeChannel: null, isRealtimeConnected: false });
+    }
 
     console.log('🚀 Setting up realtime subscription for collage:', collageId);
 
@@ -254,6 +259,18 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
                 get().removePhotoFromState(photoId);
               }
             }, 200); // Increased timeout for more reliable checking
+            const photoId = payload.old.id;
+            get().removePhotoFromState(photoId);
+            
+            // Double-check that the photo was actually removed
+            setTimeout(() => {
+              const currentPhotos = get().photos;
+              const stillExists = currentPhotos.some(p => p.id === photoId);
+              if (stillExists) {
+                console.log('⚠️ Photo still exists after deletion, forcing another removal:', photoId);
+                get().removePhotoFromState(photoId);
+              }
+            }, 200); // Increased timeout for more reliable checking
           }
           else if (payload.eventType === 'UPDATE' && payload.new) {
             console.log('📝 REALTIME UPDATE:', payload.new.id, 'for collage:', collageId);
@@ -270,6 +287,7 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
       .subscribe((status) => {
         console.log('🔔 Realtime status:', status);
         const connected = status === 'SUBSCRIBED';
+        set({ isRealtimeConnected: connected });
         set({ isRealtimeConnected: connected });
         
         if (!connected) {
@@ -329,6 +347,7 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
     try {
       console.log('📸 Fetching photos for collage:', collageId);
       const startTime = Date.now();
+      const startTime = Date.now();
       
       const { data, error } = await supabase
         .from('photos')
@@ -341,10 +360,14 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
       const duration = Date.now() - startTime;
       console.log(`📸 Fetched ${data?.length || 0} photos in ${duration}ms`);
       
+      console.log(`📸 Fetched ${data?.length || 0} photos in ${duration}ms`);
+      
       set({ 
         photos: data as Photo[], 
         lastRefreshTime: Date.now() 
       });
+      
+      return data as Photo[];
       
     } catch (error: any) {
       console.error('❌ Fetch photos error:', error);

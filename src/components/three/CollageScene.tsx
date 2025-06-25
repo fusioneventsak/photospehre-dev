@@ -303,16 +303,8 @@ const AnimationController: React.FC<{
   settings: SceneSettings;
   photos: Photo[];
   onPositionsUpdate: (photos: PhotoWithPosition[]) => void;
-}> = React.memo(({ settings, photos, onPositionsUpdate }) => {
-  console.log(`🎮 AnimationController render - Photos count: ${photos.length}`);
-  
-  // Use ref for photos to avoid unnecessary rerenders
-  const photosRef = useRef(photos);
-  
-  // Update ref when photos change
-  useEffect(() => {
-    photosRef.current = photos;
-  }, [photos]);
+}> = ({ settings, photos, onPositionsUpdate }) => {
+  console.log(`🎮 AnimationController render - Photos count: ${photos.length}, IDs: ${photos.map(p => p.id.slice(-6)).join(', ')}`);
   
   const slotManagerRef = useRef(new SlotManager(settings.photoCount || 100));
   const lastPhotoCount = useRef(settings.photoCount || 100);
@@ -328,9 +320,7 @@ const AnimationController: React.FC<{
   
   const updatePositions = useCallback((time: number = 0) => {
     try {
-      // Use the ref value to avoid dependency on photos array
-      const currentPhotos = photosRef.current || [];
-      const safePhotos = Array.isArray(currentPhotos) ? currentPhotos.filter(p => p && p.id) : [];
+      const safePhotos = Array.isArray(photos) ? photos.filter(p => p && p.id) : [];
       const safeSettings = { ...settings };
 
       // Log photo count for debugging
@@ -453,7 +443,7 @@ const AnimationController: React.FC<{
     } catch (error) {
       console.error('Error in updatePositions:', error);
     }
-  }, [settings, onPositionsUpdate]);
+  }, [settings, photos, onPositionsUpdate]);
 
   // CRITICAL FIX: Only update immediately for photo count changes, not photo additions
   useEffect(() => {
@@ -485,7 +475,7 @@ const AnimationController: React.FC<{
   useEffect(() => {
     if (currentPhotoIds !== lastPhotoIds.current) {
       const oldIds = lastPhotoIds.current ? lastPhotoIds.current.split(',').filter(Boolean) : [];
-      const newIds = currentPhotoIds.split(',').filter(Boolean);
+      const newIds = currentPhotoIds ? currentPhotoIds.split(',').filter(Boolean) : [];
       
       // Calculate added and removed IDs
       const addedIds = newIds.filter(id => !oldIds.includes(id));
@@ -502,15 +492,12 @@ const AnimationController: React.FC<{
           console.log('🗑️ Removed photo IDs:', removedIds.map(id => id.slice(-6)));
           
           // CRITICAL FIX: Force immediate position update when photos are removed
-          setTimeout(() => {
-            console.log('🗑️ Forcing position update after photo removal');
-            updatePositions(0);
-          }, 50);
+          console.log('🗑️ Forcing immediate position update after photo removal');
+          updatePositions(0);
         }
       }
       
-      // CRITICAL FIX: Don't force immediate position update
-      // Let the natural animation frame handle the change gradually
+      // Update the last photo IDs
       lastPhotoIds.current = currentPhotoIds;
       
       // Update slot assignments immediately but don't force position recalculation
@@ -538,25 +525,7 @@ const AnimationController: React.FC<{
   }, []);
 
   return null;
-}, (prevProps, nextProps) => {
-  // Only re-render if photos array reference changes or settings change
-  const photosChanged = prevProps.photos !== nextProps.photos;
-  const settingsChanged = prevProps.settings !== nextProps.settings;
-  const photoCountChanged = prevProps.photos.length !== nextProps.photos.length;
-  
-  if (photosChanged) {
-    console.log('🎮 AnimationController photos changed:', 
-      `${prevProps.photos.length} -> ${nextProps.photos.length}`,
-      photoCountChanged ? '(count changed)' : '(reference changed)');
-  }
-  
-  if (settingsChanged) {
-    console.log('🎮 AnimationController settings changed');
-  }
-  
-  // CRITICAL FIX: Always re-render when photo count changes
-  return !photosChanged && !settingsChanged && !photoCountChanged;
-});
+};
 
 // Background renderer
 const BackgroundRenderer: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
@@ -908,11 +877,17 @@ const PhotoMesh: React.FC<{
 const PhotoRenderer: React.FC<{ 
   photosWithPositions: PhotoWithPosition[]; 
   settings: SceneSettings;
-}> = ({ photosWithPositions, settings }) => {
+}> = React.memo(({ photosWithPositions, settings }) => {
   const shouldFaceCamera = settings.animationPattern === 'float';
   
+  // CRITICAL: Force re-render when photos array changes
+  const photoKey = useMemo(() => 
+    photosWithPositions.map(p => `${p.id}-${p.slotIndex}`).join('|'), 
+    [photosWithPositions]
+  );
+  
   return (
-    <group>
+    <group key={`photo-group-${photoKey}`}>
       {photosWithPositions.map((photo) => (
         <PhotoMesh 
           key={`${photo.id}-${photo.slotIndex}`} // CRITICAL: Stable key combining ID and slot
@@ -926,7 +901,29 @@ const PhotoRenderer: React.FC<{
       ))}
     </group>
   );
-};
+}, (prevProps, nextProps) => {
+  // Only re-render if the photos array length changes or if the settings change
+  const photoCountChanged = prevProps.photosWithPositions.length !== nextProps.photosWithPositions.length;
+  const settingsChanged = prevProps.settings !== nextProps.settings;
+  
+  // Also check if any photo IDs have changed
+  const prevIds = new Set(prevProps.photosWithPositions.map(p => p.id));
+  const nextIds = new Set(nextProps.photosWithPositions.map(p => p.id));
+  
+  // Check if any IDs were added or removed
+  const idsChanged = prevProps.photosWithPositions.some(p => !nextIds.has(p.id)) || 
+                     nextProps.photosWithPositions.some(p => !prevIds.has(p.id));
+  
+  if (photoCountChanged || idsChanged) {
+    console.log('🖼️ PhotoRenderer - Photos changed:', 
+      `Count: ${prevProps.photosWithPositions.length} -> ${nextProps.photosWithPositions.length}`,
+      `IDs changed: ${idsChanged}`
+    );
+  }
+  
+  // Always re-render if photos changed or settings changed
+  return !photoCountChanged && !idsChanged && !settingsChanged;
+});
 
 // Debug component to track photo changes
 const PhotoDebugger: React.FC<{ photos: Photo[] }> = ({ photos }) => {
