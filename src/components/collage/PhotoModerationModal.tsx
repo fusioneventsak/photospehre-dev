@@ -60,14 +60,14 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
   const handleRefresh = async () => {
     if (!collageId) return;
     
-    console.log('📸 MODAL: Manual refresh triggered');
+    console.log('📸 MODAL: Manual refresh triggered for collage:', collageId);
     setRefreshing(true);
     setError(null);
     
     try {
       // Use the store's fetch method
       await fetchPhotosByCollageId(collageId);
-      console.log('📸 MODAL: Manual refresh completed');
+      console.log('📸 MODAL: Manual refresh completed, photos count:', photos.length);
     } catch (err: any) {
       console.error('Failed to refresh photos:', err);
       setError(`Failed to refresh photos: ${err.message}`);
@@ -81,7 +81,10 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
       <div className="bg-gray-900 rounded-lg w-full max-w-6xl max-h-[90vh] overflow-hidden">
         <div className="p-4 border-b border-gray-800 flex items-center justify-between">
           <h2 className="text-xl font-semibold text-white">Photo Moderation</h2>
-          <div className="flex items-center">
+          <div className="flex items-center space-x-2">
+            <div className="text-xs text-gray-400">
+              {photos.length} photos
+            </div>
             <button
               onClick={handleRefresh}
               disabled={refreshing}
@@ -102,6 +105,12 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
         {error && (
           <div className="m-4 p-3 bg-red-500/20 border border-red-500/50 rounded text-sm text-red-200">
             {error}
+            <button 
+              onClick={() => setError(null)}
+              className="ml-2 text-xs underline"
+            >
+              Dismiss
+            </button>
           </div>
         )}
 
@@ -112,6 +121,7 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
                 key={photo.id}
                 className="relative group aspect-[2/3] rounded-lg overflow-hidden cursor-pointer"
                 onClick={() => setSelectedPhoto(photo)}
+                data-photo-id={photo.id}
               >
                 <img
                   src={addCacheBustToUrl(photo.url)}
@@ -119,7 +129,7 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
                   className="w-full h-full object-cover"
                   onError={(e) => {
                     const target = e.target as HTMLImageElement;
-                    target.src = 'https://via.placeholder.com/300x450?text=Image+Error';
+                    target.src = `https://via.placeholder.com/300x450?text=Error+${photo.id.slice(-4)}`;
                   }}
                 />
                 <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -153,11 +163,11 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
             <div className="relative max-w-4xl max-h-[90vh]">
               <img
                 src={addCacheBustToUrl(selectedPhoto.url)}
-                alt="Full size"
-                className="max-w-full max-h-[90vh] object-contain rounded-lg"
+                alt={`Photo ${selectedPhoto.id}`}
+                className="max-w-full max-h-[80vh] object-contain rounded-lg"
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;
-                  target.src = 'https://via.placeholder.com/800x1200?text=Image+Error';
+                  target.src = `https://via.placeholder.com/800x1200?text=Error+${selectedPhoto.id.slice(-4)}`;
                 }}
               />
               <div className="absolute top-4 right-4 flex space-x-2">
@@ -179,6 +189,18 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
                   <X className="h-5 w-5 text-white" />
                 </button>
               </div>
+            
+            {/* Photo Info */}
+            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4">
+              <div className="text-white space-y-1">
+                <p className="text-xs font-mono bg-black/40 px-1 py-0.5 rounded inline-block">
+                  ID: {selectedPhoto.id}
+                </p>
+                <p className="text-sm">
+                  Uploaded: {new Date(selectedPhoto.created_at).toLocaleString()}
+                </p>
+              </div>
+            </div>
             </div>
           </div>
         )}

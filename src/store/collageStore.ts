@@ -138,6 +138,7 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
 
   // Add photo to state - ENHANCED
   addPhotoToState: (photo: Photo) => {
+    console.log('➕ BEFORE addPhotoToState - Current photos count:', get().photos.length);
     set((state) => {
       const exists = state.photos.some(p => p.id === photo.id);
       if (exists) {
@@ -146,12 +147,22 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
       }
       
       console.log('✅ Adding photo to state:', photo.id);
+      console.log('➕ Photos array reference BEFORE:', state.photos);
+      
+      const newPhotos = [photo, ...state.photos];
+      console.log('➕ Photos array reference AFTER:', newPhotos);
+      
       // Add new photo at the beginning (most recent first)
-      return {
-        photos: [photo, ...state.photos],
+      const newState = {
+        photos: newPhotos,
         lastRefreshTime: Date.now()
       };
+      
+      console.log('➕ Setting new state:', newState);
+      return newState;
     });
+    
+    console.log('➕ AFTER addPhotoToState - Current photos count:', get().photos.length);
   },
 
   // Remove photo from state - ENHANCED
@@ -685,6 +696,7 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
   deletePhoto: async (photoId: string) => {
     try {
       console.log('🗑️ Starting photo deletion for ID:', photoId);
+      console.log('🗑️ Current photos count BEFORE deletion:', get().photos.length);
       
       // First, get the photo to find the storage path
       const { data: photo, error: fetchError } = await supabase
@@ -741,9 +753,11 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
       }
 
       console.log('✅ Photo deletion completed:', photoId);
+      console.log('🗑️ Current photos count AFTER database deletion:', get().photos.length);
       
       // Remove from local state immediately for instant feedback
       get().removePhotoFromState(photoId);
+      console.log('🗑️ Current photos count AFTER removePhotoFromState:', get().photos.length);
       
     } catch (error: any) {
       console.error('❌ Delete photo error:', error);

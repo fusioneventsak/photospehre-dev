@@ -249,6 +249,10 @@ const CollageModerationPage: React.FC = () => {
               <p className="text-gray-400 mb-4">
                 Photos uploaded to this collage will appear here for moderation.
               </p>
+              <p className="text-sm text-center mt-2">
+                Photos will appear here when users upload them.<br />
+                You can also try refreshing the page.
+              </p>
               <Link
                 to={`/collage/${currentCollage.code}`}
                 className="inline-flex items-center px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors"
@@ -262,6 +266,7 @@ const CollageModerationPage: React.FC = () => {
                 <div
                   key={photo.id}
                   className="bg-gray-800 rounded-lg overflow-hidden border border-gray-600 hover:border-gray-500 transition-colors group"
+                  data-photo-id={photo.id}
                 >
                   <div className="aspect-square relative">
                     <img
@@ -271,7 +276,7 @@ const CollageModerationPage: React.FC = () => {
                       onClick={() => openPhotoPreview(photo)}
                       onError={(e) => {
                         const target = e.target as HTMLImageElement;
-                        target.src = 'https://via.placeholder.com/400x400?text=Error+Loading';
+                        target.src = 'https://via.placeholder.com/400x400?text=Error+Loading+' + photo.id.slice(-4);
                       }}
                     />
                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center space-x-2">
@@ -314,6 +319,9 @@ const CollageModerationPage: React.FC = () => {
         {selectedPhoto && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90">
             <div className="relative max-w-4xl max-h-[90vh] bg-gray-900 rounded-lg overflow-hidden">
+              <div className="absolute top-0 left-0 bg-black/60 text-xs text-white p-1">
+                Photo ID: {selectedPhoto.id}
+              </div>
               <img
                 src={selectedPhoto.url}
                 alt="Full size preview"

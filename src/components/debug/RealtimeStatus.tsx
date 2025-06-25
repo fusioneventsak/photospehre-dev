@@ -3,11 +3,12 @@ import { supabase } from '../../lib/supabase';
 
 interface RealtimeStatusProps {
   collageId?: string;
+  showDetails?: boolean;
 }
 
-const RealtimeStatus: React.FC<RealtimeStatusProps> = ({ collageId }) => {
+const RealtimeStatus: React.FC<RealtimeStatusProps> = ({ collageId, showDetails = true }) => {
   const [status, setStatus] = useState<string>('Disconnected');
-  const [events, setEvents] = useState<{type: string, time: string}[]>([]);
+  const [events, setEvents] = useState<{type: string, time: string, id?: string}[]>([]);
   const [channel, setChannel] = useState<any>(null);
 
   useEffect(() => {
@@ -27,11 +28,15 @@ const RealtimeStatus: React.FC<RealtimeStatusProps> = ({ collageId }) => {
         (payload) => {
           console.log('🔍 DEBUG: Realtime event received:', payload.eventType);
           
+          const eventId = payload.new?.id || payload.old?.id;
+          console.log('🔍 DEBUG: Event for ID:', eventId);
+          
           // Add event to list
           setEvents(prev => [
             { 
               type: payload.eventType, 
-              time: new Date().toLocaleTimeString() 
+              time: new Date().toLocaleTimeString(),
+              id: eventId
             },
             ...prev.slice(0, 9) // Keep only the last 10 events
           ]);
@@ -56,6 +61,12 @@ const RealtimeStatus: React.FC<RealtimeStatusProps> = ({ collageId }) => {
       <div className="flex items-center justify-between mb-2">
         <h3 className="font-medium text-white">Realtime Status</h3>
         <div className="flex items-center space-x-2">
+          <button 
+            onClick={() => setEvents([])}
+            className="text-xs text-gray-400 hover:text-white"
+          >
+            Clear
+          </button>
           <div 
             className={`w-2 h-2 rounded-full ${
               status === 'SUBSCRIBED' ? 'bg-green-500' : 'bg-yellow-500'
@@ -67,17 +78,25 @@ const RealtimeStatus: React.FC<RealtimeStatusProps> = ({ collageId }) => {
       
       {events.length > 0 ? (
         <div className="mt-2 space-y-1 max-h-32 overflow-y-auto">
-          {events.map((event, index) => (
-            <div key={index} className="flex justify-between text-xs">
-              <span className={`${
-                event.type === 'INSERT' ? 'text-green-400' : 
-                event.type === 'DELETE' ? 'text-red-400' : 'text-blue-400'
-              }`}>
-                {event.type}
-              </span>
-              <span className="text-gray-400">{event.time}</span>
-            </div>
-          ))}
+          {events.map((event, index) => {
+            const eventTypeColor = 
+              event.type === 'INSERT' ? 'text-green-400' : 
+              event.type === 'DELETE' ? 'text-red-400' : 'text-blue-400';
+            
+            return (
+              <div key={index} className="flex justify-between text-xs">
+                <span className={eventTypeColor}>
+                  {event.type}
+                  {showDetails && event.id && (
+                    <span className="text-gray-500 ml-1">
+                      ({event.id.slice(-4)})
+                    </span>
+                  )}
+                </span>
+                <span className="text-gray-400">{event.time}</span>
+              </div>
+            );
+          })}
         </div>
       ) : (
         <div className="text-xs text-gray-400 mt-2">
