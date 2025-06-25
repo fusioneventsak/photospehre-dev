@@ -7,6 +7,9 @@ import { type SceneSettings } from '../../store/sceneStore';
 import { PatternFactory, SlotManager } from './patterns/PatternFactory';
 import { addCacheBustToUrl } from '../../lib/supabase';
 
+// Debug flag for logging
+const DEBUG = false;
+
 type Photo = {
   id: string;
   url: string;
@@ -297,10 +300,11 @@ const AnimationController: React.FC<{
   settings: SceneSettings;
   photos: Photo[];
   onPositionsUpdate: (photos: PhotoWithPosition[]) => void;
-}> = ({ settings, photos, onPositionsUpdate }) => {
+}> = React.memo(({ settings, photos, onPositionsUpdate }) => {
   const slotManagerRef = useRef(new SlotManager(settings.photoCount || 100));
   const lastPhotoCount = useRef(settings.photoCount || 100);
   const lastPositionsRef = useRef<PhotoWithPosition[]>([]);
+  const lastUpdateTimeRef = useRef(0);
   
   // Create a key from photo IDs to detect changes
   const currentPhotoIds = useMemo(() => 
@@ -313,7 +317,7 @@ const AnimationController: React.FC<{
   
   // Log photos for debugging
   useEffect(() => {
-    console.log('🎮 AnimationController render - Photos count:', photos.length, 'IDs:', photos.map(p => p.id.slice(-6)));
+    if (DEBUG) console.log('🎮 AnimationController render - Photos count:', photos.length, 'IDs:', photos.map(p => p.id.slice(-6)));
   }, [photos]);
   
   const updatePositions = useCallback((time: number = 0) => {
@@ -325,9 +329,11 @@ const AnimationController: React.FC<{
       const slotAssignments = slotManagerRef.current.assignSlots(safePhotos);
       
       // Log slot manager stats
-      const stats = slotManagerRef.current.getStats();
-      console.log('🎮 Slot manager stats:', stats);
-      console.log('🎮 Empty slots:', stats.totalSlots - stats.occupiedSlots);
+      if (DEBUG) {
+        const stats = slotManagerRef.current.getStats();
+        console.log('🎮 Slot manager stats:', stats);
+        console.log('🎮 Empty slots:', stats.totalSlots - stats.occupiedSlots);
+      }
       
       // Generate pattern positions with error handling
       let patternState;
@@ -398,6 +404,7 @@ const AnimationController: React.FC<{
       if (positionsChanged) {
         lastPositionsRef.current = photosWithPositions;
         onPositionsUpdate(photosWithPositions);
+        if (DEBUG) console.log('🎮 Positions updated, photos count:', photosWithPositions.length);
       }
     } catch (error) {
       console.error('Error in updatePositions:', error);
@@ -407,9 +414,9 @@ const AnimationController: React.FC<{
   // CRITICAL FIX: Only update immediately for photo count changes, not photo additions
   useEffect(() => {
     const photoCountChanged = (settings.photoCount || 100) !== lastPhotoCount.current;
-    
+
     if (photoCountChanged) {
-      console.log('📊 PHOTO COUNT CHANGED: Force update');
+      if (DEBUG) console.log('📊 PHOTO COUNT CHANGED: Force update');
       slotManagerRef.current.updateSlotCount(settings.photoCount || 100);
       lastPhotoCount.current = settings.photoCount || 100;
       updatePositions(0);
@@ -419,9 +426,11 @@ const AnimationController: React.FC<{
   // ENHANCED: Handle photo changes without immediate position updates (prevents jumping)
   useEffect(() => {
     if (currentPhotoIds !== lastPhotoIds.current) {
-      console.log('📷 PHOTOS CHANGED: New upload or deletion detected - using gradual update');
-      console.log('📷 Old IDs:', lastPhotoIds.current);
-      console.log('📷 New IDs:', currentPhotoIds);
+      if (DEBUG) {
+        console.log('📷 PHOTOS CHANGED: New upload or deletion detected - using gradual update');
+        console.log('📷 Old IDs:', lastPhotoIds.current);
+        console.log('📷 New IDs:', currentPhotoIds);
+      }
       
       // CRITICAL FIX: Don't force immediate position update
       // Let the natural animation frame handle the change gradually
@@ -434,11 +443,16 @@ const AnimationController: React.FC<{
   }, [currentPhotoIds, photos]);
 
   // Regular animation updates
-  useFrame((state) => {
+  useFrame((state, delta) => {
     const time = settings.animationEnabled ? 
       state.clock.elapsedTime * ((settings.animationSpeed || 50) / 50) : 0;
     
-    updatePositions(time);
+    // Throttle updates to improve performance (30fps is plenty for animations)
+    const now = state.clock.elapsedTime;
+    if (now - lastUpdateTimeRef.current > 1/30) {
+      lastUpdateTimeRef.current = now;
+      updatePositions(time);
+    }
   });
 
   // Cleanup animation frame on unmount
@@ -451,7 +465,13 @@ const AnimationController: React.FC<{
   }, []);
 
   return null;
-};
+}, (prevProps, nextProps) => {
+  // Only re-render if settings or photos array reference changes
+  return (
+    prevProps.settings === nextProps.settings &&
+    prevProps.photos === nextProps.photos
+  );
+});
 
 // Background renderer
 const BackgroundRenderer: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
@@ -490,7 +510,7 @@ const PhotoMesh: React.FC<{
   pattern: string;
   shouldFaceCamera: boolean;
   brightness: number;
-}> = React.memo(({ photo, size, emptySlotColor, pattern, shouldFaceCamera, brightness }) => {
+}> = React.memo(function PhotoMesh({ photo, size, emptySlotColor, pattern, shouldFaceCamera, brightness }) {
   const meshRef = useRef<THREE.Mesh>(null);
   const { camera } = useThree();
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
@@ -500,16 +520,24 @@ const PhotoMesh: React.FC<{
   const lastPositionRef = useRef<[number, number, number]>([0, 0, 0]);
   const currentPosition = useRef<THREE.Vector3>(new THREE.Vector3(...photo.targetPosition));
   const currentRotation = useRef<THREE.Euler>(new THREE.Euler(...photo.targetRotation));
+  const isNewPhotoRef = useRef(true);
 
   // Log render for debugging
   useEffect(() => {
-    console.log(`🖼️ PhotoMesh render - ID: ${photo.id}, URL: ${photo.url ? 'has image' : 'empty'}, Slot: ${photo.slotIndex}`);
+    if (DEBUG) console.log(`🖼️ PhotoMesh render - ID: ${photo.id}, URL: ${photo.url ? 'has image' : 'empty'}, Slot: ${photo.slotIndex}`);
   }, [photo.id, photo.url, photo.slotIndex]);
 
   // Initialize position immediately to prevent jarring movements
   useEffect(() => {
     currentPosition.current.set(...photo.targetPosition);
     currentRotation.current.set(...photo.targetRotation);
+    
+    // For new photos with URLs (not empty slots), start them from above for a nice entrance
+    if (photo.url && isNewPhotoRef.current && !photo.id.startsWith('placeholder')) {
+      isNewPhotoRef.current = false;
+      // Start 20 units above target position for a nice drop-in effect
+      currentPosition.current.y += 20;
+    }
   }, []);
 
   useEffect(() => {
@@ -666,9 +694,9 @@ const PhotoMesh: React.FC<{
     prevProps.emptySlotColor === nextProps.emptySlotColor &&
     prevProps.shouldFaceCamera === nextProps.shouldFaceCamera &&
     prevProps.brightness === nextProps.brightness &&
-    prevProps.photo.targetPosition.every((pos, i) => 
-      Math.abs(pos - nextProps.photo.targetPosition[i]) < 0.001
-    )
+    // Don't compare positions - let the animation handle that
+    prevProps.photo.id === nextProps.photo.id &&
+    prevProps.photo.url === nextProps.photo.url
   );
 });
 
@@ -676,12 +704,11 @@ const PhotoMesh: React.FC<{
 const PhotoRenderer: React.FC<{ 
   photosWithPositions: PhotoWithPosition[]; 
   settings: SceneSettings;
-  photosKey: string; // Add key prop to force re-render when photos change
-}> = ({ photosWithPositions, settings, photosKey }) => {
+}> = React.memo(({ photosWithPositions, settings }) => {
   const shouldFaceCamera = settings.photoRotation;
   
   return (
-    <group key={photosKey}>
+    <group>
       {photosWithPositions.map((photo) => (
         <PhotoMesh
           key={`${photo.id}-${photo.slotIndex}`} // CRITICAL: Stable key combining ID and slot
@@ -695,7 +722,14 @@ const PhotoRenderer: React.FC<{
       ))}
     </group>
   );
-};
+}, (prevProps, nextProps) => {
+  // Only re-render if settings change or photos array length changes
+  // Individual photo changes are handled by the PhotoMesh component
+  return (
+    prevProps.settings === nextProps.settings &&
+    prevProps.photosWithPositions.length === nextProps.photosWithPositions.length
+  );
+});
 
 // Main CollageScene component
 const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSettingsChange }) => {
@@ -703,11 +737,6 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
 
   const safePhotos = Array.isArray(photos) ? photos : [];
   const safeSettings = { ...settings };
-  
-  // Generate a key based on photo IDs to force re-render when photos change
-  const photosKey = useMemo(() => {
-    return safePhotos.map(p => p.id).join('-');
-  }, [safePhotos]);
 
   // Background style for gradient backgrounds
   const backgroundStyle = useMemo(() => {
@@ -727,18 +756,19 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
     safeSettings.backgroundGradientAngle
   ]);
 
-  console.log('🎬 COLLAGE SCENE RENDER:', {
-    photoCount: safePhotos.length,
-    settingsPhotoCount: safeSettings.photoCount,
-    positionsCount: photosWithPositions.length,
-    emptySlotCount: photosWithPositions.filter(p => !p.url).length,
-    emptySlotColor: safeSettings.emptySlotColor
-  });
+  if (DEBUG) {
+    console.log('🎬 COLLAGE SCENE RENDER:', {
+      photoCount: safePhotos.length,
+      settingsPhotoCount: safeSettings.photoCount,
+      positionsCount: photosWithPositions.length,
+      emptySlotCount: photosWithPositions.filter(p => !p.url).length,
+      emptySlotColor: safeSettings.emptySlotColor
+    });
+  }
 
   return (
     <div style={backgroundStyle} className="w-full h-full">
       <Canvas
-        key={`canvas-${photosKey}`} // Force Canvas re-creation when photos change
         shadows={safeSettings.shadowsEnabled}
         camera={{ 
           position: [0, 0, 20], 
@@ -773,7 +803,6 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
         <Grid settings={safeSettings} />
         
         <AnimationController
-          key={`animation-${photosKey}`} // Force re-creation when photos change
           settings={safeSettings}
           photos={safePhotos}
           onPositionsUpdate={setPhotosWithPositions}
@@ -782,7 +811,6 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
         <PhotoRenderer 
           photosWithPositions={photosWithPositions}
           settings={safeSettings}
-          photosKey={photosKey} // Pass key to force re-render
         />
       </Canvas>
     </div>

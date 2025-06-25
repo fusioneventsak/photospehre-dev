@@ -9,8 +9,11 @@ import RealtimeStatus from '../components/debug/RealtimeStatus';
 import RealtimeDebugPanel from '../components/debug/RealtimeDebugPanel';
 import { useCallback } from 'react';
 
+// Debug flag for logging
+const DEBUG = false;
+
 const CollageModerationPage: React.FC = () => {  
-  console.log('🛡️ MODERATION PAGE RENDER');
+  if (DEBUG) console.log('🛡️ MODERATION PAGE RENDER');
   
   const { id } = useParams<{ id: string }>();
   const { 
@@ -31,9 +34,11 @@ const CollageModerationPage: React.FC = () => {
   
   // Log when photos array reference changes
   useEffect(() => {
-    console.log('🛡️ MODERATION: Photos array reference changed!', safePhotos);
-    console.log('🛡️ Photo count:', safePhotos.length);
-    console.log('🛡️ Photo IDs:', safePhotos.map(p => p.id.slice(-6)));
+    if (DEBUG) {
+      console.log('🛡️ MODERATION: Photos array reference changed!');
+      console.log('🛡️ Photo count:', safePhotos.length);
+      console.log('🛡️ Photo IDs:', safePhotos.map(p => p.id.slice(-6)));
+    }
   }, [safePhotos]);
   
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -45,9 +50,11 @@ const CollageModerationPage: React.FC = () => {
 
   // DEBUG: Log photos changes in moderation
   useEffect(() => {
-    console.log('🛡️ MODERATION: Photos array changed!');
-    console.log('🛡️ Moderation photo count:', safePhotos.length);
-    console.log('🛡️ Moderation photo IDs:', safePhotos.map(p => p.id.slice(-4)));
+    if (DEBUG) {
+      console.log('🛡️ MODERATION: Photos array changed!');
+      console.log('🛡️ Moderation photo count:', safePhotos.length);
+      console.log('🛡️ Moderation photo IDs:', safePhotos.map(p => p.id.slice(-4)));
+    }
   }, [safePhotos]);
 
   // Simple subscription setup
@@ -66,14 +73,13 @@ const CollageModerationPage: React.FC = () => {
   const handleRefresh = async () => {
     if (!currentCollage?.id) return;
     
-    console.log('🛡️ MODERATION: Manual refresh triggered');
+    if (DEBUG) console.log('🛡️ MODERATION: Manual refresh triggered');
     setIsRefreshing(true);
     setFetchError(null);
     
     try {
       await refreshPhotos(currentCollage.id);
-      console.log('🛡️ MODERATION: Manual refresh completed, photos count:', photos.length);
-      console.log('🛡️ MODERATION: Photos refreshed successfully');
+      if (DEBUG) console.log('🛡️ MODERATION: Photos refreshed successfully, count:', photos.length);
     } catch (error: any) {
       console.error('🛡️ MODERATION: Error refreshing photos:', error);
       setFetchError(error.message);
@@ -86,7 +92,7 @@ const CollageModerationPage: React.FC = () => {
   const handleDeletePhoto = useCallback(async (photoId: string) => {
     if (deletingPhotos.has(photoId)) return;
     
-    console.log('🛡️ MODERATION: handleDeletePhoto called with ID:', photoId);
+    if (DEBUG) console.log('🛡️ MODERATION: handleDeletePhoto called with ID:', photoId.slice(-6));
     
     const confirmed = window.confirm('Delete this photo? It will be removed from all views immediately.');
     if (!confirmed) return;
@@ -94,15 +100,14 @@ const CollageModerationPage: React.FC = () => {
     setDeletingPhotos(prev => new Set(prev).add(photoId));
     
     try {
-      console.log('🗑️ MODERATION: Deleting photo:', photoId);
-      console.log('🛡️ MODERATION: Photos before deletion:', photos.length);
-      console.log('🛡️ MODERATION: Current photo IDs before deletion:', photos.map(p => p.id.slice(-6)).join(', '));
+      if (DEBUG) {
+        console.log('🗑️ MODERATION: Deleting photo:', photoId.slice(-6));
+        console.log('🛡️ MODERATION: Photos before deletion:', photos.length);
+      }
       
       await deletePhoto(photoId);
       
-      console.log('✅ MODERATION: Photo deleted successfully');
-      console.log('🛡️ MODERATION: Photos after deletion:', photos.length);
-      console.log('🛡️ MODERATION: Current photo IDs after deletion:', photos.map(p => p.id.slice(-6)).join(', '));
+      if (DEBUG) console.log('✅ MODERATION: Photo deleted successfully');
       
       // Close modal if deleted photo was selected
       if (selectedPhoto?.id === photoId) {

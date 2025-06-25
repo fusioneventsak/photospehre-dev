@@ -25,6 +25,9 @@ const RealtimeDebugPanel: React.FC<RealtimeDebugPanelProps> = ({ collageId, onCl
     // Use a simpler channel name without timestamp to ensure consistent naming
     const channelName = `debug_photos_${collageId}`;
     console.log('🔍 DEBUG PANEL: Creating channel:', channelName);
+
+    // Clear any existing events when setting up a new subscription
+    setEvents([]);
     
     // Set up realtime subscription
     const realtimeChannel = supabase
@@ -56,7 +59,7 @@ const RealtimeDebugPanel: React.FC<RealtimeDebugPanelProps> = ({ collageId, onCl
           // Add event to list
           setEvents(prev => [
             {
-              type: payload.eventType, 
+              type: payload.eventType,
               time: new Date().toLocaleTimeString(),
               id: eventId
             },
@@ -87,7 +90,7 @@ const RealtimeDebugPanel: React.FC<RealtimeDebugPanelProps> = ({ collageId, onCl
         }
         
         // If we reconnect, add a reconnection event
-        if (status === 'SUBSCRIBED' && events.length > 0) {
+        if (status === 'SUBSCRIBED') {
           console.log('🔍 DEBUG PANEL: Reconnected, adding reconnection event');
           setEvents(prevEvents => [{
             type: 'RECONNECTED',

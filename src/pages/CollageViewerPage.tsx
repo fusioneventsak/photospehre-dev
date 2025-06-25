@@ -38,8 +38,9 @@ const CollageViewerPage: React.FC = () => {
   
   // Add debugging for photo array changes
   useEffect(() => {
-    console.log('🔍 VIEWER PAGE: safePhotos updated. Count:', safePhotos.length);
-    console.log('🔍 VIEWER PAGE: safePhotos IDs:', safePhotos.map(p => p.id.slice(-6)).join(', '));
+    // Uncomment for debugging
+    // console.log('🔍 VIEWER PAGE: safePhotos updated. Count:', safePhotos.length);
+    // console.log('🔍 VIEWER PAGE: safePhotos IDs:', safePhotos.map(p => p.id.slice(-6)).join(', '));
   }, [safePhotos]);
   
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -61,7 +62,7 @@ const CollageViewerPage: React.FC = () => {
   // FIXED: Load collage AND setup real-time subscription
   useEffect(() => {
     if (normalizedCode) {
-      console.log('🔍 VIEWER: Fetching collage with code:', normalizedCode, 'and setting up subscription');
+      console.log('🔍 VIEWER: Fetching collage with code:', normalizedCode);
       fetchCollageByCode(normalizedCode);
     }
     
@@ -74,7 +75,7 @@ const CollageViewerPage: React.FC = () => {
   // FIXED: Setup real-time subscription when collage is loaded
   useEffect(() => {
     if (currentCollage?.id) {
-      console.log('🔄 VIEWER: Ensuring realtime subscription for collage:', currentCollage.id);
+      console.log('🔄 VIEWER: Setting up realtime subscription');
       setupRealtimeSubscription(currentCollage.id);
     }
     
@@ -86,7 +87,7 @@ const CollageViewerPage: React.FC = () => {
   // Manual refresh for debugging
   const handleManualRefresh = useCallback(async () => {
     if (currentCollage?.id) {
-      console.log('🔄 VIEWER: Manual refresh triggered');
+      console.log('🔄 Manual refresh triggered');
       await refreshPhotos(currentCollage.id);
     }
   }, [currentCollage?.id, refreshPhotos]);

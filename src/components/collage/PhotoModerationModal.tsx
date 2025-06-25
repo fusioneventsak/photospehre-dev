@@ -10,8 +10,6 @@ type PhotoModerationModalProps = {
 };
 
 const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onClose }) => {
-  console.log('📸 PHOTO MODERATION MODAL RENDER', photos.length);
-  
   // Use local state for UI only, not for tracking photos
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
   const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null);
@@ -37,23 +35,16 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
     setDeletingPhotoId(photo.id);
     setError(null);
     
-    console.log('📸 MODAL: handleDeletePhoto called with ID:', photo.id);
-    
     try {
-      console.log('🗑️ Attempting to delete photo:', photo.id);
-      console.log('📸 MODAL: Photos count BEFORE deletion:', photos.length);
-      console.log('📸 MODAL: Current photo IDs BEFORE deletion:', photos.map(p => p.id.slice(-6)));
+      console.log('🗑️ MODAL: Deleting photo:', photo.id.slice(-6));
       
       // Use the store's delete method
       await deletePhoto(photo.id);
       
       console.log('✅ Photo deleted successfully from database');
-      console.log('📸 MODAL: Photos count AFTER deletion:', photos.length);
-      console.log('📸 MODAL: Current photo IDs AFTER deletion:', photos.map(p => p.id.slice(-6)));
       
       // Close preview if this was the selected photo
       if (selectedPhoto?.id === photo.id) {
-        console.log('📸 MODAL: Closing preview for deleted photo:', photo.id);
         setSelectedPhoto(null);
       }
     } catch (error: any) {
@@ -67,7 +58,7 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
   const handleRefresh = async () => {
     if (!collageId) return;
 
-    console.log('📸 MODAL: Manual refresh triggered for collage:', collageId);
+    console.log('📸 MODAL: Manual refresh triggered');
     setRefreshing(true);
     setError(null);
     
@@ -146,7 +137,6 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
                 <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                   <button
                     onClick={(e) => {
-                      console.log('📸 MODAL: Delete button clicked for photo:', photo.id);
                       e.stopPropagation();
                       handleDeletePhoto(photo);
                     }}
