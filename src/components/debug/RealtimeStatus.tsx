@@ -14,6 +14,8 @@ const RealtimeStatus: React.FC<RealtimeStatusProps> = ({ collageId, showDetails 
   useEffect(() => {
     if (!collageId) return;
 
+    console.log('🔍 DEBUG: Setting up realtime status monitor for collage:', collageId);
+    
     // Set up realtime subscription
     const realtimeChannel = supabase
       .channel(`debug_photos_${collageId}`)
@@ -33,7 +35,7 @@ const RealtimeStatus: React.FC<RealtimeStatusProps> = ({ collageId, showDetails 
           
           // Add event to list
           setEvents(prev => [
-            { 
+            {
               type: payload.eventType, 
               time: new Date().toLocaleTimeString(),
               id: eventId
@@ -45,6 +47,14 @@ const RealtimeStatus: React.FC<RealtimeStatusProps> = ({ collageId, showDetails 
       .subscribe((status) => {
         console.log('🔍 DEBUG: Realtime status:', status);
         setStatus(status);
+        
+        // If we reconnect, clear events to start fresh
+        if (status === 'SUBSCRIBED' && events.length > 0) {
+          setEvents([{
+            type: 'RECONNECTED',
+            time: new Date().toLocaleTimeString()
+          }]);
+        }
       });
 
     setChannel(realtimeChannel);
@@ -81,7 +91,9 @@ const RealtimeStatus: React.FC<RealtimeStatusProps> = ({ collageId, showDetails 
           {events.map((event, index) => {
             const eventTypeColor = 
               event.type === 'INSERT' ? 'text-green-400' : 
-              event.type === 'DELETE' ? 'text-red-400' : 'text-blue-400';
+              event.type === 'DELETE' ? 'text-red-400' : 
+              event.type === 'RECONNECTED' ? 'text-yellow-400' :
+              'text-blue-400';
             
             return (
               <div key={index} className="flex justify-between text-xs">

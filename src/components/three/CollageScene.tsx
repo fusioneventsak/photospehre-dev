@@ -399,8 +399,14 @@ const AnimationController: React.FC<{
   const updatePositions = useCallback((time: number = 0) => {
     try {
       // Use the ref value to avoid dependency on photos array
-      const safePhotos = Array.isArray(photosRef.current) ? photosRef.current.filter(p => p && p.id) : [];
+      const currentPhotos = photosRef.current;
+      const safePhotos = Array.isArray(currentPhotos) ? currentPhotos.filter(p => p && p.id) : [];
       const safeSettings = { ...settings } || {};
+
+      // Log photo count for debugging
+      if (safePhotos.length > 0) {
+        console.log(`🔄 Updating positions with ${safePhotos.length} photos`);
+      }
       
       // Use pattern-specific photoCount if available
       if (safeSettings.animationPattern) {
@@ -476,10 +482,17 @@ const AnimationController: React.FC<{
       // Only update if positions actually changed significantly
       const positionsChanged = photosWithPositions.length !== lastPositionsRef.current.length ||
         photosWithPositions.some((photo, index) => {
-          if (index >= lastPositionsRef.current.length) return true;
+          // If this index doesn't exist in the previous array, it's a change
+          if (index >= lastPositionsRef.current.length) {
+            return true;
+          }
           
           const lastPhoto = lastPositionsRef.current[index];
-          if (!lastPhoto || lastPhoto.id !== photo.id) return true;
+          
+          // If the photo ID changed at this position, it's a change
+          if (!lastPhoto || lastPhoto.id !== photo.id) {
+            return true;
+          }
           
           // Check if position has changed significantly
           return lastPhoto.targetPosition.some((pos, i) => 
@@ -488,6 +501,11 @@ const AnimationController: React.FC<{
         });
 
       if (positionsChanged) {
+        // Log when positions are updated
+        if (photosWithPositions.length !== lastPositionsRef.current.length) {
+          console.log(`🔄 Positions changed: ${lastPositionsRef.current.length} -> ${photosWithPositions.length}`);
+        }
+        
         lastPositionsRef.current = photosWithPositions;
         onPositionsUpdate(photosWithPositions);
       }
@@ -520,17 +538,23 @@ const AnimationController: React.FC<{
   // ENHANCED: Handle photo changes without immediate position updates (prevents jumping)
   useEffect(() => {
     if (currentPhotoIds !== lastPhotoIds.current) {
-      const oldIds = lastPhotoIds.current.split(',').filter(Boolean);
-      const newIds = currentPhotoIds.split(',').filter(Boolean);
+      const oldIds = lastPhotoIds.current ? lastPhotoIds.current.split(',').filter(Boolean) : [];
+      const newIds = currentPhotoIds ? currentPhotoIds.split(',').filter(Boolean) : [];
       
       const addedIds = newIds.filter(id => !oldIds.includes(id));
       const removedIds = oldIds.filter(id => !newIds.includes(id));
       
-      console.log('📷 PHOTOS CHANGED:', 
-        `Added: ${addedIds.length}`, 
-        `Removed: ${removedIds.length}`,
-        `Total: ${newIds.length}`
-      );
+      if (addedIds.length > 0 || removedIds.length > 0) {
+        console.log('📷 PHOTOS CHANGED:', 
+          `Added: ${addedIds.length}`, 
+          `Removed: ${removedIds.length}`,
+          `Total: ${newIds.length}`
+        );
+        
+        if (removedIds.length > 0) {
+          console.log('🗑️ Removed photo IDs:', removedIds.map(id => id.slice(-6)));
+        }
+      }
       
       // CRITICAL FIX: Don't force immediate position update
       // Let the natural animation frame handle the change gradually

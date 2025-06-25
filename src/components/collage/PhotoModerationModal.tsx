@@ -30,13 +30,13 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
   const handleDeletePhoto = async (photo: Photo) => {
     setDeletingPhotoId(photo.id);
     setError(null);
-    
-    console.log('📸 MODAL: handleDeletePhoto called with ID:', photo.id);
-    
+
     // Close preview if this was the selected photo
     if (selectedPhoto?.id === photo.id) {
       setSelectedPhoto(null);
     }
+    
+    console.log('📸 MODAL: handleDeletePhoto called with ID:', photo.id);
     
     try {
       console.log('🗑️ Attempting to delete photo:', photo.id);
@@ -45,7 +45,7 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
       // Use the store's delete method
       await deletePhoto(photo.id);
       
-        console.log('📸 MODAL: Closing selected photo preview');
+      console.log('📸 MODAL: Delete operation completed');
       console.log('📸 MODAL: Photos after deletePhoto call:', photos.length);
       
       console.log('✅ Photo deleted successfully');
@@ -122,6 +122,7 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
                 className="relative group aspect-[2/3] rounded-lg overflow-hidden cursor-pointer"
                 onClick={() => setSelectedPhoto(photo)}
                 data-photo-id={photo.id}
+                data-photo-id={photo.id}
               >
                 <img
                   src={addCacheBustToUrl(photo.url)}
@@ -170,6 +171,12 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
                   target.src = `https://via.placeholder.com/800x1200?text=Error+${selectedPhoto.id.slice(-4)}`;
                 }}
               />
+              
+              {/* Photo ID for debugging */}
+              <div className="absolute top-4 left-4 bg-black/60 text-xs text-white p-1 rounded">
+                ID: {selectedPhoto.id}
+              </div>
+              
               <div className="absolute top-4 right-4 flex space-x-2">
                 <button
                   onClick={() => handleDeletePhoto(selectedPhoto)}

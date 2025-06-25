@@ -80,7 +80,7 @@ const CollageModerationPage: React.FC = () => {
   const handleDeletePhoto = async (photoId: string) => {
     if (deletingPhotos.has(photoId)) return;
     
-    console.log('🛡️ MODERATION: handleDeletePhoto called with ID:', photoId);
+    console.log('🛡️ MODERATION: handleDeletePhoto called with ID:', photoId, 'from moderation page');
     
     const confirmed = window.confirm('Delete this photo? It will be removed from all views immediately.');
     if (!confirmed) return;
@@ -90,11 +90,13 @@ const CollageModerationPage: React.FC = () => {
     try {
       console.log('🗑️ MODERATION: Deleting photo:', photoId);
       console.log('🛡️ MODERATION: Photos before deletion:', photos.length);
+      console.log('🛡️ MODERATION: Current photo IDs before deletion:', photos.map(p => p.id.slice(-6)));
       
       await deletePhoto(photoId);
       
       console.log('✅ MODERATION: Photo deleted successfully');
       console.log('🛡️ MODERATION: Photos after deletion:', photos.length);
+      console.log('🛡️ MODERATION: Current photo IDs after deletion:', photos.map(p => p.id.slice(-6)));
       
       // Close modal if deleted photo was selected
       if (selectedPhoto?.id === photoId) {
@@ -274,6 +276,7 @@ const CollageModerationPage: React.FC = () => {
                       alt="Uploaded photo"
                       className="w-full h-full object-cover cursor-pointer"
                       onClick={() => openPhotoPreview(photo)}
+                      data-photo-id={photo.id}
                       onError={(e) => {
                         const target = e.target as HTMLImageElement;
                         target.src = 'https://via.placeholder.com/400x400?text=Error+Loading+' + photo.id.slice(-4);
@@ -326,6 +329,7 @@ const CollageModerationPage: React.FC = () => {
                 src={selectedPhoto.url}
                 alt="Full size preview"
                 className="max-w-full max-h-[80vh] object-contain"
+                data-photo-id={selectedPhoto.id}
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;
                   target.src = 'https://via.placeholder.com/800x600?text=Error+Loading';
@@ -358,11 +362,11 @@ const CollageModerationPage: React.FC = () => {
               {/* Photo Info */}
               <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4">
                 <div className="text-white">
-                  <p className="text-sm">
-                    Uploaded: {new Date(selectedPhoto.created_at).toLocaleString()}
-                  </p>
-                  <p className="text-xs text-gray-300 mt-1">
+                  <p className="text-xs font-mono bg-black/40 px-1 py-0.5 rounded inline-block">
                     ID: {selectedPhoto.id}
+                  </p>
+                  <p className="text-sm mt-1">
+                    Uploaded: {new Date(selectedPhoto.created_at).toLocaleString()}
                   </p>
                 </div>
               </div>
