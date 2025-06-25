@@ -376,6 +376,14 @@ const AnimationController: React.FC<{
   photos: Photo[];
   onPositionsUpdate: (photos: PhotoWithPosition[]) => void;
 }> = ({ settings, photos, onPositionsUpdate }) => {
+  // Use ref for photos to avoid unnecessary rerenders
+  const photosRef = useRef(photos);
+  
+  // Update ref when photos change
+  useEffect(() => {
+    photosRef.current = photos;
+  }, [photos]);
+  
   const slotManagerRef = useRef(new SlotManager(settings.photoCount || 100));
   const lastPhotoCount = useRef(settings.photoCount || 100);
   const lastPositionsRef = useRef<PhotoWithPosition[]>([]);
@@ -390,7 +398,8 @@ const AnimationController: React.FC<{
   
   const updatePositions = useCallback((time: number = 0) => {
     try {
-      const safePhotos = Array.isArray(photos) ? photos.filter(p => p && p.id) : [];
+      // Use the ref value to avoid dependency on photos array
+      const safePhotos = Array.isArray(photosRef.current) ? photosRef.current.filter(p => p && p.id) : [];
       const safeSettings = { ...settings } || {};
       
       // Use pattern-specific photoCount if available
@@ -485,14 +494,23 @@ const AnimationController: React.FC<{
     } catch (error) {
       console.error('Error in updatePositions:', error);
     }
-  }, [photos, settings, onPositionsUpdate]);
+  }, [settings, onPositionsUpdate]);
 
   // CRITICAL FIX: Only update immediately for photo count changes, not photo additions
   useEffect(() => {
     const photoCountChanged = (settings.photoCount || 100) !== lastPhotoCount.current;
     
-    if (photoCountChanged) {
-      console.log('📊 PHOTO COUNT CHANGED: Force update');
+    // Also check pattern-specific photo counts
+    const patternKey = settings.animationPattern as keyof typeof settings.patterns;
+    const patternPhotoCount = settings.patterns?.[patternKey]?.photoCount;
+    const patternPhotoCountChanged = patternPhotoCount !== undefined && 
+      patternPhotoCount !== lastPhotoCount.current;
+    
+    if (photoCountChanged || patternPhotoCountChanged) {
+      console.log('📊 PHOTO COUNT CHANGED: Force update', 
+        photoCountChanged ? `Global: ${lastPhotoCount.current} -> ${settings.photoCount}` : '',
+        patternPhotoCountChanged ? `Pattern: ${lastPhotoCount.current} -> ${patternPhotoCount}` : ''
+      );
       slotManagerRef.current.updateSlotCount(settings.photoCount || 100);
       lastPhotoCount.current = settings.photoCount || 100;
       updatePositions(0);
@@ -502,9 +520,17 @@ const AnimationController: React.FC<{
   // ENHANCED: Handle photo changes without immediate position updates (prevents jumping)
   useEffect(() => {
     if (currentPhotoIds !== lastPhotoIds.current) {
-      console.log('📷 PHOTOS CHANGED: New upload detected - using gradual update');
-      console.log('📷 Old IDs:', lastPhotoIds.current);
-      console.log('📷 New IDs:', currentPhotoIds);
+      const oldIds = lastPhotoIds.current.split(',').filter(Boolean);
+      const newIds = currentPhotoIds.split(',').filter(Boolean);
+      
+      const addedIds = newIds.filter(id => !oldIds.includes(id));
+      const removedIds = oldIds.filter(id => !newIds.includes(id));
+      
+      console.log('📷 PHOTOS CHANGED:', 
+        `Added: ${addedIds.length}`, 
+        `Removed: ${removedIds.length}`,
+        `Total: ${newIds.length}`
+      );
       
       // CRITICAL FIX: Don't force immediate position update
       // Let the natural animation frame handle the change gradually
