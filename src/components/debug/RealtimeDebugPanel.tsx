@@ -22,7 +22,7 @@ const RealtimeDebugPanel: React.FC<RealtimeDebugPanelProps> = ({ collageId, onCl
 
     console.log('🔍 DEBUG PANEL: Setting up realtime monitor for collage:', collageId);
     
-    // Use a simpler channel name without timestamp to ensure consistent naming
+    // Use a unique channel name with timestamp to avoid conflicts with main subscription
     const channelName = `debug_photos_${collageId}_${Date.now()}`;
     console.log('🔍 DEBUG PANEL: Creating channel:', channelName);
 
@@ -42,10 +42,9 @@ const RealtimeDebugPanel: React.FC<RealtimeDebugPanelProps> = ({ collageId, onCl
         },
         (payload) => {
           console.log('🔍 DEBUG PANEL: EVENT RECEIVED:', payload.eventType);
-          console.log('🔍 DEBUG PANEL: Full payload:', payload);
           
           const eventId = payload.new?.id || payload.old?.id;
-          console.log('🔍 DEBUG PANEL: Event for ID:', eventId, 'Type:', payload.eventType);
+          console.log('🔍 DEBUG PANEL: Event for ID:', eventId?.slice(-6), 'Type:', payload.eventType);
           
           // Update photo count based on event type
           if (payload.eventType === 'INSERT') {
@@ -132,7 +131,7 @@ const RealtimeDebugPanel: React.FC<RealtimeDebugPanelProps> = ({ collageId, onCl
       
       {/* Status Bar */}
       <div className="px-3 py-2 bg-gray-800/50 flex justify-between items-center text-xs">
-        <div className="text-gray-300">Channel: {channel?.topic || 'None'}</div>
+        <div className="text-gray-300">Channel: {channel?.topic?.slice(0, 20) || 'None'}{channel?.topic?.length > 20 ? '...' : ''}</div>
         <div className="text-gray-300">Photos: {photoCount}</div>
       </div>
       

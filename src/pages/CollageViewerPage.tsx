@@ -17,9 +17,15 @@ import { useCollageStore } from '../store/collageStore';
 import { ErrorBoundary } from 'react-error-boundary';
 import CollageScene from '../components/three/CollageScene';
 import PhotoUploader from '../components/collage/PhotoUploader';
+import PhotoUploader from '../components/collage/PhotoUploader';
 import RealtimeDebugPanel from '../components/debug/RealtimeDebugPanel';
 
-const CollageViewerPage: React.FC = () => {
+// Debug flag for logging
+const DEBUG = false;
+
+const CollageViewerPage: React.FC = () => {  
+  if (DEBUG) console.log('🖼️ VIEWER PAGE RENDER');
+  
   const { code } = useParams<{ code: string }>();
   const { 
     currentCollage, 
@@ -29,7 +35,7 @@ const CollageViewerPage: React.FC = () => {
     isRealtimeConnected,
     fetchCollageByCode,
     setupRealtimeSubscription,
-    cleanupRealtimeSubscription,
+    cleanupRealtimeSubscription, 
     refreshPhotos
   } = useCollageStore();
   
@@ -37,10 +43,10 @@ const CollageViewerPage: React.FC = () => {
   const safePhotos = Array.isArray(photos) ? photos : [];
   
   // Add debugging for photo array changes
-  useEffect(() => {
-    // Uncomment for debugging
-    // console.log('🔍 VIEWER PAGE: safePhotos updated. Count:', safePhotos.length);
-    // console.log('🔍 VIEWER PAGE: safePhotos IDs:', safePhotos.map(p => p.id.slice(-6)).join(', '));
+  useEffect(() => { 
+    if (DEBUG) {
+      console.log('🖼️ VIEWER: Photos array updated. Count:', safePhotos.length);
+    }
   }, [safePhotos]);
   
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -59,14 +65,13 @@ const CollageViewerPage: React.FC = () => {
   // Normalize code to uppercase for consistent database lookup
   const normalizedCode = code?.toUpperCase();
 
-  // FIXED: Load collage AND setup real-time subscription
+  // Load collage (which will set up real-time subscription)
   useEffect(() => {
     if (normalizedCode) {
-      console.log('🔍 VIEWER: Fetching collage with code (includes subscription setup):', normalizedCode);
+      console.log('🖼️ VIEWER: Fetching collage with code:', normalizedCode);
       fetchCollageByCode(normalizedCode);
     }
-    
-    return () => {
+    return () => { 
       console.log('🧹 VIEWER: Cleaning up realtime subscription');
       cleanupRealtimeSubscription();
     };
@@ -75,7 +80,7 @@ const CollageViewerPage: React.FC = () => {
   // Manual refresh for debugging
   const handleManualRefresh = useCallback(async () => {
     if (currentCollage?.id) {
-      console.log('🔄 Manual refresh triggered');
+      console.log('🔄 VIEWER: Manual refresh triggered');
       await refreshPhotos(currentCollage.id);
     }
   }, [currentCollage?.id, refreshPhotos]);

@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ChevronLeft, Shield, RefreshCw, Trash2, Eye, AlertCircle } from 'lucide-react';
-import { useCollageStore, Photo } from '../store/collageStore';
+import { useCollageStore } from '../store/collageStore';
 import PhotoModerationModal from '../components/collage/PhotoModerationModal';
 import Layout from '../components/layout/Layout';
 import RealtimeStatus from '../components/debug/RealtimeStatus';
@@ -60,9 +60,9 @@ const CollageModerationPage: React.FC = () => {
   // Simple subscription setup
   useEffect(() => {
     if (id) {
-      console.log('🛡️ MODERATION: Fetching collage and setting up subscription:', id);
+      console.log('🛡️ MODERATION: Fetching collage:', id);
       fetchCollageById(id);
-      // REMOVED: Don't call setupRealtimeSubscription here - it's already called inside fetchCollageById
+      // NOTE: Don't call setupRealtimeSubscription here - it's already called inside fetchCollageById
     }
     
     return () => {
@@ -93,7 +93,7 @@ const CollageModerationPage: React.FC = () => {
   const handleDeletePhoto = useCallback(async (photoId: string) => {
     if (deletingPhotos.has(photoId)) return;
     
-    if (DEBUG) console.log('🛡️ MODERATION: handleDeletePhoto called with ID:', photoId.slice(-6));
+    if (DEBUG) console.log('🛡️ MODERATION: handleDeletePhoto called with ID:', photoId?.slice(-6));
     
     const confirmed = window.confirm('Delete this photo? It will be removed from all views immediately.');
     if (!confirmed) return;
@@ -102,7 +102,7 @@ const CollageModerationPage: React.FC = () => {
     
     try {
       if (DEBUG) {
-        console.log('🗑️ MODERATION: Deleting photo:', photoId.slice(-6));
+        console.log('🗑️ MODERATION: Deleting photo:', photoId?.slice(-6));
         console.log('🛡️ MODERATION: Photos before deletion:', photos.length);
       }
       
@@ -301,7 +301,7 @@ const CollageModerationPage: React.FC = () => {
                   <div className="aspect-square relative">
                     <img
                       src={photo.url}
-                      alt={`Photo ${photo.id.slice(-6)}`}
+                      alt={`Photo ${photo.id?.slice(-6)}`}
                       className="w-full h-full object-cover cursor-pointer"
                       onClick={() => openPhotoPreview(photo)}
                       data-photo-id={photo.id}
@@ -336,8 +336,8 @@ const CollageModerationPage: React.FC = () => {
                     <p className="text-xs text-gray-400">
                       Uploaded: {new Date(photo.created_at).toLocaleString()}
                     </p> 
-                    <p className="text-xs font-mono text-gray-500 mt-1">
-                      ID: {photo.id.slice(-6)}
+                    <p className="text-xs font-mono text-gray-500 mt-1" title={photo.id}>
+                      ID: {photo.id?.slice(-6)}
                     </p>
                   </div>
                 </div>
@@ -353,16 +353,18 @@ const CollageModerationPage: React.FC = () => {
               <div className="absolute top-0 left-0 bg-black/60 text-xs text-white p-1">
                 Photo ID: {selectedPhoto.id}
               </div>
-              <img
-                src={selectedPhoto.url}
-                alt="Full size preview"
-                className="max-w-full max-h-[80vh] object-contain"
-                data-photo-id={selectedPhoto.id}
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  target.src = 'https://via.placeholder.com/800x600?text=Error+Loading';
-                }}
-              />
+              <div className="relative">
+                <img
+                  src={selectedPhoto.url}
+                  alt="Full size preview"
+                  className="max-w-full max-h-[80vh] object-contain"
+                  data-photo-id={selectedPhoto.id}
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.src = 'https://via.placeholder.com/800x600?text=Error+Loading';
+                  }}
+                />
+              </div>
               
               {/* Modal Controls */}
               <div className="absolute top-4 right-4 flex space-x-2">

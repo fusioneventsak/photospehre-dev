@@ -17,9 +17,9 @@ const RealtimeStatus: React.FC<RealtimeStatusProps> = ({ collageId, showDetails 
 
     console.log('🔍 DEBUG: Setting up realtime status monitor for collage:', collageId);
     
-    // Set up realtime subscription
+    // Set up realtime subscription with a unique channel name to avoid conflicts
     const realtimeChannel = supabase
-      .channel(`debug_photos_${collageId}`)
+      .channel(`status_${collageId}_${Date.now()}`)
       .on(
         'postgres_changes',
         {
@@ -32,7 +32,7 @@ const RealtimeStatus: React.FC<RealtimeStatusProps> = ({ collageId, showDetails 
           console.log('🔍 DEBUG: Realtime event received:', payload.eventType);
           
           const eventId = payload.new?.id || payload.old?.id;
-          console.log('🔍 DEBUG: Event for ID:', eventId, 'Type:', payload.eventType);
+          console.log('🔍 DEBUG: Event for ID:', eventId?.slice(-6), 'Type:', payload.eventType);
           
           // Update photo count based on event type
           if (payload.eventType === 'INSERT') {
@@ -139,7 +139,7 @@ const RealtimeStatus: React.FC<RealtimeStatusProps> = ({ collageId, showDetails 
       )}
       
       <div className="mt-3 text-xs text-gray-500">
-        Monitoring collage ID: {collageId || 'None'}
+        Monitoring collage ID: {collageId ? collageId.slice(0, 8) + '...' : 'None'}
       </div>
     </div>
   );
