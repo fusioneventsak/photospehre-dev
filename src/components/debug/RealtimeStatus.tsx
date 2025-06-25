@@ -146,3 +146,5 @@ const RealtimeStatus: React.FC<RealtimeStatusProps> = ({ collageId, showDetails 
 };
 
 export default RealtimeStatus;
+
+export default RealtimeStatus
