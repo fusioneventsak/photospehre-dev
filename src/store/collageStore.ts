@@ -438,15 +438,47 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
   createCollage: async (name: string) => {
     set({ loading: true, error: null });
     try {
-      console.log('Creating collage:', name);
-      const code = nanoid(8).toUpperCase();
+      // Generate a 4-digit random code
+      const generateCode = () => {
+        const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        let result = '';
+        for (let i = 0; i < 4; i++) {
+          result += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return result;
+      };
       
-      const { data: collage, error: collageError } = await supabase
+      // Initial code generation
+      let code = generateCode();
+      console.log('Creating collage:', name, 'with initial code:', code);
+      
+      // Try to insert with the generated code
+      let { data: collage, error: collageError } = await supabase
         .from('collages')
         .insert([{ name, code }])
         .select()
         .single();
-
+      
+      // If there's a unique constraint violation, try again with a new code
+      let attempts = 1;
+      const MAX_ATTEMPTS = 5;
+      
+      while (collageError && collageError.code === '23505' && attempts < MAX_ATTEMPTS) {
+        console.log(`Code ${code} already exists, trying again (attempt ${attempts}/${MAX_ATTEMPTS})`);
+        code = generateCode();
+        attempts++;
+        
+        // Try again with a new code
+        const result = await supabase
+          .from('collages')
+          .insert([{ name, code }])
+          .select()
+          .single();
+          
+        collage = result.data;
+        collageError = result.error;
+      }
+      
       if (collageError) throw collageError;
       
       // The trigger will automatically create default settings
@@ -475,7 +507,14 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
       return collageWithSettings;
     } catch (error: any) {
       console.error('Create collage error:', error);
-      set({ error: error.message, loading: false });
+      
+      // Provide a more user-friendly error message
+      let errorMessage = error.message;
+      if (error.code === '23505') {
+        errorMessage = 'Could not generate a unique code. Please try again.';
+      }
+      
+      set({ error: errorMessage, loading: false });
       return null;
     }
   },
