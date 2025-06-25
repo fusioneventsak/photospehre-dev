@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Trash2, AlertCircle, RefreshCw, Eye } from 'lucide-react';
 import { Photo } from '../../store/collageStore';
 import { addCacheBustToUrl } from '../../lib/supabase';
@@ -12,15 +12,28 @@ type PhotoModerationModalProps = {
 const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onClose }) => {
   console.log('📸 PHOTO MODERATION MODAL RENDER', photos.length);
   
+  // Use local state for UI only, not for tracking photos
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
   const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const { deletePhoto, fetchPhotosByCollageId } = useCollageStore();
   
+  // Get store methods directly
+  const { deletePhoto, fetchPhotosByCollageId, photos: storePhotos } = useCollageStore();
+  
+  // Get collage ID from the first photo
   const collageId = photos.length > 0 ? photos[0].collage_id : null;
 
+  // When photos prop changes, check if selected photo was deleted
+  useEffect(() => {
+    if (selectedPhoto && !photos.some(p => p.id === selectedPhoto.id)) {
+      setSelectedPhoto(null);
+    }
+  }, [photos, selectedPhoto]);
+
   const handleDeletePhoto = async (photo: Photo) => {
+    if (deletingPhotoId === photo.id) return;
+    
     setDeletingPhotoId(photo.id);
     setError(null);
 
@@ -65,6 +78,10 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
     }
   };
 
+  // Use the photos from props, not from the store
+  // This ensures we're working with the same array reference that the parent component passed
+  const currentPhotos = photos;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80">
       <div className="bg-gray-900 rounded-lg w-full max-w-6xl max-h-[90vh] overflow-hidden">
@@ -72,7 +89,7 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
           <h2 className="text-xl font-semibold text-white">Photo Moderation</h2>
           <div className="flex items-center space-x-2">
             <div className="text-xs text-gray-400">
-              {photos.length} photos
+              {currentPhotos.length} photos
             </div>
             <button
               onClick={handleRefresh}
@@ -104,8 +121,8 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
         )}
 
         <div className="p-4 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 overflow-y-auto max-h-[calc(90vh-120px)]">
-          {photos.length > 0 ? (
-            photos.map((photo) => (
+          {currentPhotos.length > 0 ? (
+            currentPhotos.map((photo) => (
               <div
                 key={photo.id}
                 className="relative group aspect-[2/3] rounded-lg overflow-hidden cursor-pointer"
@@ -136,6 +153,11 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
                       <Trash2 className="h-5 w-5 text-white" />
                     )}
                   </button>
+                </div>
+                
+                {/* Photo ID for easier identification */}
+                <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-xs text-white p-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  ID: {photo.id.slice(-6)}
                 </div>
               </div>
             ))

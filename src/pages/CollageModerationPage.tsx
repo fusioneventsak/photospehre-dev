@@ -39,6 +39,7 @@ const CollageModerationPage: React.FC = () => {
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [deletingPhotos, setDeletingPhotos] = useState<Set<string>>(new Set());
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
+  const [photoList, setPhotoList] = useState<Photo[]>([]);
   const [showModerationModal, setShowModerationModal] = useState(false);
   const [showDebugPanel, setShowDebugPanel] = useState(false);
 
@@ -47,6 +48,11 @@ const CollageModerationPage: React.FC = () => {
     console.log('🛡️ MODERATION: Photos array changed!');
     console.log('🛡️ Moderation photo count:', safePhotos.length);
     console.log('🛡️ Moderation photo IDs:', safePhotos.map(p => p.id.slice(-4)));
+  }, [safePhotos]);
+
+  // Update local photo list when store photos change
+  useEffect(() => {
+    setPhotoList(safePhotos);
   }, [safePhotos]);
 
   // Simple subscription setup
@@ -398,7 +404,7 @@ const CollageModerationPage: React.FC = () => {
       {/* Moderation Modal */}
       {showModerationModal && (
         <PhotoModerationModal 
-          photos={safePhotos} 
+          photos={photoList} 
           onClose={() => setShowModerationModal(false)} 
         />
       )}
