@@ -718,7 +718,9 @@ const PhotoMesh: React.FC<{
   pattern: string;
   shouldFaceCamera: boolean;
   brightness: number;
-}> = React.memo(({ photo, size, emptySlotColor, pattern, shouldFaceCamera, brightness }) => {
+}> = React.memo(({ photo, size, emptySlotColor, pattern, shouldFaceCamera, brightness }) => {  
+  console.log(`🖼️ PhotoMesh render - ID: ${photo.id.slice(-6)}, URL: ${photo.url ? 'has image' : 'empty slot'}, Slot: ${photo.slotIndex}`);
+  
   const meshRef = useRef<THREE.Mesh>(null);
   const { camera } = useThree();
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
@@ -736,8 +738,13 @@ const PhotoMesh: React.FC<{
   }, []);
 
   useEffect(() => {
+    console.log(`🖼️ PhotoMesh useEffect[photo.url] - ID: ${photo.id.slice(-6)}, URL: ${photo.url ? 'has image' : 'empty slot'}`);
+    
     if (!photo.url) {
+      console.log(`🖼️ Empty slot detected for ID: ${photo.id.slice(-6)}, Slot: ${photo.slotIndex}`);
       setIsLoading(false);
+      setTexture(null);
+      setHasError(false);
       return;
     }
 
@@ -746,6 +753,7 @@ const PhotoMesh: React.FC<{
     setHasError(false);
 
     const handleLoad = (loadedTexture: THREE.Texture) => {
+      console.log(`🖼️ Texture loaded for ID: ${photo.id.slice(-6)}, Slot: ${photo.slotIndex}`);
       loadedTexture.minFilter = THREE.LinearFilter;
       loadedTexture.magFilter = THREE.LinearFilter;
       loadedTexture.format = THREE.RGBAFormat;
@@ -755,6 +763,7 @@ const PhotoMesh: React.FC<{
     };
 
     const handleError = () => {
+      console.log(`🖼️ Texture load ERROR for ID: ${photo.id.slice(-6)}, URL: ${photo.url}`);
       setHasError(true);
       setIsLoading(false);
     };
@@ -767,6 +776,7 @@ const PhotoMesh: React.FC<{
 
     return () => {
       if (texture) {
+        console.log(`🖼️ Disposing texture for ID: ${photo.id.slice(-6)}`);
         texture.dispose();
       }
     };
@@ -821,6 +831,7 @@ const PhotoMesh: React.FC<{
   // FIXED: Material with correct empty slot color handling
   const material = useMemo(() => {
     if (texture) {
+      console.log(`🖼️ Creating photo material for ID: ${photo.id.slice(-6)}, Slot: ${photo.slotIndex}`);
       const brightnessMaterial = new THREE.MeshStandardMaterial({
         map: texture,
         transparent: true,
@@ -834,6 +845,7 @@ const PhotoMesh: React.FC<{
       return brightnessMaterial;
     } else {
       // FIXED: Empty slot material using EXACT emptySlotColor setting
+      console.log(`🖼️ Creating EMPTY SLOT material for ID: ${photo.id.slice(-6)}, Slot: ${photo.slotIndex}, Color: ${emptySlotColor}`);
       const canvas = document.createElement('canvas');
       canvas.width = 512;
       canvas.height = 512;
@@ -873,6 +885,7 @@ const PhotoMesh: React.FC<{
   return (
     <mesh
       ref={meshRef}
+      name={`photo-${photo.id.slice(-6)}-slot-${photo.slotIndex}`}
       material={material}
       castShadow
       receiveShadow
@@ -892,7 +905,7 @@ const PhotoMesh: React.FC<{
     prevProps.photo.targetPosition.every((pos, i) => 
       Math.abs(pos - nextProps.photo.targetPosition[i]) < 0.001
     )
-  );
+  ) || (prevProps.photo.url === '' && nextProps.photo.url === '');
 });
 
 // Photo renderer with stable keys
@@ -905,7 +918,7 @@ const PhotoRenderer: React.FC<{
   return (
     <group>
       {photosWithPositions.map((photo) => (
-        <PhotoMesh
+        <PhotoMesh 
           key={`${photo.id}-${photo.slotIndex}`} // CRITICAL: Stable key combining ID and slot
           photo={photo}
           size={settings.photoSize || 4.0}
@@ -932,6 +945,7 @@ const PhotoDebugger: React.FC<{ photos: Photo[] }> = ({ photos }) => {
 
 // Main CollageScene component
 const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSettingsChange }) => {
+  console.log(`🎬 COLLAGE SCENE RENDER: Photos array reference:`, photos);
   const [photosWithPositions, setPhotosWithPositions] = useState<PhotoWithPosition[]>([]);
 
   const safePhotos = Array.isArray(photos) ? photos : [];
@@ -958,7 +972,8 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
   console.log('🎬 COLLAGE SCENE RENDER:', {
     photoCount: safePhotos.length,
     settingsPhotoCount: safeSettings.photoCount,
-    positionsCount: photosWithPositions.length,
+    positionsCount: photosWithPositions.length, 
+    emptySlotCount: photosWithPositions.filter(p => !p.url).length,
     emptySlotColor: safeSettings.emptySlotColor
   });
 
@@ -1009,6 +1024,7 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
         <PhotoRenderer 
           photosWithPositions={photosWithPositions}
           settings={safeSettings}
+          key={`photo-renderer-${photosWithPositions.length}`}
         />
         
         <DynamicLightingSystem settings={safeSettings} />

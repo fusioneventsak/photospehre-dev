@@ -10,6 +10,7 @@ const RealtimeStatus: React.FC<RealtimeStatusProps> = ({ collageId, showDetails 
   const [status, setStatus] = useState<string>('Disconnected');
   const [events, setEvents] = useState<{type: string, time: string, id?: string}[]>([]);
   const [channel, setChannel] = useState<any>(null);
+  const [photoCount, setPhotoCount] = useState<number>(0);
 
   useEffect(() => {
     if (!collageId) return;
@@ -31,7 +32,14 @@ const RealtimeStatus: React.FC<RealtimeStatusProps> = ({ collageId, showDetails 
           console.log('🔍 DEBUG: Realtime event received:', payload.eventType);
           
           const eventId = payload.new?.id || payload.old?.id;
-          console.log('🔍 DEBUG: Event for ID:', eventId);
+          console.log('🔍 DEBUG: Event for ID:', eventId, 'Type:', payload.eventType);
+          
+          // Update photo count based on event type
+          if (payload.eventType === 'INSERT') {
+            setPhotoCount(prev => prev + 1);
+          } else if (payload.eventType === 'DELETE') {
+            setPhotoCount(prev => Math.max(0, prev - 1));
+          }
           
           // Add event to list
           setEvents(prev => [
@@ -47,6 +55,19 @@ const RealtimeStatus: React.FC<RealtimeStatusProps> = ({ collageId, showDetails 
       .subscribe((status) => {
         console.log('🔍 DEBUG: Realtime status:', status);
         setStatus(status);
+
+        // Get initial photo count when connected
+        if (status === 'SUBSCRIBED') {
+          supabase
+            .from('photos')
+            .select('count', { count: 'exact', head: true })
+            .eq('collage_id', collageId)
+            .then(({ count, error }) => {
+              if (!error && count !== null) {
+                setPhotoCount(count);
+              }
+            });
+        }
         
         // If we reconnect, clear events to start fresh
         if (status === 'SUBSCRIBED' && events.length > 0) {
@@ -71,6 +92,7 @@ const RealtimeStatus: React.FC<RealtimeStatusProps> = ({ collageId, showDetails 
       <div className="flex items-center justify-between mb-2">
         <h3 className="font-medium text-white">Realtime Status</h3>
         <div className="flex items-center space-x-2">
+          <span className="text-xs text-gray-300">{photoCount} photos</span>
           <button 
             onClick={() => setEvents([])}
             className="text-xs text-gray-400 hover:text-white"
@@ -90,8 +112,8 @@ const RealtimeStatus: React.FC<RealtimeStatusProps> = ({ collageId, showDetails 
         <div className="mt-2 space-y-1 max-h-32 overflow-y-auto">
           {events.map((event, index) => {
             const eventTypeColor = 
-              event.type === 'INSERT' ? 'text-green-400' : 
-              event.type === 'DELETE' ? 'text-red-400' : 
+              event.type === 'INSERT' ? 'text-green-400 font-bold' : 
+              event.type === 'DELETE' ? 'text-red-400 font-bold' : 
               event.type === 'RECONNECTED' ? 'text-yellow-400' :
               'text-blue-400';
             
@@ -100,7 +122,7 @@ const RealtimeStatus: React.FC<RealtimeStatusProps> = ({ collageId, showDetails 
                 <span className={eventTypeColor}>
                   {event.type}
                   {showDetails && event.id && (
-                    <span className="text-gray-500 ml-1">
+                    <span className="text-gray-400 ml-1">
                       ({event.id.slice(-4)})
                     </span>
                   )}
