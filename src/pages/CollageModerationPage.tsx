@@ -62,13 +62,16 @@ const CollageModerationPage: React.FC = () => {
     if (id) {
       console.log('🛡️ MODERATION: Fetching collage:', id);
       fetchCollageById(id);
+      
+      // CRITICAL FIX: Add this line to enable real-time subscription
+      setupRealtimeSubscription(id);
     }
     
     return () => {
       console.log('🛡️ MODERATION: Cleaning up subscription');
       cleanupRealtimeSubscription();
     };
-  }, [id, fetchCollageById, cleanupRealtimeSubscription]);
+  }, [id, fetchCollageById, setupRealtimeSubscription, cleanupRealtimeSubscription]);
 
   const handleRefresh = async () => {
     if (!currentCollage?.id) return;
