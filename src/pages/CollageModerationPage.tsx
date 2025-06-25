@@ -3,8 +3,10 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ChevronLeft, Shield, RefreshCw, Trash2, Eye, AlertCircle } from 'lucide-react';
 import { useCollageStore } from '../store/collageStore';
+import PhotoModerationModal from '../components/collage/PhotoModerationModal';
 import Layout from '../components/layout/Layout';
 import RealtimeStatus from '../components/debug/RealtimeStatus';
+import RealtimeDebugPanel from '../components/debug/RealtimeDebugPanel';
 
 const CollageModerationPage: React.FC = () => {  
   console.log('🛡️ MODERATION PAGE RENDER');
@@ -36,7 +38,9 @@ const CollageModerationPage: React.FC = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [deletingPhotos, setDeletingPhotos] = useState<Set<string>>(new Set());
-  const [selectedPhoto, setSelectedPhoto] = useState<any>(null);
+  const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
+  const [showModerationModal, setShowModerationModal] = useState(false);
+  const [showDebugPanel, setShowDebugPanel] = useState(false);
 
   // DEBUG: Log photos changes in moderation
   useEffect(() => {
@@ -119,7 +123,7 @@ const CollageModerationPage: React.FC = () => {
     }
   };
 
-  const openPhotoPreview = (photo: any) => {
+  const openPhotoPreview = (photo: Photo) => {
     setSelectedPhoto(photo);
   };
 
@@ -227,7 +231,7 @@ const CollageModerationPage: React.FC = () => {
             <div className="flex items-center space-x-3">
               <div className={`w-3 h-3 rounded-full ${isRealtimeConnected ? 'bg-green-400 animate-pulse' : 'bg-yellow-400'}`}></div>
               <span className="text-white font-medium">
-                {isRealtimeConnected ? 'Real-time Updates Active' : 'Using Polling Mode'}
+                {isRealtimeConnected ? 'Real-time Updates Active' : 'Using Polling Mode'} 
               </span>
               <span className="text-gray-400 text-sm">
                 {isRealtimeConnected 
@@ -236,9 +240,25 @@ const CollageModerationPage: React.FC = () => {
                 }
               </span>
             </div>
-            <span className="text-gray-400 text-sm">
-              Last updated: {new Date().toLocaleTimeString()}
-            </span>
+            <div className="flex items-center space-x-4">
+              <span className="text-gray-400 text-sm">
+                Last updated: {new Date().toLocaleTimeString()}
+              </span>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => setShowModerationModal(true)}
+                  className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors text-sm"
+                >
+                  Moderation Modal
+                </button>
+                <button
+                  onClick={() => setShowDebugPanel(!showDebugPanel)}
+                  className="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white rounded-md transition-colors text-sm"
+                >
+                  {showDebugPanel ? 'Hide Debug' : 'Show Debug'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -375,10 +395,21 @@ const CollageModerationPage: React.FC = () => {
         )}
       </div>
       
-      {/* Debug Realtime Status - Only visible in development */}
-      {import.meta.env.DEV && (
+      {/* Moderation Modal */}
+      {showModerationModal && (
+        <PhotoModerationModal 
+          photos={safePhotos} 
+          onClose={() => setShowModerationModal(false)} 
+        />
+      )}
+      
+      {/* Debug Panel */}
+      {showDebugPanel && (
         <div className="fixed bottom-4 right-4 z-20 w-64">
-          <RealtimeStatus collageId={currentCollage?.id} />
+          <RealtimeDebugPanel 
+            collageId={currentCollage?.id} 
+            onClose={() => setShowDebugPanel(false)}
+          />
         </div>
       )}
     </Layout>

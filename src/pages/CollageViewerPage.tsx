@@ -17,7 +17,7 @@ import { useCollageStore } from '../store/collageStore';
 import { ErrorBoundary } from 'react-error-boundary';
 import CollageScene from '../components/three/CollageScene';
 import PhotoUploader from '../components/collage/PhotoUploader';
-import RealtimeStatus from '../components/debug/RealtimeStatus';
+import RealtimeDebugPanel from '../components/debug/RealtimeDebugPanel';
 
 const CollageViewerPage: React.FC = () => {
   const { code } = useParams<{ code: string }>();
@@ -348,7 +348,7 @@ const CollageViewerPage: React.FC = () => {
       {/* Debug Realtime Status - Only visible in development */}
       {import.meta.env.DEV && (
         <div className="fixed bottom-4 right-4 z-20 w-64">
-          <RealtimeStatus collageId={currentCollage?.id} />
+          <RealtimeDebugPanel collageId={currentCollage?.id} />
         </div>
       )}
 
