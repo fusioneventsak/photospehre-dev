@@ -18,6 +18,7 @@ import { ErrorBoundary } from 'react-error-boundary';
 import CollageScene from '../components/three/CollageScene';
 import PhotoUploader from '../components/collage/PhotoUploader';
 import RealtimeDebugPanel from '../components/debug/RealtimeDebugPanel';
+import RealtimeDebugPanel from '../components/debug/RealtimeDebugPanel';
 
 const CollageViewerPage: React.FC = () => {
   const { code } = useParams<{ code: string }>();
@@ -35,6 +36,12 @@ const CollageViewerPage: React.FC = () => {
   
   // SAFETY: Ensure photos is always an array
   const safePhotos = Array.isArray(photos) ? photos : [];
+  
+  // Add debugging for photo array changes
+  useEffect(() => {
+    console.log('🔍 VIEWER PAGE: safePhotos updated. Count:', safePhotos.length);
+    console.log('🔍 VIEWER PAGE: safePhotos IDs:', safePhotos.map(p => p.id.slice(-6)).join(', '));
+  }, [safePhotos]);
   
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -55,7 +62,7 @@ const CollageViewerPage: React.FC = () => {
   // FIXED: Load collage AND setup real-time subscription
   useEffect(() => {
     if (normalizedCode) {
-      console.log('🔍 VIEWER: Fetching collage with code:', normalizedCode);
+      console.log('🔍 VIEWER: Fetching collage with code:', normalizedCode, 'and setting up subscription');
       fetchCollageByCode(normalizedCode);
     }
     
@@ -68,7 +75,7 @@ const CollageViewerPage: React.FC = () => {
   // FIXED: Setup real-time subscription when collage is loaded
   useEffect(() => {
     if (currentCollage?.id) {
-      console.log('🔄 VIEWER: Setting up realtime subscription for collage:', currentCollage.id);
+      console.log('🔄 VIEWER: Ensuring realtime subscription for collage:', currentCollage.id);
       setupRealtimeSubscription(currentCollage.id);
     }
     
@@ -342,6 +349,13 @@ const CollageViewerPage: React.FC = () => {
               </div>
             </div>
           </div>
+        </div>
+      )}
+      
+      {/* Debug Realtime Status - Only visible in development */}
+      {import.meta.env.DEV && (
+        <div className="fixed bottom-4 right-4 z-20 w-64">
+          <RealtimeDebugPanel collageId={currentCollage?.id} />
         </div>
       )}
       

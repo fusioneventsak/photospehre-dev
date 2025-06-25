@@ -51,7 +51,7 @@ const RealtimeDebugPanel: React.FC<RealtimeDebugPanelProps> = ({ collageId, onCl
     
     // Set up realtime subscription
     const realtimeChannel = supabase
-      .channel(`debug_photos_${collageId}_${Date.now()}`)
+      .channel(`debug_photos_${collageId}_${Date.now().toString(36)}`)
       .on(
         'postgres_changes',
         {
@@ -68,9 +68,9 @@ const RealtimeDebugPanel: React.FC<RealtimeDebugPanelProps> = ({ collageId, onCl
           
           // Update photo count based on event type
           if (payload.eventType === 'INSERT') {
-            setPhotoCount(prev => prev + 1);
+            setPhotoCount(count => count + 1);
           } else if (payload.eventType === 'DELETE') {
-            setPhotoCount(prev => Math.max(0, prev - 1));
+            setPhotoCount(count => Math.max(0, count - 1));
           }
           
           // Add event to list
@@ -103,10 +103,10 @@ const RealtimeDebugPanel: React.FC<RealtimeDebugPanelProps> = ({ collageId, onCl
         
         // If we reconnect, add a reconnection event
         if (status === 'SUBSCRIBED' && events.length > 0) {
-          setEvents(prev => [{
+          setEvents(prevEvents => [{
             type: 'RECONNECTED',
             time: new Date().toLocaleTimeString()
-          }, ...prev]);
+          }, ...prevEvents]);
         }
       });
 

@@ -59,6 +59,7 @@ export class SlotManager {
   // CRITICAL FIX: Only assign new slots to new photos, preserve existing assignments
   assignSlots(photos: any[]): Map<string, number> {
     const safePhotos = Array.isArray(photos) ? photos.filter(p => p && p.id) : [];
+    const photoCount = safePhotos.length;
     
     // Get current photo IDs
     const currentPhotoIds = new Set(safePhotos.map(p => p.id));
@@ -68,6 +69,7 @@ export class SlotManager {
     for (const [photoId, slotIndex] of this.slotAssignments.entries()) {
       if (!currentPhotoIds.has(photoId)) {
         removedPhotoIds.push(photoId);
+        console.log(`🎰 SlotManager: Photo ${photoId.slice(-6)} was removed, marking slot ${slotIndex} for reuse`);
         // Add the slot to deletedSlots to prioritize its reuse
         this.deletedSlots.push(slotIndex);
       }
@@ -99,13 +101,18 @@ export class SlotManager {
     // ONLY assign slots to NEW photos that don't have assignments yet
     for (const photo of sortedPhotos) {
       if (!this.slotAssignments.has(photo.id) && this.availableSlots.length > 0) {
+        // Get the next available slot
         const newSlot = this.availableSlots.shift()!;
+        console.log(`🎰 SlotManager: Assigning new photo ${photo.id.slice(-6)} to slot ${newSlot}`);
         this.slotAssignments.set(photo.id, newSlot);
         this.occupiedSlots.add(newSlot);
         console.log(`🎰 SlotManager: Assigned slot ${newSlot} to new photo ${photo.id.slice(-6)}`);
       }
     }
 
+    // Log a summary of the current state
+    console.log(`🎰 SlotManager: ${photoCount} photos, ${this.slotAssignments.size} assignments, ${this.availableSlots.length} available slots`);
+    
     return new Map(this.slotAssignments);
   }
   

@@ -34,23 +34,25 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
   const handleDeletePhoto = async (photo: Photo) => {
     if (deletingPhotoId === photo.id) return;
     
-    setDeletingPhotoId(photo.id);
-    setError(null);
-
     // Close preview if this was the selected photo
     if (selectedPhoto?.id === photo.id) {
       setSelectedPhoto(null);
     }
     
+    setDeletingPhotoId(photo.id);
+    setError(null);
+    
     console.log('📸 MODAL: handleDeletePhoto called with ID:', photo.id);
     
     try {
       console.log('🗑️ Attempting to delete photo:', photo.id);
+      console.log('📸 MODAL: Photos count BEFORE deletion:', photos.length);
       
       // Use the store's delete method
       await deletePhoto(photo.id);
       
-      console.log('✅ Photo deleted successfully');
+      console.log('✅ Photo deleted successfully from database');
+      console.log('📸 MODAL: Photos count AFTER deletion:', photos.length);
     } catch (error: any) {
       console.error('Failed to delete photo:', error);
       setError(`Failed to delete photo: ${error.message}`);
@@ -141,6 +143,7 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
                 <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                   <button
                     onClick={(e) => {
+                      console.log('📸 MODAL: Delete button clicked for photo:', photo.id);
                       e.stopPropagation();
                       handleDeletePhoto(photo);
                     }}

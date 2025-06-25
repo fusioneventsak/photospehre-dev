@@ -944,7 +944,10 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
   const [photosWithPositions, setPhotosWithPositions] = useState<PhotoWithPosition[]>([]);
 
   const safePhotos = Array.isArray(photos) ? photos : [];
-  const safeSettings = { ...settings };
+  const safeSettings = settings ? { ...settings } : {};
+  
+  // Force re-render when photos array changes
+  const photosKey = useMemo(() => safePhotos.map(p => p.id).join(','), [safePhotos]);
 
   // Background style for gradient backgrounds
   const backgroundStyle = useMemo(() => {
@@ -970,10 +973,10 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
     positionsCount: photosWithPositions.length,
     emptySlotCount: photosWithPositions.filter(p => !p.url).length,
     emptySlotColor: safeSettings.emptySlotColor
-  });
+  console.log(`🎬 COLLAGE SCENE RENDER: {photoCount: ${safePhotos.length}, settingsPhotoCount: ${safeSettings.photoCount}}`);
 
   return (
-    <div style={backgroundStyle} className="w-full h-full">
+    <div style={backgroundStyle} className="w-full h-full" key={`scene-container-${photosKey}`}>
       <Canvas
         shadows={safeSettings.shadowsEnabled}
         camera={{ 
@@ -1008,10 +1011,12 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
         <Floor settings={safeSettings} />
         <Grid settings={safeSettings} />
         
+        {/* Key the animation controller with the photos array to force re-creation when photos change */}
         <AnimationController
           settings={safeSettings}
           photos={safePhotos}
           onPositionsUpdate={setPhotosWithPositions}
+          key={`animation-controller-${photosKey}`}
         />
         
         <PhotoDebugger photos={safePhotos} />
@@ -1019,6 +1024,7 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
         <PhotoRenderer 
           photosWithPositions={photosWithPositions}
           settings={safeSettings}
+          key={`photo-renderer-${photosKey}`}
           key={`photo-renderer-${photosWithPositions.length}`}
         />
         
