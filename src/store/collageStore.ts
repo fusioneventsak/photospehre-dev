@@ -438,6 +438,7 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
   createCollage: async (name: string) => {
     set({ loading: true, error: null });
     try {
+      console.log('Creating collage:', name);
       const code = nanoid(8).toUpperCase();
       
       const { data: collage, error: collageError } = await supabase
@@ -447,21 +448,23 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
         .single();
 
       if (collageError) throw collageError;
-
+      
+      // The trigger will automatically create default settings
+      // Fetch the settings that were created by the trigger
       const { data: settings, error: settingsError } = await supabase
         .from('collage_settings')
-        .insert([{ 
-          collage_id: collage.id, 
-          settings: defaultSettings 
-        }])
-        .select()
+        .select('*')
+        .eq('collage_id', collage.id)
         .single();
-
-      if (settingsError) throw settingsError;
+      
+      if (settingsError) {
+        console.warn('Warning: Could not fetch collage settings:', settingsError);
+        // Don't throw here, we can still return the collage without settings
+      }
 
       const collageWithSettings = {
         ...collage,
-        settings: defaultSettings
+        settings: settings?.settings || defaultSettings
       } as Collage;
 
       set((state) => ({
@@ -471,6 +474,7 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
 
       return collageWithSettings;
     } catch (error: any) {
+      console.error('Create collage error:', error);
       set({ error: error.message, loading: false });
       return null;
     }
