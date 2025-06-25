@@ -14,10 +14,10 @@ import {
   Settings
 } from 'lucide-react';
 import { useCollageStore } from '../store/collageStore';
-import { CollageScene } from '../components/CollageScene';
+import { ErrorBoundary } from 'react-error-boundary';
+import CollageScene from '../components/three/CollageScene';
 import PhotoUploader from '../components/collage/PhotoUploader';
 import RealtimeStatus from '../components/debug/RealtimeStatus';
-import ErrorBoundary from '../components/ErrorBoundary';
 
 const CollageViewerPage: React.FC = () => {
   const { code } = useParams<{ code: string }>();
@@ -188,20 +188,21 @@ const CollageViewerPage: React.FC = () => {
     <div className="h-screen bg-black overflow-hidden relative">
       {/* 3D Scene */}
       <ErrorBoundary 
-        fallback={
+        FallbackComponent={({ error, resetErrorBoundary }) => (
           <div className="h-screen bg-black flex items-center justify-center">
             <div className="text-center text-white">
               <p className="text-xl mb-4">Scene Error</p>
+              <p className="text-red-300 text-sm mb-4">{error?.message}</p>
               <button 
-                onClick={() => window.location.reload()} 
+                onClick={resetErrorBoundary} 
                 className="px-4 py-2 bg-purple-600 rounded-lg hover:bg-purple-700"
               >
-                Reload Page
+                Try Again
               </button>
             </div>
           </div>
-        }
-        deps={[safePhotos]}
+        )}
+        resetKeys={[currentCollage.id, safePhotos.length]}
       >
         <CollageScene 
           photos={safePhotos}
