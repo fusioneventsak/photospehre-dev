@@ -216,9 +216,10 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
     // Clean up existing
     get().cleanupRealtimeSubscription();
     
-    if (currentChannel) {
+    const existingChannel = get().realtimeChannel;
+    if (existingChannel) {
       console.log('🧹 Cleaning up existing channel before creating new one');
-      currentChannel.unsubscribe();
+      existingChannel.unsubscribe();
       set({ realtimeChannel: null, isRealtimeConnected: false });
     }
 
