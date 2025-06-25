@@ -33,9 +33,6 @@ const router = createBrowserRouter(
       {/* Redirect for common typo */}
       <Route path="/dashbaord" element={<Navigate to="/dashboard" replace />} />
       
-      {/* Redirect for common typo */}
-      <Route path="/dashbaord" element={<Navigate to="/dashboard" replace />} />
-      
       {/* Protected routes - require authentication */}
       <Route path="/dashboard" element={<DashboardPage />} />
       <Route path="/dashboard/collage/:id" element={<CollageEditorPage />} />
@@ -45,7 +42,8 @@ const router = createBrowserRouter(
   ),
   {
     future: {
-      v7_relativeSplatPath: true
+      v7_relativeSplatPath: true,
+      v7_startTransition: true
     }
   }
 );
