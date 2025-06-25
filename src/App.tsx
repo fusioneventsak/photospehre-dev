@@ -5,6 +5,7 @@ import {
   Route, 
   createRoutesFromElements,
   Navigate
+  Navigate
 } from 'react-router-dom';
 
 // Pages
@@ -29,6 +30,9 @@ const router = createBrowserRouter(
       <Route path="/join" element={<JoinCollage />} />
       <Route path="/collage/:code" element={<CollageViewerPage />} />
       <Route path="/photobooth/:code" element={<PhotoboothPage />} />
+      
+      {/* Redirect for common typo */}
+      <Route path="/dashbaord" element={<Navigate to="/dashboard" replace />} />
       
       {/* Redirect for common typo */}
       <Route path="/dashbaord" element={<Navigate to="/dashboard" replace />} />
