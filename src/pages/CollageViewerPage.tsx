@@ -62,7 +62,7 @@ const CollageViewerPage: React.FC = () => {
   // FIXED: Load collage AND setup real-time subscription
   useEffect(() => {
     if (normalizedCode) {
-      console.log('🔍 VIEWER: Fetching collage with code:', normalizedCode);
+      console.log('🔍 VIEWER: Fetching collage with code (includes subscription setup):', normalizedCode);
       fetchCollageByCode(normalizedCode);
     }
     
@@ -71,18 +71,6 @@ const CollageViewerPage: React.FC = () => {
       cleanupRealtimeSubscription();
     };
   }, [normalizedCode, fetchCollageByCode, cleanupRealtimeSubscription]);
-
-  // FIXED: Setup real-time subscription when collage is loaded
-  useEffect(() => {
-    if (currentCollage?.id) {
-      console.log('🔄 VIEWER: Setting up realtime subscription');
-      setupRealtimeSubscription(currentCollage.id);
-    }
-    
-    return () => {
-      cleanupRealtimeSubscription();
-    };
-  }, [currentCollage?.id, setupRealtimeSubscription, cleanupRealtimeSubscription]);
 
   // Manual refresh for debugging
   const handleManualRefresh = useCallback(async () => {

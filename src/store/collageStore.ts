@@ -207,14 +207,24 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
   // Enhanced realtime subscription with better error handling
   setupRealtimeSubscription: (collageId: string) => {
     // Clean up existing
-    get().cleanupRealtimeSubscription();
+    const currentChannel = get().realtimeChannel;
+    if (currentChannel) {
+      // If we already have a subscription to this collage, don't create another one
+      if (currentChannel.topic === `photos_${collageId}`) {
+        console.log('🔄 Realtime subscription already exists for collage:', collageId);
+        return;
+      }
+      
+      // Otherwise, clean up the existing subscription
+      get().cleanupRealtimeSubscription();
+    }
     
     console.log('🚀 Setting up realtime subscription for collage:', collageId);
 
     // Create a unique channel name with timestamp to avoid conflicts
     // Use a consistent naming pattern without timestamp to avoid multiple channels
     const channelName = `photos_${collageId}`;
-    console.log('🚀 Creating channel:', channelName);
+    console.log('🚀 Creating realtime channel:', channelName);
     
     const channel = supabase
       .channel(channelName)
@@ -282,7 +292,7 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
   cleanupRealtimeSubscription: () => {
     const channel = get().realtimeChannel;
     
-    if (channel) {
+    if (channel && channel.topic) {
       console.log('🧹 Cleaning up realtime subscription for channel:', channel.topic);
       channel.unsubscribe();
       console.log('🧹 Channel unsubscribed');
@@ -405,10 +415,10 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
 
       // Fetch settings - also use maybeSingle for consistency
       const { data: settings } = await supabase
-        .from('collage_settings')
-        .select('settings')
-        .eq('collage_id', collage.id)
-        .maybeSingle(); // CHANGED: Use maybeSingle here too
+          .from('collage_settings')
+          .select('settings')
+          .eq('collage_id', collage.id)
+          .maybeSingle(); // CHANGED: Use maybeSingle here too
 
       const collageWithSettings = {
         ...collage,
@@ -418,13 +428,14 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
       set({ currentCollage: collageWithSettings, loading: false, error: null });
       
       // Fetch photos and setup subscription
-      try {
-        await get().fetchPhotosByCollageId(collage.id);
-        get().setupRealtimeSubscription(collage.id);
-      } catch (photoError) {
-        console.error('❌ Error fetching initial photos:', photoError);
-        // Don't fail the whole operation if photos can't be fetched
-      }
+      await get().fetchPhotosByCollageId(collage.id)
+        .catch(photoError => {
+          console.error('❌ Error fetching initial photos:', photoError);
+          // Don't fail the whole operation if photos can't be fetched
+        });
+      
+      // CRITICAL: Set up realtime subscription AFTER fetching photos
+      get().setupRealtimeSubscription(collage.id);
       
       console.log('✅ Successfully loaded collage:', collage.name);
       return collageWithSettings;
@@ -485,13 +496,14 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
       set({ currentCollage: collageWithSettings, loading: false, error: null });
       
       // Fetch photos and setup subscription
-      try {
-        await get().fetchPhotosByCollageId(id);
-        get().setupRealtimeSubscription(id);
-      } catch (photoError) {
-        console.error('❌ Error fetching initial photos:', photoError);
-        // Don't fail the whole operation if photos can't be fetched
-      }
+      await get().fetchPhotosByCollageId(id)
+        .catch(photoError => {
+          console.error('❌ Error fetching initial photos:', photoError);
+          // Don't fail the whole operation if photos can't be fetched
+        });
+      
+      // CRITICAL: Set up realtime subscription AFTER fetching photos
+      get().setupRealtimeSubscription(id);
       
       console.log('✅ Successfully loaded collage:', collage.name);
       return collageWithSettings;

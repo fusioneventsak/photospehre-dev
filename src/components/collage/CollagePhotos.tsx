@@ -23,20 +23,20 @@ const CollagePhotos: React.FC<CollagePhotosProps> = ({ collageId, onManualRefres
   useEffect(() => {
     if (collageId) {
       // Fetch initial photos
-      console.log('🔄 Initial photo fetch for collage:', collageId);
+      console.log('🔄 PHOTOS: Initial photo fetch for collage:', collageId);
       fetchPhotosByCollageId(collageId).catch(err => {
-        console.error('❌ Error fetching initial photos:', err);
+        console.error('❌ PHOTOS: Error fetching initial photos:', err);
       });
 
-      // Setup real-time subscription for this collage
-      setupRealtimeSubscription(collageId);
+      // REMOVED: Don't set up subscription here - it's already done in fetchCollageById
 
       // Cleanup subscription on unmount or collageId change
       return () => {
-        cleanupRealtimeSubscription();
+        // REMOVED: Don't clean up here - it will be handled by the parent component
+        console.log('🧹 PHOTOS: Component unmounting');
       };
     }
-  }, [collageId, fetchPhotosByCollageId, setupRealtimeSubscription, cleanupRealtimeSubscription]);
+  }, [collageId, fetchPhotosByCollageId]);
 
   const handleDeletePhoto = async (photoId: string) => {
     try {

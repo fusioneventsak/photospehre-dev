@@ -60,18 +60,16 @@ const CollageModerationPage: React.FC = () => {
   // Simple subscription setup
   useEffect(() => {
     if (id) {
-      console.log('🛡️ MODERATION: Fetching collage:', id);
+      console.log('🛡️ MODERATION: Fetching collage and setting up subscription:', id);
       fetchCollageById(id);
-      
-      // CRITICAL FIX: Add this line to enable real-time subscription
-      setupRealtimeSubscription(id);
+      // REMOVED: Don't call setupRealtimeSubscription here - it's already called inside fetchCollageById
     }
     
     return () => {
       console.log('🛡️ MODERATION: Cleaning up subscription');
       cleanupRealtimeSubscription();
     };
-  }, [id, fetchCollageById, setupRealtimeSubscription, cleanupRealtimeSubscription]);
+  }, [id, fetchCollageById, cleanupRealtimeSubscription]);
 
   const handleRefresh = async () => {
     if (!currentCollage?.id) return;

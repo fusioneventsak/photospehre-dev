@@ -37,11 +37,13 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
     
     try {
       console.log('🗑️ MODAL: Deleting photo:', photo.id.slice(-6));
+      console.log('🗑️ MODAL: Current photos count before deletion:', photos.length);
       
       // Use the store's delete method
       await deletePhoto(photo.id);
       
-      console.log('✅ Photo deleted successfully from database');
+      console.log('✅ MODAL: Photo deleted successfully from database');
+      console.log('🗑️ MODAL: Photos should update via realtime subscription');
       
       // Close preview if this was the selected photo
       if (selectedPhoto?.id === photo.id) {

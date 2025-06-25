@@ -23,7 +23,7 @@ const RealtimeDebugPanel: React.FC<RealtimeDebugPanelProps> = ({ collageId, onCl
     console.log('🔍 DEBUG PANEL: Setting up realtime monitor for collage:', collageId);
     
     // Use a simpler channel name without timestamp to ensure consistent naming
-    const channelName = `debug_photos_${collageId}`;
+    const channelName = `debug_photos_${collageId}_${Date.now()}`;
     console.log('🔍 DEBUG PANEL: Creating channel:', channelName);
 
     // Clear any existing events when setting up a new subscription
