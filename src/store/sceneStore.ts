@@ -4,6 +4,32 @@ import { create } from 'zustand';
 export type SceneSettings = {
   animationPattern: 'float' | 'wave' | 'spiral' | 'grid';
   gridAspectRatioPreset: '1:1' | '4:3' | '16:9' | '21:9' | 'custom';
+  patterns: {
+    grid: {
+      enabled: boolean;
+      spacing: number;
+      aspectRatio: number;
+      wallHeight: number;
+    };
+    float: {
+      enabled: boolean;
+      spacing: number;
+      height: number;
+      spread: number;
+    };
+    wave: {
+      enabled: boolean;
+      spacing: number;
+      amplitude: number;
+      frequency: number;
+    };
+    spiral: {
+      enabled: boolean;
+      spacing: number;
+      radius: number;
+      heightStep: number;
+    };
+  };
   animationSpeed: number;
   animationEnabled: boolean;
   photoCount: number;
@@ -45,32 +71,6 @@ export type SceneSettings = {
   wallHeight: number;
   gridAspectRatio: number;
   photoBrightness: number;
-  patterns: {
-    grid: {
-      enabled: boolean;
-      spacing: number;
-      aspectRatio: number;
-      wallHeight: number;
-    };
-    float: {
-      enabled: boolean;
-      spacing: number;
-      height: number;
-      spread: number;
-    };
-    wave: {
-      enabled: boolean;
-      spacing: number;
-      amplitude: number;
-      frequency: number;
-    };
-    spiral: {
-      enabled: boolean;
-      spacing: number;
-      radius: number;
-      heightStep: number;
-    };
-  };
 };
 
 const defaultSettings: SceneSettings = {
@@ -153,10 +153,31 @@ type SceneState = {
 
 const debounce = (fn: Function, ms = 300) => {
   let timeoutId: ReturnType<typeof setTimeout>;
-  return function (this: any, ...args: any[]) {
+  return function(this: any, ...args: any[]) {
     clearTimeout(timeoutId);
     timeoutId = setTimeout(() => fn.apply(this, args), ms);
   };
+};
+
+// Deep merge function for nested objects
+const deepMerge = (target: any, source: any): any => {
+  const output = { ...target };
+  
+  if (source && typeof source === 'object' && !Array.isArray(source)) {
+    Object.keys(source).forEach(key => {
+      if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
+        if (!(key in target)) {
+          output[key] = source[key];
+        } else {
+          output[key] = deepMerge(target[key], source[key]);
+        }
+      } else {
+        output[key] = source[key];
+      }
+    });
+  }
+  
+  return output;
 };
 
 export const useSceneStore = create<SceneState>()((set, get) => {
@@ -166,10 +187,20 @@ export const useSceneStore = create<SceneState>()((set, get) => {
     // Handle pattern changes
     if (newSettings.animationPattern && newSettings.animationPattern !== currentSettings.animationPattern) {
       // Update enabled states for patterns
-      Object.keys(currentSettings.patterns).forEach(pattern => {
-        currentSettings.patterns[pattern as keyof typeof currentSettings.patterns].enabled = 
-          pattern === newSettings.animationPattern;
+      const updatedPatterns = { ...currentSettings.patterns };
+      
+      // Disable all patterns first
+      Object.keys(updatedPatterns).forEach(pattern => {
+        updatedPatterns[pattern as keyof typeof updatedPatterns].enabled = false;
       });
+      
+      // Enable the selected pattern
+      if (newSettings.animationPattern && updatedPatterns[newSettings.animationPattern]) {
+        updatedPatterns[newSettings.animationPattern].enabled = true;
+      }
+      
+      // Update the patterns in newSettings
+      newSettings.patterns = updatedPatterns;
     }
 
     // Handle photo count validation
@@ -213,7 +244,7 @@ export const useSceneStore = create<SceneState>()((set, get) => {
     }
 
     set((state) => ({
-      settings: { ...state.settings, ...newSettings },
+      settings: deepMerge(state.settings, newSettings),
     }));
   };
 
