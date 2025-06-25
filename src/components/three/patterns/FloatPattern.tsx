@@ -55,8 +55,13 @@ export class FloatPattern extends BasePattern {
   generatePositions(time: number): PatternState {
     const positions: Position[] = [];
     const rotations: [number, number, number][] = [];
+
+    // Use pattern-specific photoCount if available
+    const photoCount = this.settings.patterns?.float?.photoCount !== undefined 
+      ? this.settings.patterns.float.photoCount 
+      : this.settings.photoCount;
     
-    const totalPhotos = Math.min(this.settings.photoCount, 500);
+    const totalPhotos = Math.min(photoCount, 500);
     
     // Use dynamic floor size from settings
     const floorSize = this.settings.floorSize || 200;

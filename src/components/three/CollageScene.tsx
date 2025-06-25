@@ -391,7 +391,17 @@ const AnimationController: React.FC<{
   const updatePositions = useCallback((time: number = 0) => {
     try {
       const safePhotos = Array.isArray(photos) ? photos.filter(p => p && p.id) : [];
-      const safeSettings = settings || {};
+      const safeSettings = { ...settings } || {};
+      
+      // Use pattern-specific photoCount if available
+      if (safeSettings.animationPattern) {
+        const patternKey = safeSettings.animationPattern as keyof typeof safeSettings.patterns;
+        if (safeSettings.patterns && 
+            safeSettings.patterns[patternKey] && 
+            safeSettings.patterns[patternKey].photoCount !== undefined) {
+          safeSettings.photoCount = safeSettings.patterns[patternKey].photoCount;
+        }
+      }
 
       // Get STABLE slot assignments - only new photos get new slots
       const slotAssignments = slotManagerRef.current.assignSlots(safePhotos);

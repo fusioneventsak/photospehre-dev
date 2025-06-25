@@ -4,8 +4,14 @@ export class WavePattern extends BasePattern {
   generatePositions(time: number): PatternState {
     const positions: Position[] = [];
     const rotations: [number, number, number][] = [];
+
+    // Use pattern-specific photoCount if available
+    const photoCount = this.settings.patterns?.wave?.photoCount !== undefined 
+      ? this.settings.patterns.wave.photoCount 
+      : this.settings.photoCount;
+    
     const spacing = this.settings.photoSize * (1 + (this.settings.patterns?.wave?.spacing || this.settings.photoSpacing || 0.15));
-    const totalPhotos = Math.min(this.settings.photoCount, 500);
+    const totalPhotos = Math.min(photoCount, 500);
     
     // Calculate grid dimensions based on total photos
     const columns = Math.ceil(Math.sqrt(totalPhotos));

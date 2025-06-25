@@ -5,8 +5,13 @@ export class GridPattern extends BasePattern {
   generatePositions(time: number): PatternState {
     const positions: Position[] = [];
     const rotations: [number, number, number][] = [];
+
+    // Use pattern-specific photoCount if available
+    const photoCount = this.settings.patterns?.grid?.photoCount !== undefined 
+      ? this.settings.patterns.grid.photoCount 
+      : this.settings.photoCount;
     
-    const totalPhotos = Math.min(this.settings.photoCount, 500);
+    const totalPhotos = Math.min(photoCount, 500);
     
     // Calculate grid dimensions with aspect ratio
     const aspectRatio = this.settings.patterns?.grid?.aspectRatio || this.settings.gridAspectRatio || 1.0;

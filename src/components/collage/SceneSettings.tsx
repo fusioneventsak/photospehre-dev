@@ -85,17 +85,71 @@ const SceneSettings: React.FC<{
           <div>
             <label className="block text-sm text-gray-300 mb-2">
               Photo Count
-              <span className="ml-2 text-xs text-gray-400">{settings.photoCount} photos</span>
+              <span className="ml-2 text-xs text-gray-400">
+                {settings.animationPattern === 'grid' && settings.patterns?.grid?.photoCount !== undefined
+                  ? settings.patterns.grid.photoCount
+                  : settings.animationPattern === 'float' && settings.patterns?.float?.photoCount !== undefined
+                  ? settings.patterns.float.photoCount
+                  : settings.animationPattern === 'wave' && settings.patterns?.wave?.photoCount !== undefined
+                  ? settings.patterns.wave.photoCount
+                  : settings.animationPattern === 'spiral' && settings.patterns?.spiral?.photoCount !== undefined
+                  ? settings.patterns.spiral.photoCount
+                  : settings.photoCount} photos
+              </span>
             </label>
             <input
               type="range"
               min="1"
               max="500"
               step="1"
-              value={settings.photoCount}
-              onChange={(e) => onSettingsChange({ 
-                photoCount: parseInt(e.target.value) 
-              })}
+              value={
+                settings.animationPattern === 'grid' && settings.patterns?.grid?.photoCount !== undefined
+                  ? settings.patterns.grid.photoCount
+                  : settings.animationPattern === 'float' && settings.patterns?.float?.photoCount !== undefined
+                  ? settings.patterns.float.photoCount
+                  : settings.animationPattern === 'wave' && settings.patterns?.wave?.photoCount !== undefined
+                  ? settings.patterns.wave.photoCount
+                  : settings.animationPattern === 'spiral' && settings.patterns?.spiral?.photoCount !== undefined
+                  ? settings.patterns.spiral.photoCount
+                  : settings.photoCount
+              }
+              onChange={(e) => {
+                const value = parseInt(e.target.value);
+                
+                // Update both the global photoCount and the pattern-specific photoCount
+                const updates: Partial<SceneSettings> = {
+                  photoCount: value
+                };
+                
+                // Add pattern-specific update
+                if (settings.animationPattern === 'grid') {
+                  updates.patterns = {
+                    grid: {
+                      photoCount: value
+                    }
+                  };
+                } else if (settings.animationPattern === 'float') {
+                  updates.patterns = {
+                    float: {
+                      photoCount: value
+                    }
+                  };
+                } else if (settings.animationPattern === 'wave') {
+                  updates.patterns = {
+                    wave: {
+                      photoCount: value
+                    }
+                  };
+                } else if (settings.animationPattern === 'spiral') {
+                  updates.patterns = {
+                    spiral: {
+                      photoCount: value
+                    }
+                  };
+                }
+                
+                onSettingsChange(updates);
+              }}
               className="w-full bg-gray-800"
             />
             <p className="mt-1 text-xs text-gray-400">

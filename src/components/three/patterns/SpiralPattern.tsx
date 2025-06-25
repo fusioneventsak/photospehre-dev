@@ -4,8 +4,14 @@ export class SpiralPattern extends BasePattern {
   generatePositions(time: number): PatternState {
     const positions: Position[] = [];
     const rotations: [number, number, number][] = [];
-
-    const totalPhotos = Math.min(this.settings.photoCount, 500);
+    
+    // Use pattern-specific photoCount if available
+    const photoCount = this.settings.patterns?.spiral?.photoCount !== undefined 
+      ? this.settings.patterns.spiral.photoCount 
+      : this.settings.photoCount;
+    
+    const totalPhotos = Math.min(photoCount, 500);
+    
     const speed = this.settings.animationSpeed / 50;
     const animationTime = time * speed * 2;
     
