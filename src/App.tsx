@@ -5,7 +5,6 @@ import {
   Route, 
   createRoutesFromElements,
   Navigate
-  Navigate
 } from 'react-router-dom';
 
 // Pages
