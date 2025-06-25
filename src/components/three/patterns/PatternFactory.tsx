@@ -1,5 +1,6 @@
 import { type SceneSettings } from '../../../store/sceneStore';
 import { type Photo } from './BasePattern';
+import { SlotManager } from './SlotManager';
 import { FloatPattern } from './FloatPattern';
 import { GridPattern } from './GridPattern';
 import { SpiralPattern } from './SpiralPattern';
@@ -21,3 +22,6 @@ export class PatternFactory {
     }
   }
 }
+
+// Export SlotManager for use in other components
+export { SlotManager };

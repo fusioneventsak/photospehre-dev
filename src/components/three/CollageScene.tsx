@@ -4,7 +4,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
 import * as THREE from 'three';
 import { type SceneSettings } from '../../store/sceneStore';
-import { PatternFactory } from './patterns/PatternFactory';
+import { PatternFactory, SlotManager } from './patterns/PatternFactory';
 import { addCacheBustToUrl } from '../../lib/supabase';
 
 type Photo = {
@@ -32,79 +32,6 @@ const POSITION_SMOOTHING = 0.1;
 const ROTATION_SMOOTHING = 0.1;
 const TELEPORT_THRESHOLD = 30;
 
-// ENHANCED: Stable slot assignment system that preserves slots during uploads
-class SlotManager {
-  private slotAssignments = new Map<string, number>();
-  private occupiedSlots = new Set<number>();
-  private availableSlots: number[] = [];
-  private totalSlots = 0;
-
-  constructor(totalSlots: number) {
-    this.updateSlotCount(totalSlots);
-  }
-
-  updateSlotCount(newTotal: number) {
-    if (newTotal === this.totalSlots) return;
-    
-    this.totalSlots = newTotal;
-    
-    for (const [photoId, slotIndex] of this.slotAssignments.entries()) {
-      if (slotIndex >= newTotal) {
-        this.slotAssignments.delete(photoId);
-        this.occupiedSlots.delete(slotIndex);
-      }
-    }
-    
-    this.rebuildAvailableSlots();
-  }
-
-  private rebuildAvailableSlots() {
-    this.availableSlots = [];
-    for (let i = 0; i < this.totalSlots; i++) {
-      if (!this.occupiedSlots.has(i)) {
-        this.availableSlots.push(i);
-      }
-    }
-    // Sort available slots to ensure consistent assignment order
-    this.availableSlots.sort((a, b) => a - b);
-  }
-
-  // CRITICAL FIX: Only assign new slots to new photos, preserve existing assignments
-  assignSlots(photos: Photo[]): Map<string, number> {
-    const safePhotos = Array.isArray(photos) ? photos.filter(p => p && p.id) : [];
-    
-    // Remove assignments for photos that no longer exist
-    const currentPhotoIds = new Set(safePhotos.map(p => p.id));
-    for (const [photoId, slotIndex] of this.slotAssignments.entries()) {
-      if (!currentPhotoIds.has(photoId)) {
-        this.slotAssignments.delete(photoId);
-        this.occupiedSlots.delete(slotIndex);
-      }
-    }
-
-    // Rebuild available slots after cleanup
-    this.rebuildAvailableSlots();
-
-    // Sort photos for consistent assignment order
-    const sortedPhotos = [...safePhotos].sort((a, b) => {
-      if (a.created_at && b.created_at) {
-        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-      }
-      return a.id.localeCompare(b.id);
-    });
-
-    // ONLY assign slots to NEW photos that don't have assignments yet
-    for (const photo of sortedPhotos) {
-      if (!this.slotAssignments.has(photo.id) && this.availableSlots.length > 0) {
-        const newSlot = this.availableSlots.shift()!;
-        this.slotAssignments.set(photo.id, newSlot);
-        this.occupiedSlots.add(newSlot);
-      }
-    }
-
-    return new Map(this.slotAssignments);
-  }
-}
 
 // Floor component - FIXED to use all settings properly  
 const Floor: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
@@ -375,7 +302,9 @@ const AnimationController: React.FC<{
   settings: SceneSettings;
   photos: Photo[];
   onPositionsUpdate: (photos: PhotoWithPosition[]) => void;
-}> = ({ settings, photos, onPositionsUpdate }) => {
+}> = React.memo(({ settings, photos, onPositionsUpdate }) => {
+  console.log(`🎮 AnimationController render - Photos count: ${photos.length}`);
+  
   // Use ref for photos to avoid unnecessary rerenders
   const photosRef = useRef(photos);
   
@@ -401,7 +330,7 @@ const AnimationController: React.FC<{
       // Use the ref value to avoid dependency on photos array
       const currentPhotos = photosRef.current;
       const safePhotos = Array.isArray(currentPhotos) ? currentPhotos.filter(p => p && p.id) : [];
-      const safeSettings = { ...settings } || {};
+      const safeSettings = { ...settings };
 
       // Log photo count for debugging
       if (safePhotos.length > 0) {
@@ -420,6 +349,11 @@ const AnimationController: React.FC<{
 
       // Get STABLE slot assignments - only new photos get new slots
       const slotAssignments = slotManagerRef.current.assignSlots(safePhotos);
+      
+      // Log slot assignments for debugging
+      if (safePhotos.length > 0) {
+        console.log(`🎮 Slot assignments: ${slotAssignments.size} slots assigned`);
+      }
       
       // Generate pattern positions with error handling
       let patternState;
@@ -450,7 +384,10 @@ const AnimationController: React.FC<{
       // CRITICAL: Preserve existing photo positions, only add new photos to new slots
       for (const photo of safePhotos) {
         const slotIndex = slotAssignments.get(photo.id);
-        if (slotIndex !== undefined && slotIndex < (safeSettings.photoCount || 100)) {
+        if (slotIndex !== undefined && slotIndex < (safeSettings.photoCount || 100)) {  
+          // Log when a real photo is assigned to a slot
+          console.log(`🎮 Real photo ${photo.id.slice(-6)} assigned to slot ${slotIndex}`);
+          
           photosWithPositions.push({
             ...photo,
             targetPosition: patternState.positions[slotIndex] || [0, 0, 0],
@@ -464,6 +401,7 @@ const AnimationController: React.FC<{
       // Add empty slots for remaining positions - STABLE ORDER
       for (let i = 0; i < (safeSettings.photoCount || 100); i++) {
         const hasPhoto = photosWithPositions.some(p => p.slotIndex === i);
+        
         if (!hasPhoto) {
           photosWithPositions.push({
             id: `placeholder-${i}`, // Stable ID for empty slots
@@ -474,6 +412,9 @@ const AnimationController: React.FC<{
             slotIndex: i,
           });
         }
+        
+        // Log the total number of empty slots
+        console.log(`🎮 Empty slots: ${photosWithPositions.filter(p => p.id.startsWith('placeholder-')).length}`);
       }
       
       // CRITICAL: Always sort by slot index for consistent order
@@ -491,6 +432,7 @@ const AnimationController: React.FC<{
           
           // If the photo ID changed at this position, it's a change
           if (!lastPhoto || lastPhoto.id !== photo.id) {
+            console.log(`🎮 Photo ID changed at position ${index}: ${lastPhoto?.id.slice(-6) || 'none'} -> ${photo.id.slice(-6)}`);
             return true;
           }
           
@@ -503,7 +445,9 @@ const AnimationController: React.FC<{
       if (positionsChanged) {
         // Log when positions are updated
         if (photosWithPositions.length !== lastPositionsRef.current.length) {
-          console.log(`🔄 Positions changed: ${lastPositionsRef.current.length} -> ${photosWithPositions.length}`);
+          console.log(`🎮 Positions count changed: ${lastPositionsRef.current.length} -> ${photosWithPositions.length}`);
+          console.log(`🎮 Real photos: ${photosWithPositions.filter(p => !p.id.startsWith('placeholder-')).length}`);
+          console.log(`🎮 Empty slots: ${photosWithPositions.filter(p => p.id.startsWith('placeholder-')).length}`);
         }
         
         lastPositionsRef.current = photosWithPositions;
@@ -519,10 +463,15 @@ const AnimationController: React.FC<{
     const photoCountChanged = (settings.photoCount || 100) !== lastPhotoCount.current;
     
     // Also check pattern-specific photo counts
-    const patternKey = settings.animationPattern as keyof typeof settings.patterns;
-    const patternPhotoCount = settings.patterns?.[patternKey]?.photoCount;
-    const patternPhotoCountChanged = patternPhotoCount !== undefined && 
-      patternPhotoCount !== lastPhotoCount.current;
+    let patternPhotoCountChanged = false;
+    let patternPhotoCount;
+    
+    if (settings.patterns) {
+      const patternKey = settings.animationPattern as keyof typeof settings.patterns;
+      patternPhotoCount = settings.patterns[patternKey]?.photoCount;
+      patternPhotoCountChanged = patternPhotoCount !== undefined && 
+        patternPhotoCount !== lastPhotoCount.current;
+    }
     
     if (photoCountChanged || patternPhotoCountChanged) {
       console.log('📊 PHOTO COUNT CHANGED: Force update', 
@@ -541,6 +490,7 @@ const AnimationController: React.FC<{
       const oldIds = lastPhotoIds.current ? lastPhotoIds.current.split(',').filter(Boolean) : [];
       const newIds = currentPhotoIds ? currentPhotoIds.split(',').filter(Boolean) : [];
       
+      // Calculate added and removed IDs
       const addedIds = newIds.filter(id => !oldIds.includes(id));
       const removedIds = oldIds.filter(id => !newIds.includes(id));
       
@@ -553,6 +503,9 @@ const AnimationController: React.FC<{
         
         if (removedIds.length > 0) {
           console.log('🗑️ Removed photo IDs:', removedIds.map(id => id.slice(-6)));
+          
+          // Force update positions when photos are removed
+          updatePositions(0);
         }
       }
       
@@ -564,7 +517,7 @@ const AnimationController: React.FC<{
       const safePhotos = Array.isArray(photos) ? photos.filter(p => p && p.id) : [];
       slotManagerRef.current.assignSlots(safePhotos);
     }
-  }, [currentPhotoIds, photos]);
+  }, [currentPhotoIds, photos, updatePositions]);
 
   // Regular animation updates
   useFrame((state) => {
@@ -579,12 +532,28 @@ const AnimationController: React.FC<{
     return () => {
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
+        console.log('🎮 Animation frame canceled on unmount');
       }
     };
   }, []);
 
   return null;
-};
+}, (prevProps, nextProps) => {
+  // Only re-render if photos array reference changes or settings change
+  const photosChanged = prevProps.photos !== nextProps.photos;
+  const settingsChanged = prevProps.settings !== nextProps.settings;
+  
+  if (photosChanged) {
+    console.log('🎮 AnimationController photos changed:', 
+      `${prevProps.photos.length} -> ${nextProps.photos.length}`);
+  }
+  
+  if (settingsChanged) {
+    console.log('🎮 AnimationController settings changed');
+  }
+  
+  return !photosChanged && !settingsChanged;
+});
 
 // Background renderer
 const BackgroundRenderer: React.FC<{ settings: SceneSettings }> = ({ settings }) => {

@@ -18,6 +18,7 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const { deletePhoto, fetchPhotosByCollageId } = useCollageStore();
+  const [localPhotos, setLocalPhotos] = useState<Photo[]>(photos);
   
   const collageId = photos.length > 0 ? photos[0].collage_id : null;
 
@@ -25,6 +26,7 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
   useEffect(() => {
     console.log('📸 MODAL: Photos prop changed!', photos.length);
     console.log('📸 MODAL: Photo IDs:', photos.map(p => p.id.slice(-6)));
+    setLocalPhotos(photos);
   }, [photos]);
 
   const handleDeletePhoto = async (photo: Photo) => {
@@ -40,13 +42,16 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
     
     try {
       console.log('🗑️ Attempting to delete photo:', photo.id);
-      console.log('📸 MODAL: Photos before deletion:', photos.length);
+      console.log('📸 MODAL: Photos before deletion:', localPhotos.length);
       
       // Use the store's delete method
       await deletePhoto(photo.id);
       
+      // Update local state immediately for better UX
+      setLocalPhotos(prevPhotos => prevPhotos.filter(p => p.id !== photo.id));
+      
       console.log('📸 MODAL: Delete operation completed');
-      console.log('📸 MODAL: Photos after deletePhoto call:', photos.length);
+      console.log('📸 MODAL: Photos after deletePhoto call:', localPhotos.length);
       
       console.log('✅ Photo deleted successfully');
     } catch (error: any) {
@@ -66,8 +71,13 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
     
     try {
       // Use the store's fetch method
-      await fetchPhotosByCollageId(collageId);
-      console.log('📸 MODAL: Manual refresh completed, photos count:', photos.length);
+      const result = await fetchPhotosByCollageId(collageId);
+      console.log('📸 MODAL: Manual refresh completed');
+      
+      // Update local state with fresh data
+      if (result) {
+        setLocalPhotos(result);
+      }
     } catch (err: any) {
       console.error('Failed to refresh photos:', err);
       setError(`Failed to refresh photos: ${err.message}`);
@@ -115,8 +125,8 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
         )}
 
         <div className="p-4 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 overflow-y-auto max-h-[calc(90vh-120px)]">
-          {photos.length > 0 ? (
-            photos.map((photo) => (
+          {localPhotos.length > 0 ? (
+            localPhotos.map((photo) => (
               <div
                 key={photo.id}
                 className="relative group aspect-[2/3] rounded-lg overflow-hidden cursor-pointer"
