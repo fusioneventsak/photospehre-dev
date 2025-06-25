@@ -19,6 +19,22 @@ import CollageScene from '../components/three/CollageScene';
 import PhotoUploader from '../components/collage/PhotoUploader';
 import RealtimeDebugPanel from '../components/debug/RealtimeDebugPanel';
 
+// Debug function to log subscription state
+const debugSubscription = () => {
+  const store = useCollageStore.getState();
+  console.log('🔍 VIEWER SUBSCRIPTION DEBUG:');
+  console.log('- Current collage ID:', store.currentCollage?.id);
+  console.log('- Realtime connected:', store.isRealtimeConnected);
+  console.log('- Channel topic:', store.realtimeChannel?.topic);
+  console.log('- Photos count:', store.photos?.length);
+  
+  // If no subscription, force one
+  if (store.currentCollage?.id && !store.isRealtimeConnected) {
+    console.log('⚠️ FORCING SUBSCRIPTION for collage:', store.currentCollage.id);
+    store.setupRealtimeSubscription(store.currentCollage.id);
+  }
+};
+
 // Debug flag for logging
 const DEBUG = false;
 
@@ -29,7 +45,7 @@ const CollageViewerPage: React.FC = () => {
   const { 
     currentCollage, 
     loading, 
-    error, 
+    error,
     photos,
     isRealtimeConnected,
     fetchCollageByCode,
@@ -37,6 +53,13 @@ const CollageViewerPage: React.FC = () => {
     cleanupRealtimeSubscription, 
     refreshPhotos
   } = useCollageStore();
+  
+  // ADD THIS TEMPORARY DEBUG
+  console.log('🔍 VIEWER STORE STATE:', {
+    collageId: currentCollage?.id,
+    connected: isRealtimeConnected,
+    photoCount: photos.length
+  });
   
   // SAFETY: Ensure photos is always an array
   const safePhotos = Array.isArray(photos) ? photos : [];
@@ -345,6 +368,13 @@ const CollageViewerPage: React.FC = () => {
       )}
       
       {/* Debug Realtime Status - Only visible in development */}
+      <button 
+        onClick={debugSubscription}
+        className="fixed top-20 left-4 bg-red-600 text-white px-3 py-1 rounded text-sm z-50"
+      >
+        Debug Subscription
+      </button>
+      
       {import.meta.env.DEV && (
         <div className="fixed bottom-4 right-4 z-20 w-64">
           <RealtimeDebugPanel collageId={currentCollage?.id} />
