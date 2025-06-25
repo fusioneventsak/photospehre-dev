@@ -34,11 +34,6 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
   const handleDeletePhoto = async (photo: Photo) => {
     if (deletingPhotoId === photo.id) return;
     
-    // Close preview if this was the selected photo
-    if (selectedPhoto?.id === photo.id) {
-      setSelectedPhoto(null);
-    }
-    
     setDeletingPhotoId(photo.id);
     setError(null);
     
@@ -47,12 +42,20 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
     try {
       console.log('🗑️ Attempting to delete photo:', photo.id);
       console.log('📸 MODAL: Photos count BEFORE deletion:', photos.length);
+      console.log('📸 MODAL: Current photo IDs BEFORE deletion:', photos.map(p => p.id.slice(-6)));
       
       // Use the store's delete method
       await deletePhoto(photo.id);
       
       console.log('✅ Photo deleted successfully from database');
       console.log('📸 MODAL: Photos count AFTER deletion:', photos.length);
+      console.log('📸 MODAL: Current photo IDs AFTER deletion:', photos.map(p => p.id.slice(-6)));
+      
+      // Close preview if this was the selected photo
+      if (selectedPhoto?.id === photo.id) {
+        console.log('📸 MODAL: Closing preview for deleted photo:', photo.id);
+        setSelectedPhoto(null);
+      }
     } catch (error: any) {
       console.error('Failed to delete photo:', error);
       setError(`Failed to delete photo: ${error.message}`);
