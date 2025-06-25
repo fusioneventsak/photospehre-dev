@@ -10,24 +10,28 @@ export type SceneSettings = {
       spacing: number;
       aspectRatio: number;
       wallHeight: number;
+      photoCount?: number;
     };
     float: {
       enabled: boolean;
       spacing: number;
       height: number;
       spread: number;
+      photoCount?: number;
     };
     wave: {
       enabled: boolean;
       spacing: number;
       amplitude: number;
       frequency: number;
+      photoCount?: number;
     };
     spiral: {
       enabled: boolean;
       spacing: number;
       radius: number;
       heightStep: number;
+      photoCount?: number;
     };
   };
   animationSpeed: number;
@@ -122,25 +126,29 @@ const defaultSettings: SceneSettings = {
       enabled: true,
       spacing: 0.1,
       aspectRatio: 1.77778,
-      wallHeight: 0
+      wallHeight: 0,
+      photoCount: 50
     },
     float: {
       enabled: false,
       spacing: 0.1,
       height: 30,
-      spread: 25
+      spread: 25,
+      photoCount: 100
     },
     wave: {
       enabled: false,
       spacing: 0.15,
       amplitude: 5,
-      frequency: 0.5
+      frequency: 0.5,
+      photoCount: 75
     },
     spiral: {
       enabled: false,
       spacing: 0.1,
       radius: 15,
-      heightStep: 0.5
+      heightStep: 0.5,
+      photoCount: 150
     }
   }
 };
@@ -188,6 +196,8 @@ export const useSceneStore = create<SceneState>()((set, get) => {
     if (newSettings.animationPattern && newSettings.animationPattern !== currentSettings.animationPattern) {
       // Update enabled states for patterns
       const updatedPatterns = { ...currentSettings.patterns };
+      const oldPattern = currentSettings.animationPattern;
+      const newPattern = newSettings.animationPattern;
       
       // Disable all patterns first
       Object.keys(updatedPatterns).forEach(pattern => {
@@ -195,8 +205,13 @@ export const useSceneStore = create<SceneState>()((set, get) => {
       });
       
       // Enable the selected pattern
-      if (newSettings.animationPattern && updatedPatterns[newSettings.animationPattern]) {
-        updatedPatterns[newSettings.animationPattern].enabled = true;
+      if (newPattern && updatedPatterns[newPattern]) {
+        updatedPatterns[newPattern].enabled = true;
+        
+        // Update the global photoCount based on the pattern-specific photoCount
+        if (updatedPatterns[newPattern].photoCount !== undefined) {
+          newSettings.photoCount = updatedPatterns[newPattern].photoCount;
+        }
       }
       
       // Update the patterns in newSettings
