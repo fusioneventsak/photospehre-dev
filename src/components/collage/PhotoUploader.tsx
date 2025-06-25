@@ -104,6 +104,9 @@ const PhotoUploader: React.FC<PhotoUploaderProps> = ({ collageId, onUploadComple
           // Upload the photo
           await uploadPhoto(collageId, upload.file);
           
+          // No need to wait for realtime - the store already adds the photo to state
+          // This gives immediate feedback to the user
+          
           clearInterval(progressInterval);
           updateFileStatus(upload.id, { 
             status: 'success', 
@@ -111,7 +114,11 @@ const PhotoUploader: React.FC<PhotoUploaderProps> = ({ collageId, onUploadComple
           });
 
           // Call completion callback
-          onUploadComplete?.();
+          if (onUploadComplete) {
+            setTimeout(() => {
+              onUploadComplete();
+            }, 500); // Small delay to allow state updates to propagate
+          }
 
         } catch (error: any) {
           console.error('Upload failed:', error);

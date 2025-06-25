@@ -23,14 +23,16 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
     setDeletingPhotoId(photo.id);
     setError(null);
     
+    // Close preview if this was the selected photo
+    if (selectedPhoto?.id === photo.id) {
+      setSelectedPhoto(null);
+    }
+    
     try {
       console.log('🗑️ Attempting to delete photo:', photo.id);
       // Use the store's delete method
       await deletePhoto(photo.id);
       
-      if (selectedPhoto?.id === photo.id) {
-        setSelectedPhoto(null);
-      }
       console.log('✅ Photo deleted successfully');
     } catch (error: any) {
       console.error('Failed to delete photo:', error);

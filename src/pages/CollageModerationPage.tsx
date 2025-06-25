@@ -4,6 +4,7 @@ import { useParams, Link } from 'react-router-dom';
 import { ChevronLeft, Shield, RefreshCw, Trash2, Eye, AlertCircle } from 'lucide-react';
 import { useCollageStore } from '../store/collageStore';
 import Layout from '../components/layout/Layout';
+import RealtimeStatus from '../components/debug/RealtimeStatus';
 
 const CollageModerationPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -342,6 +343,13 @@ const CollageModerationPage: React.FC = () => {
           </div>
         )}
       </div>
+      
+      {/* Debug Realtime Status - Only visible in development */}
+      {import.meta.env.DEV && (
+        <div className="fixed bottom-4 right-4 z-20 w-64">
+          <RealtimeStatus collageId={currentCollage?.id} />
+        </div>
+      )}
     </Layout>
   );
 };

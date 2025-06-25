@@ -23,7 +23,10 @@ const CollagePhotos: React.FC<CollagePhotosProps> = ({ collageId, onManualRefres
   useEffect(() => {
     if (collageId) {
       // Fetch initial photos
-      fetchPhotosByCollageId(collageId);
+      console.log('🔄 Initial photo fetch for collage:', collageId);
+      fetchPhotosByCollageId(collageId).catch(err => {
+        console.error('❌ Error fetching initial photos:', err);
+      });
 
       // Setup real-time subscription for this collage
       setupRealtimeSubscription(collageId);
@@ -37,7 +40,9 @@ const CollagePhotos: React.FC<CollagePhotosProps> = ({ collageId, onManualRefres
 
   const handleDeletePhoto = async (photoId: string) => {
     try {
+      console.log('🗑️ Deleting photo from CollagePhotos component:', photoId);
       await deletePhoto(photoId);
+      console.log('✅ Photo deleted successfully');
     } catch (error) {
       console.error('Failed to delete photo:', error);
     }
