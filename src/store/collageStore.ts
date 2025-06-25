@@ -247,28 +247,15 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
           else if (payload.eventType === 'DELETE' && payload.old) {
             console.log('🗑️ REALTIME DELETE:', payload.old.id, 'for collage:', collageId);
             // Force immediate state update for deletions
-            const photoId = payload.old.id;
-            get().removePhotoFromState(photoId);
+            get().removePhotoFromState(payload.old.id);
             
             // Double-check that the photo was actually removed
             setTimeout(() => {
               const currentPhotos = get().photos;
-              const stillExists = currentPhotos.some(p => p.id === photoId);
+              const stillExists = currentPhotos.some(p => p.id === payload.old.id);
               if (stillExists) {
-                console.log('⚠️ Photo still exists after deletion, forcing another removal:', photoId);
-                get().removePhotoFromState(photoId);
-              }
-            }, 200); // Increased timeout for more reliable checking
-            const photoId = payload.old.id;
-            get().removePhotoFromState(photoId);
-            
-            // Double-check that the photo was actually removed
-            setTimeout(() => {
-              const currentPhotos = get().photos;
-              const stillExists = currentPhotos.some(p => p.id === photoId);
-              if (stillExists) {
-                console.log('⚠️ Photo still exists after deletion, forcing another removal:', photoId);
-                get().removePhotoFromState(photoId);
+                console.log('⚠️ Photo still exists after deletion, forcing another removal:', payload.old.id);
+                get().removePhotoFromState(payload.old.id);
               }
             }, 200); // Increased timeout for more reliable checking
           }
@@ -346,7 +333,6 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
   fetchPhotosByCollageId: async (collageId: string) => {
     try {
       console.log('📸 Fetching photos for collage:', collageId);
-      const startTime = Date.now();
       const startTime = Date.now();
       
       const { data, error } = await supabase
