@@ -156,23 +156,35 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
 
   // Remove photo from state - ENHANCED
   removePhotoFromState: (photoId: string) => {
-    console.log('🗑️ Removing photo from state:', photoId);
+    console.log('🗑️ BEFORE removePhotoFromState - Current photos count:', get().photos.length);
+    console.log('🗑️ Removing photo with ID:', photoId);
+    
     set((state) => {
       const beforeCount = state.photos.length;
+      console.log('🗑️ Photos array reference BEFORE:', state.photos);
+      
       const newPhotos = state.photos.filter(p => p.id !== photoId);
+      
+      console.log('🗑️ Photos array reference AFTER:', newPhotos);
       const afterCount = newPhotos.length;
       
       console.log(`🗑️ Photos: ${beforeCount} -> ${afterCount}`);
       
       if (beforeCount === afterCount) {
-        console.log('⚠️ Photo not found in state for removal:', photoId);
+        console.log('⚠️ WARNING: Photo not found in state for removal:', photoId);
+        console.log('⚠️ Current photo IDs:', state.photos.map(p => p.id));
       }
       
-      return {
+      const newState = {
         photos: newPhotos,
         lastRefreshTime: Date.now()
       };
+      
+      console.log('🗑️ Setting new state:', newState);
+      return newState;
     });
+    
+    console.log('🗑️ AFTER removePhotoFromState - Current photos count:', get().photos.length);
   },
 
   // Enhanced realtime subscription with better error handling

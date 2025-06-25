@@ -6,7 +6,9 @@ import { useCollageStore } from '../store/collageStore';
 import Layout from '../components/layout/Layout';
 import RealtimeStatus from '../components/debug/RealtimeStatus';
 
-const CollageModerationPage: React.FC = () => {
+const CollageModerationPage: React.FC = () => {  
+  console.log('🛡️ MODERATION PAGE RENDER');
+  
   const { id } = useParams<{ id: string }>();
   const { 
     currentCollage, 
@@ -23,6 +25,13 @@ const CollageModerationPage: React.FC = () => {
   
   // SAFETY: Ensure photos is always an array
   const safePhotos = Array.isArray(photos) ? photos : [];
+  
+  // Log when photos array reference changes
+  useEffect(() => {
+    console.log('🛡️ MODERATION: Photos array reference changed!', safePhotos);
+    console.log('🛡️ Photo count:', safePhotos.length);
+    console.log('🛡️ Photo IDs:', safePhotos.map(p => p.id.slice(-6)));
+  }, [safePhotos]);
   
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -52,11 +61,13 @@ const CollageModerationPage: React.FC = () => {
   const handleRefresh = async () => {
     if (!currentCollage?.id) return;
     
+    console.log('🛡️ MODERATION: Manual refresh triggered');
     setIsRefreshing(true);
     setFetchError(null);
     
     try {
       await refreshPhotos(currentCollage.id);
+      console.log('🛡️ MODERATION: Manual refresh completed, photos count:', photos.length);
       console.log('🛡️ MODERATION: Photos refreshed successfully');
     } catch (error: any) {
       console.error('🛡️ MODERATION: Error refreshing photos:', error);
@@ -69,6 +80,8 @@ const CollageModerationPage: React.FC = () => {
   const handleDeletePhoto = async (photoId: string) => {
     if (deletingPhotos.has(photoId)) return;
     
+    console.log('🛡️ MODERATION: handleDeletePhoto called with ID:', photoId);
+    
     const confirmed = window.confirm('Delete this photo? It will be removed from all views immediately.');
     if (!confirmed) return;
 
@@ -76,8 +89,12 @@ const CollageModerationPage: React.FC = () => {
     
     try {
       console.log('🗑️ MODERATION: Deleting photo:', photoId);
+      console.log('🛡️ MODERATION: Photos before deletion:', photos.length);
+      
       await deletePhoto(photoId);
+      
       console.log('✅ MODERATION: Photo deleted successfully');
+      console.log('🛡️ MODERATION: Photos after deletion:', photos.length);
       
       // Close modal if deleted photo was selected
       if (selectedPhoto?.id === photoId) {
@@ -87,7 +104,9 @@ const CollageModerationPage: React.FC = () => {
     } catch (error: any) {
       console.error('❌ MODERATION: Delete failed:', error);
       if (!error.message.includes('0 rows')) {
-        alert(`Failed to delete photo: ${error.message}`);
+        const errorMsg = `Failed to delete photo: ${error.message}`;
+        console.error('❌ MODERATION:', errorMsg);
+        alert(errorMsg);
       }
     } finally {
       setDeletingPhotos(prev => {

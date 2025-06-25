@@ -5,11 +5,14 @@ import { addCacheBustToUrl } from '../../lib/supabase';
 import { useCollageStore } from '../../store/collageStore';
 
 type PhotoModerationModalProps = {
+  key?: string; // Add key prop to force re-render
   photos: Photo[];
   onClose: () => void;
 };
 
 const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onClose }) => {
+  console.log('📸 PHOTO MODERATION MODAL RENDER', photos.length);
+  
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
   const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -18,10 +21,17 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
   
   const collageId = photos.length > 0 ? photos[0].collage_id : null;
 
+  // Log when photos prop changes
+  useEffect(() => {
+    console.log('📸 MODAL: Photos prop changed!', photos.length);
+    console.log('📸 MODAL: Photo IDs:', photos.map(p => p.id.slice(-6)));
+  }, [photos]);
 
   const handleDeletePhoto = async (photo: Photo) => {
     setDeletingPhotoId(photo.id);
     setError(null);
+    
+    console.log('📸 MODAL: handleDeletePhoto called with ID:', photo.id);
     
     // Close preview if this was the selected photo
     if (selectedPhoto?.id === photo.id) {
@@ -30,8 +40,13 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
     
     try {
       console.log('🗑️ Attempting to delete photo:', photo.id);
+      console.log('📸 MODAL: Photos before deletion:', photos.length);
+      
       // Use the store's delete method
       await deletePhoto(photo.id);
+      
+        console.log('📸 MODAL: Closing selected photo preview');
+      console.log('📸 MODAL: Photos after deletePhoto call:', photos.length);
       
       console.log('✅ Photo deleted successfully');
     } catch (error: any) {
@@ -45,12 +60,14 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
   const handleRefresh = async () => {
     if (!collageId) return;
     
+    console.log('📸 MODAL: Manual refresh triggered');
     setRefreshing(true);
     setError(null);
     
     try {
       // Use the store's fetch method
       await fetchPhotosByCollageId(collageId);
+      console.log('📸 MODAL: Manual refresh completed');
     } catch (err: any) {
       console.error('Failed to refresh photos:', err);
       setError(`Failed to refresh photos: ${err.message}`);
