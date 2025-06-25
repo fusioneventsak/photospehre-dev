@@ -779,8 +779,6 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
         console.log('🗑️ Calling removePhotoFromState from deletePhoto');
         get().removePhotoFromState(photoId);
         console.log('🗑️ Photos count AFTER removePhotoFromState:', get().photos.length);
-      } else {
-        console.log('✅ Photo record deleted from database, ID:', photoId);
       }
 
       // Delete from storage
