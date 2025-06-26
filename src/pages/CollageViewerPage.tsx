@@ -1,346 +1,364 @@
-// src/pages/CollageViewerPage.tsx - Clean version with transparent header
-import React, { useEffect, useState, useCallback } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Share2, Upload, Edit, Maximize2, ChevronLeft, Camera, X } from 'lucide-react';
+// src/components/CollageScene.tsx - FIXED: Proper lighting and empty state handling
+import React, { useMemo, useRef, useEffect, Suspense } from 'react';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { OrbitControls } from '@react-three/drei';
+import * as THREE from 'three';
 import { useCollageStore } from '../store/collageStore';
-import { ErrorBoundary } from 'react-error-boundary';
-import CollageScene from '../components/three/CollageScene';
-import PhotoUploader from '../components/collage/PhotoUploader';
 
-// Error fallback component for 3D scene errors
-function SceneErrorFallback({ error, resetErrorBoundary }: { error: Error; resetErrorBoundary: () => void }) {
-  return (
-    <div className="bg-red-900/30 backdrop-blur-sm rounded-lg border border-red-500/50 p-6 flex flex-col items-center justify-center h-[calc(100vh-200px)]">
-      <h3 className="text-xl font-bold text-white mb-2">Something went wrong rendering the scene</h3>
-      <p className="text-red-200 mb-4 text-center max-w-md">
-        There was an error loading the 3D scene. This could be due to WebGL issues or resource limitations.
-      </p>
-      <pre className="bg-black/50 p-3 rounded text-red-300 text-xs max-w-full overflow-auto mb-4 max-h-32">
-        {error.message}
-      </pre>
-      <button
-        onClick={resetErrorBoundary}
-        className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors"
-      >
-        Try Again
-      </button>
-    </div>
-  );
+interface Photo {
+  id: string;
+  url: string;
+  created_at: string;
 }
 
-const CollageViewerPage: React.FC = () => {
-  const { code } = useParams<{ code: string }>();
-  const { 
-    currentCollage, 
-    photos, 
-    fetchCollageByCode, 
-    loading, 
-    error, 
-    isRealtimeConnected,
-    refreshPhotos,
-    cleanupRealtimeSubscription
-  } = useCollageStore();
-  
-  // SAFETY: Ensure photos is always an array
-  const safePhotos = Array.isArray(photos) ? photos : [];
-  
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [showUploader, setShowUploader] = useState(false);
-  const [controlsVisible, setControlsVisible] = useState(true);
-  const navigate = useNavigate();
+interface SceneSettings {
+  photoCount?: number;
+  backgroundColor?: string;
+  backgroundGradient?: boolean;
+  backgroundGradientStart?: string;
+  backgroundGradientEnd?: string;
+  backgroundGradientAngle?: number;
+  ambientLightIntensity?: number;
+  spotlightIntensity?: number;
+  cameraDistance?: number;
+  cameraHeight?: number;
+  cameraRotationEnabled?: boolean;
+  cameraRotationSpeed?: number;
+  showFloor?: boolean;
+  floorColor?: string;
+  showGrid?: boolean;
+  shadowsEnabled?: boolean;
+  [key: string]: any;
+}
 
-  // Close modal when clicking outside
-  const handleModalBackdropClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) {
-      setShowUploader(false);
-    }
-  };
+interface CollageSceneProps {
+  photos?: Photo[];
+  settings?: Partial<SceneSettings>;
+}
 
-  // Normalize code to uppercase for consistent database lookup
-  const normalizedCode = code?.toUpperCase();
+// Default settings with good lighting
+const DEFAULT_SETTINGS: SceneSettings = {
+  photoCount: 50,
+  backgroundColor: '#1a1a1a',
+  backgroundGradient: false,
+  backgroundGradientStart: '#000000',
+  backgroundGradientEnd: '#1a1a1a',
+  backgroundGradientAngle: 45,
+  ambientLightIntensity: 0.6,
+  spotlightIntensity: 1.0,
+  cameraDistance: 20,
+  cameraHeight: 0,
+  cameraRotationEnabled: false,
+  cameraRotationSpeed: 0.5,
+  showFloor: true,
+  floorColor: '#2a2a2a',
+  showGrid: false,
+  shadowsEnabled: true
+};
 
-  // Load collage on mount
+// Simple photo component for testing
+const SimplePhoto: React.FC<{ position: [number, number, number]; photoUrl: string }> = ({ position, photoUrl }) => {
+  const meshRef = useRef<THREE.Mesh>(null);
+  const [texture, setTexture] = React.useState<THREE.Texture | null>(null);
+
   useEffect(() => {
-    if (normalizedCode) {
-      console.log('🔍 Fetching collage with code:', normalizedCode);
-      fetchCollageByCode(normalizedCode);
-    }
-    
-    return () => {
-      console.log('🧹 Cleaning up realtime subscription');
-      cleanupRealtimeSubscription();
-    };
-  }, [normalizedCode, fetchCollageByCode, cleanupRealtimeSubscription]);
-
-  // Manual refresh for debugging
-  const handleManualRefresh = useCallback(async () => {
-    if (currentCollage?.id) {
-      console.log('🔄 Manual refresh triggered');
-      await refreshPhotos(currentCollage.id);
-    }
-  }, [currentCollage?.id, refreshPhotos]);
-
-  // Handle fullscreen toggle
-  const toggleFullscreen = async () => {
-    try {
-      if (!document.fullscreenElement) {
-        await document.documentElement.requestFullscreen();
-        setIsFullscreen(true);
-        setTimeout(() => setControlsVisible(false), 3000);
-      } else {
-        await document.exitFullscreen();
-        setIsFullscreen(false);
-        setControlsVisible(true);
+    const loader = new THREE.TextureLoader();
+    loader.load(
+      photoUrl,
+      (loadedTexture) => {
+        loadedTexture.colorSpace = THREE.SRGBColorSpace;
+        setTexture(loadedTexture);
+      },
+      undefined,
+      (error) => {
+        console.error('Error loading texture:', error);
+        // Create a placeholder texture
+        const canvas = document.createElement('canvas');
+        canvas.width = 256;
+        canvas.height = 256;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.fillStyle = '#666666';
+          ctx.fillRect(0, 0, 256, 256);
+          ctx.fillStyle = '#ffffff';
+          ctx.font = '20px Arial';
+          ctx.textAlign = 'center';
+          ctx.fillText('Photo', 128, 128);
+        }
+        const fallbackTexture = new THREE.CanvasTexture(canvas);
+        setTexture(fallbackTexture);
       }
-    } catch (err) {
-      console.error('Error toggling fullscreen:', err);
-    }
-  };
-
-  // Handle escape key to close modal
-  useEffect(() => {
-    const handleEscapeKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && showUploader) {
-        setShowUploader(false);
-      }
-    };
-
-    document.addEventListener('keydown', handleEscapeKey);
-    return () => {
-      document.removeEventListener('keydown', handleEscapeKey);
-    };
-  }, [showUploader]);
-
-  // Show/hide controls in fullscreen
-  useEffect(() => {
-    if (isFullscreen) {
-      const showControls = () => {
-        setControlsVisible(true);
-        setTimeout(() => setControlsVisible(false), 3000);
-      };
-
-      const handleMouseMove = () => showControls();
-      const handleKeyPress = () => showControls();
-
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('keydown', handleKeyPress);
-      document.addEventListener('click', handleMouseMove);
-
-      return () => {
-        document.removeEventListener('mousemove', handleMouseMove);
-        document.removeEventListener('keydown', handleKeyPress);
-        document.removeEventListener('click', handleMouseMove);
-      };
-    }
-  }, [isFullscreen]);
-
-  const handleCopyLink = () => {
-    navigator.clipboard.writeText(window.location.href);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  if (loading && !currentCollage) {
-    return (
-      <div className="min-h-screen bg-black">
-        <div className="min-h-[calc(100vh-160px)] flex items-center justify-center">
-          <div className="text-center">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
-            <p className="mt-2 text-gray-400">Loading collage...</p>
-            <p className="text-gray-500 text-sm mt-1">
-              Looking for: {normalizedCode}
-            </p>
-          </div>
-        </div>
-      </div>
     );
-  }
-
-  if (error || !currentCollage) {
-    return (
-      <div className="min-h-screen bg-black">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="text-center py-12">
-            <h2 className="text-2xl font-bold text-white mb-4">Collage Not Found</h2>
-            <p className="text-gray-400 mb-6">
-              {error || `The collage "${normalizedCode}" doesn't exist or might have been removed.`}
-            </p>
-            <div className="space-x-4">
-              <Link
-                to="/join"
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700"
-              >
-                Try Another Code
-              </Link>
-              <Link
-                to="/"
-                className="inline-flex items-center px-4 py-2 border border-gray-600 text-sm font-medium rounded-md text-gray-300 hover:text-white hover:border-gray-500"
-              >
-                Go Home
-              </Link>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  }, [photoUrl]);
 
   return (
-    <div className="relative w-full h-screen bg-black overflow-hidden">
-      {/* Main 3D Scene */}
-      <ErrorBoundary 
-        FallbackComponent={SceneErrorFallback}
-        resetKeys={[currentCollage.id, safePhotos.length]}
+    <mesh ref={meshRef} position={position} castShadow receiveShadow>
+      <planeGeometry args={[3, 2]} />
+      <meshStandardMaterial 
+        map={texture} 
+        side={THREE.DoubleSide}
+        transparent={false}
+        alphaTest={0.1}
+      />
+    </mesh>
+  );
+};
+
+// Placeholder photo for empty state
+const PlaceholderPhoto: React.FC<{ position: [number, number, number] }> = ({ position }) => {
+  return (
+    <mesh position={position}>
+      <planeGeometry args={[3, 2]} />
+      <meshStandardMaterial 
+        color="#444444" 
+        transparent={true} 
+        opacity={0.3}
+        side={THREE.DoubleSide}
+      />
+    </mesh>
+  );
+};
+
+// Scene lighting component
+const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
+  return (
+    <>
+      {/* Ambient light for overall scene illumination */}
+      <ambientLight 
+        intensity={settings.ambientLightIntensity || 0.6} 
+        color="#ffffff" 
+      />
+      
+      {/* Key light from top-front */}
+      <directionalLight
+        position={[10, 10, 5]}
+        intensity={settings.spotlightIntensity || 1.0}
+        color="#ffffff"
+        castShadow={settings.shadowsEnabled}
+        shadow-mapSize={[2048, 2048]}
+        shadow-camera-far={50}
+        shadow-camera-left={-20}
+        shadow-camera-right={20}
+        shadow-camera-top={20}
+        shadow-camera-bottom={-20}
+      />
+      
+      {/* Fill light from the side */}
+      <directionalLight
+        position={[-5, 5, 5]}
+        intensity={(settings.spotlightIntensity || 1.0) * 0.3}
+        color="#ffffff"
+      />
+      
+      {/* Back light for rim lighting */}
+      <directionalLight
+        position={[0, 5, -10]}
+        intensity={(settings.spotlightIntensity || 1.0) * 0.2}
+        color="#ffffff"
+      />
+    </>
+  );
+};
+
+// Floor component
+const Floor: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
+  if (!settings.showFloor) return null;
+
+  return (
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -10, 0]} receiveShadow>
+      <planeGeometry args={[100, 100]} />
+      <meshStandardMaterial 
+        color={settings.floorColor || '#2a2a2a'} 
+        roughness={0.8}
+        metalness={0.1}
+      />
+    </mesh>
+  );
+};
+
+// Camera controller
+const CameraController: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
+  const { camera } = useThree();
+  const controlsRef = useRef<any>();
+
+  // Set initial camera position
+  useEffect(() => {
+    if (camera) {
+      const distance = settings.cameraDistance || 20;
+      const height = settings.cameraHeight || 0;
+      camera.position.set(distance * 0.7, height + 5, distance * 0.7);
+      camera.lookAt(0, height, 0);
+    }
+  }, [camera, settings.cameraDistance, settings.cameraHeight]);
+
+  // Auto rotation
+  useFrame((state, delta) => {
+    if (settings.cameraRotationEnabled && controlsRef.current) {
+      controlsRef.current.autoRotate = true;
+      controlsRef.current.autoRotateSpeed = (settings.cameraRotationSpeed || 0.5) * 10;
+    } else if (controlsRef.current) {
+      controlsRef.current.autoRotate = false;
+    }
+  });
+
+  return (
+    <OrbitControls
+      ref={controlsRef}
+      enablePan={true}
+      enableZoom={true}
+      enableRotate={true}
+      minDistance={5}
+      maxDistance={100}
+      minPolarAngle={Math.PI / 6}
+      maxPolarAngle={Math.PI - Math.PI / 6}
+      enableDamping={true}
+      dampingFactor={0.05}
+      autoRotate={settings.cameraRotationEnabled || false}
+      autoRotateSpeed={(settings.cameraRotationSpeed || 0.5) * 10}
+    />
+  );
+};
+
+// Photo grid layout
+const PhotoGrid: React.FC<{ photos: Photo[]; settings: SceneSettings }> = ({ photos, settings }) => {
+  const positions = useMemo(() => {
+    const gridSize = Math.ceil(Math.sqrt(Math.max(photos.length, 9))); // At least 3x3 grid
+    const spacing = 4;
+    const offset = (gridSize - 1) * spacing / 2;
+    
+    const positions: [number, number, number][] = [];
+    
+    for (let i = 0; i < gridSize; i++) {
+      for (let j = 0; j < gridSize; j++) {
+        const x = i * spacing - offset;
+        const z = j * spacing - offset;
+        const y = Math.sin(i * 0.5) * Math.cos(j * 0.5) * 2; // Slight wave effect
+        positions.push([x, y, z]);
+      }
+    }
+    
+    return positions;
+  }, [photos.length]);
+
+  return (
+    <group>
+      {positions.map((position, index) => {
+        const photo = photos[index];
+        if (photo) {
+          return (
+            <SimplePhoto
+              key={photo.id}
+              position={position}
+              photoUrl={photo.url}
+            />
+          );
+        } else {
+          // Show placeholder for empty slots if we have fewer photos than positions
+          return (
+            <PlaceholderPhoto
+              key={`placeholder-${index}`}
+              position={position}
+            />
+          );
+        }
+      })}
+    </group>
+  );
+};
+
+// Loading fallback
+const SceneFallback: React.FC = () => {
+  return (
+    <mesh>
+      <boxGeometry args={[1, 1, 1]} />
+      <meshStandardMaterial color="#666666" />
+    </mesh>
+  );
+};
+
+// Main CollageScene component
+const CollageScene: React.FC<CollageSceneProps> = ({ photos = [], settings = {} }) => {
+  console.log('🎬 CollageScene render:', { photoCount: photos.length, hasSettings: !!settings });
+  
+  const mergedSettings = { ...DEFAULT_SETTINGS, ...settings };
+  
+  // Create background style
+  const backgroundStyle = useMemo(() => {
+    if (mergedSettings.backgroundGradient) {
+      return {
+        background: `linear-gradient(${mergedSettings.backgroundGradientAngle}deg, ${mergedSettings.backgroundGradientStart}, ${mergedSettings.backgroundGradientEnd})`
+      };
+    }
+    return {
+      background: mergedSettings.backgroundColor
+    };
+  }, [mergedSettings]);
+
+  return (
+    <div style={backgroundStyle} className="w-full h-full">
+      <Canvas
+        shadows={mergedSettings.shadowsEnabled}
+        camera={{ 
+          position: [15, 5, 15], 
+          fov: 75,
+          near: 0.1,
+          far: 1000
+        }}
+        gl={{ 
+          antialias: true,
+          alpha: false,
+          powerPreference: "high-performance",
+          toneMapping: THREE.ACESFilmicToneMapping,
+          toneMappingExposure: 1.0,
+        }}
+        onCreated={(state) => {
+          state.gl.shadowMap.enabled = mergedSettings.shadowsEnabled || true;
+          state.gl.shadowMap.type = THREE.PCFSoftShadowMap;
+          state.gl.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+          
+          // Set clear color
+          state.gl.setClearColor(mergedSettings.backgroundColor || '#1a1a1a');
+        }}
       >
-        <CollageScene 
-          photos={safePhotos}
-          settings={currentCollage.settings}
-          onSettingsChange={(newSettings) => {
-            console.log('🎛️ Settings changed from viewer:', newSettings);
-          }}
-        />
-      </ErrorBoundary>
-
-      {/* Transparent Header - Only shown when controls are visible */}
-      {controlsVisible && (
-        <div className="absolute top-0 left-0 right-0 z-20">
-          <div className="bg-black/40 backdrop-blur-sm border-b border-white/10">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="flex items-center justify-between h-16">
-                {/* Left side - Navigation & Title */}
-                <div className="flex items-center space-x-4">
-                  <Link 
-                    to="/join" 
-                    className="text-gray-300 hover:text-white transition-colors p-2 hover:bg-white/10 rounded-lg"
-                  >
-                    <ChevronLeft className="w-5 h-5" />
-                  </Link>
-                  <div>
-                    <h1 className="text-lg font-semibold text-white">
-                      {currentCollage.name}
-                    </h1>
-                    <div className="flex items-center space-x-2 text-sm text-gray-400">
-                      <span>Code: {currentCollage.code}</span>
-                      <span>•</span>
-                      <span>{safePhotos.length} photos</span>
-                      <span>•</span>
-                      <div className="flex items-center space-x-1">
-                        <div className={`w-2 h-2 rounded-full ${isRealtimeConnected ? 'bg-green-400' : 'bg-yellow-400'}`}></div>
-                        <span>{isRealtimeConnected ? 'Live' : 'Offline'}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Right side - Actions */}
-                <div className="flex items-center space-x-2">
-                  {/* Photobooth Link */}
-                  <Link
-                    to={`/photobooth/${currentCollage.code}`}
-                    className="inline-flex items-center space-x-2 px-3 py-2 bg-purple-600/80 hover:bg-purple-600 text-white text-sm rounded-lg transition-colors backdrop-blur-sm"
-                  >
-                    <Camera className="w-4 h-4" />
-                    <span className="hidden sm:inline">Photobooth</span>
-                  </Link>
-
-                  {/* Upload Photos */}
-                  <button
-                    onClick={() => setShowUploader(!showUploader)}
-                    className="inline-flex items-center space-x-2 px-3 py-2 bg-blue-600/80 hover:bg-blue-600 text-white text-sm rounded-lg transition-colors backdrop-blur-sm"
-                  >
-                    <Upload className="w-4 h-4" />
-                    <span className="hidden sm:inline">Upload</span>
-                  </button>
-
-                  {/* Share */}
-                  <button
-                    onClick={handleCopyLink}
-                    className="inline-flex items-center space-x-2 px-3 py-2 bg-gray-600/80 hover:bg-gray-600 text-white text-sm rounded-lg transition-colors backdrop-blur-sm"
-                  >
-                    <Share2 className="w-4 h-4" />
-                    <span className="hidden sm:inline">{copied ? 'Copied!' : 'Share'}</span>
-                  </button>
-
-                  {/* Fullscreen */}
-                  <button
-                    onClick={toggleFullscreen}
-                    className="p-2 bg-gray-600/80 hover:bg-gray-600 text-white rounded-lg transition-colors backdrop-blur-sm"
-                  >
-                    <Maximize2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Photo Uploader Modal */}
-      {showUploader && (
-        <div 
-          className="fixed inset-0 z-30 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
-          onClick={handleModalBackdropClick}
-        >
-          <div className="bg-gray-900 rounded-xl shadow-2xl w-full max-w-lg my-8 mx-auto">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-700 sticky top-0 bg-gray-900 rounded-t-xl">
-              <h3 className="text-xl font-semibold text-white">Upload Photos</h3>
-              <button
-                onClick={() => setShowUploader(false)}
-                className="text-gray-400 hover:text-white transition-colors p-1 hover:bg-gray-700 rounded"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-            
-            {/* Modal Content - Scrollable */}
-            <div className="p-6 max-h-[calc(100vh-12rem)] overflow-y-auto">
-              <div className="space-y-4">
-                {/* Upload Instructions */}
-                <div className="text-center text-gray-300 text-sm">
-                  <p>Share your photos with the collage!</p>
-                  <p className="text-gray-400 text-xs mt-1">Supported: JPG, PNG, GIF, WebP (max 10MB)</p>
-                </div>
-                
-                {/* Photo Uploader Component */}
-                <div className="min-h-[200px]">
-                  <PhotoUploader 
-                    collageId={currentCollage.id}
-                    onUploadComplete={() => {
-                      console.log('📸 Photo upload completed from modal');
-                      if (!isRealtimeConnected) {
-                        handleManualRefresh();
-                      }
-                      // Show success message and optionally close modal
-                      setTimeout(() => {
-                        // setShowUploader(false); // Uncomment to auto-close
-                      }, 1500);
-                    }}
-                  />
-                </div>
-                
-                {/* Additional Info */}
-                <div className="text-center text-xs text-gray-500 border-t border-gray-700 pt-4">
-                  <p>Photos will appear in the collage automatically</p>
-                  <p>Code: <span className="font-mono text-gray-400">{currentCollage.code}</span></p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Fullscreen hint */}
-      {isFullscreen && controlsVisible && (
-        <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-20">
-          <div className="bg-black/60 backdrop-blur-sm text-white text-sm px-4 py-2 rounded-lg">
-            Move mouse or press any key to show controls
-          </div>
-        </div>
-      )}
+        <Suspense fallback={<SceneFallback />}>
+          {/* Essential lighting - this ensures the scene is never black */}
+          <SceneLighting settings={mergedSettings} />
+          
+          {/* Camera controls */}
+          <CameraController settings={mergedSettings} />
+          
+          {/* Floor */}
+          <Floor settings={mergedSettings} />
+          
+          {/* Photos or placeholder content */}
+          {photos.length > 0 ? (
+            <PhotoGrid photos={photos} settings={mergedSettings} />
+          ) : (
+            // Show some placeholder content when no photos
+            <group>
+              <mesh position={[0, 0, 0]}>
+                <boxGeometry args={[2, 2, 2]} />
+                <meshStandardMaterial color="#666666" />
+              </mesh>
+              <mesh position={[4, 0, 0]}>
+                <sphereGeometry args={[1, 16, 16]} />
+                <meshStandardMaterial color="#888888" />
+              </mesh>
+              <mesh position={[-4, 0, 0]}>
+                <coneGeometry args={[1, 2, 8]} />
+                <meshStandardMaterial color="#aaaaaa" />
+              </mesh>
+            </group>
+          )}
+          
+          {/* Helper grid for debugging */}
+          {mergedSettings.showGrid && (
+            <gridHelper args={[20, 20, '#444444', '#444444']} position={[0, -9.9, 0]} />
+          )}
+        </Suspense>
+      </Canvas>
     </div>
   );
 };
 
-export default CollageViewerPage;
+export default CollageScene;
