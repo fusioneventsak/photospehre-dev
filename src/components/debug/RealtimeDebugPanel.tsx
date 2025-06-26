@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
-import { RefreshCw, Trash, Plus, AlertTriangle, X } from 'lucide-react';
+import { RefreshCw, Trash, Plus, AlertTriangle, X, Zap } from 'lucide-react';
 
 interface RealtimeDebugPanelProps {
   collageId?: string;
@@ -13,6 +13,10 @@ const RealtimeDebugPanel: React.FC<RealtimeDebugPanelProps> = ({ collageId, onCl
   const [channel, setChannel] = useState<any>(null);
   const [photoCount, setPhotoCount] = useState<number>(0);
   const [lastError, setLastError] = useState<string | null>(null);
+
+  // Add animation pattern tracking
+  const [animationPattern, setAnimationPattern] = useState<string>('unknown');
+  const [animationSpeed, setAnimationSpeed] = useState<number>(0);
 
   useEffect(() => {
     if (!collageId) {
@@ -105,6 +109,19 @@ const RealtimeDebugPanel: React.FC<RealtimeDebugPanelProps> = ({ collageId, onCl
       if (realtimeChannel) {
         supabase.removeChannel(realtimeChannel);
       }
+
+      // Also fetch current animation pattern
+      supabase
+        .from('collage_settings')
+        .select('settings')
+        .eq('collage_id', collageId)
+        .single()
+        .then(({ data, error }) => {
+          if (!error && data) {
+            setAnimationPattern(data.settings.animationPattern || 'unknown');
+            setAnimationSpeed(data.settings.animationSpeed || 0);
+          }
+        });
     };
   }, [collageId]);
 
@@ -133,6 +150,10 @@ const RealtimeDebugPanel: React.FC<RealtimeDebugPanelProps> = ({ collageId, onCl
       <div className="px-3 py-2 bg-gray-800/50 flex justify-between items-center text-xs">
         <div className="text-gray-300">Channel: {channel?.topic?.slice(0, 20) || 'None'}{channel?.topic?.length > 20 ? '...' : ''}</div>
         <div className="text-gray-300">Photos: {photoCount}</div>
+        <div className="text-gray-300 flex items-center">
+          <Zap size={10} className="mr-1 text-yellow-400" />
+          {animationPattern} ({animationSpeed}%)
+        </div>
       </div>
       
       {/* Error Display */}
@@ -198,3 +219,5 @@ const RealtimeDebugPanel: React.FC<RealtimeDebugPanelProps> = ({ collageId, onCl
 };
 
 export default RealtimeDebugPanel;
+
+export default RealtimeDebugPanel

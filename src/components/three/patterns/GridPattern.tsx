@@ -4,7 +4,10 @@ import { BasePattern, type PatternState, type Position } from './BasePattern';
 export class GridPattern extends BasePattern {
   generatePositions(time: number): PatternState {
     const positions: Position[] = [];
-    const rotations: [number, number, number][] = [];
+    const rotations: [number, number, number][] = []; 
+
+    // Apply animation speed directly to the animation parameters
+    const speedFactor = this.settings.animationSpeed / 50;
 
     // Use pattern-specific photoCount if available
     const photoCount = this.settings.patterns?.grid?.photoCount !== undefined 
@@ -45,8 +48,8 @@ export class GridPattern extends BasePattern {
     const totalWallHeight = (rows - 1) * verticalSpacing;
     
     // Animation settings - apply speed directly to the animation
-    const speedFactor = this.settings.animationSpeed / 50;
-    const animationTime = this.settings.animationEnabled ? time * speedFactor : 0;
+    // Use raw time - we'll apply speed factor to individual animations
+    const animationTime = this.settings.animationEnabled ? time : 0;
     
     // Generate positions for all photos
     for (let i = 0; i < totalPhotos; i++) {
@@ -64,9 +67,9 @@ export class GridPattern extends BasePattern {
       if (this.settings.animationEnabled && spacingPercentage > 0) {
         const waveIntensity = spacingPercentage * photoSize * 0.2; // Scale with spacing
 
-        // Apply animation speed directly to the wave motion
-        const waveX = Math.sin(time * speedFactor * 0.5 + col * 0.3) * waveIntensity;
-        const waveY = Math.cos(time * speedFactor * 0.5 + row * 0.3) * waveIntensity;
+        // Apply speed factor to wave motion
+        const waveX = Math.sin(animationTime * speedFactor * 0.5 + col * 0.3) * waveIntensity;
+        const waveY = Math.cos(animationTime * speedFactor * 0.5 + row * 0.3) * waveIntensity;
         
         y += waveY;
         z += waveX;
@@ -84,8 +87,8 @@ export class GridPattern extends BasePattern {
         if (this.settings.animationEnabled && spacingPercentage > 0) {
           rotationY = Math.atan2(x, z + 10); 
           // Apply animation speed to rotation
-          rotationX = Math.sin(time * speedFactor * 0.3 + col * 0.1) * 0.05;
-          rotationZ = Math.cos(time * speedFactor * 0.3 + row * 0.1) * 0.05;
+          rotationX = Math.sin(animationTime * speedFactor * 0.3 + col * 0.1) * 0.05;
+          rotationZ = Math.cos(animationTime * speedFactor * 0.3 + row * 0.1) * 0.05;
         }
         
         rotations.push([rotationX, rotationY, rotationZ]);
