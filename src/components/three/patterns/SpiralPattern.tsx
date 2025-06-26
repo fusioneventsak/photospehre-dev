@@ -72,9 +72,9 @@ export class SpiralPattern extends BasePattern {
       // Photos at the bottom rotate slower, creating a realistic vortex effect
       const heightSpeedFactor = 0.3 + normalizedHeight * 0.7; // Slower at bottom
       // Apply animation speed directly to rotation
-        (time * rotationSpeed * heightSpeedFactor + i * 0.5 + angleOffset) : 
+      // Calculate the angle based on animation settings
       const angle = this.settings.animationEnabled ?
-        (time * rotationFactor * heightSpeedFactor + i * 0.5 + angleOffset) : 
+        (time * rotationSpeed * heightSpeedFactor + i * 0.5 + angleOffset) : 
         (i * 0.5 + angleOffset);
       
       // Calculate position
@@ -90,18 +90,6 @@ export class SpiralPattern extends BasePattern {
         
         x += turbulenceX;
         z += turbulenceZ;
-      }
-      
-      // Subtle animation when enabled (only when there's spacing)
-      if (this.settings.animationEnabled && isOrbital) {
-        // Apply animation speed to wave intensity
-        const waveIntensity = 2 * (this.settings.animationSpeed / 50);
-        
-        const waveX = Math.sin(time * speed * 0.5 + i * 0.3) * waveIntensity;
-        const waveY = Math.cos(time * speed * 0.5 + i * 0.3) * waveIntensity;
-        
-        x += waveX;
-        z += waveY;
       }
       
       positions.push([x, y + verticalWobble, z]);
