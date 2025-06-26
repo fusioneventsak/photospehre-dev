@@ -16,7 +16,6 @@ import {
 import { useCollageStore } from '../store/collageStore';
 import { ErrorBoundary } from 'react-error-boundary';
 import CollageScene from '../components/CollageScene';
-import RealtimeDebugPanel from '../components/debug/RealtimeDebugPanel';
 import PhotoUploader from '../components/collage/PhotoUploader';
 import RealtimeDebugPanel from '../components/debug/RealtimeDebugPanel';
 
