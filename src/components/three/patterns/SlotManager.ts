@@ -1,7 +1,7 @@
 // src/components/three/patterns/SlotManager.ts
 // A class to manage stable slot assignments for photos
 
-// Debug flag for logging - set to false to disable verbose logging
+// Debug flag for logging
 const DEBUG = false;
 
 export class SlotManager {
@@ -43,10 +43,7 @@ export class SlotManager {
   assignSlots(photos: any[]): Map<string, number> {
     const safePhotos = Array.isArray(photos) ? photos.filter(p => p && p.id) : [];
     
-    if (DEBUG) {
-      console.log(`🎮 SLOT MANAGER: Assigning slots for ${safePhotos.length} photos (max slots: ${this.maxSlots})`);
-      console.log(`🎮 SLOT MANAGER: Current assignments: ${this.photoSlots.size}`);
-    }
+    if (DEBUG) console.log(`🎮 SLOT MANAGER: Assigning slots for ${safePhotos.length} photos`);
     
     // Get current photo IDs
     const currentPhotoIds = new Set(safePhotos.map(p => p.id));
@@ -55,9 +52,7 @@ export class SlotManager {
     for (const [photoId, slotIndex] of this.photoSlots.entries()) {
       if (!currentPhotoIds.has(photoId)) {
         // Photo was deleted - clear its slot but keep the slot available
-        if (DEBUG) {
-          console.log(`🗑️ SLOT MANAGER: Clearing slot ${slotIndex} for deleted photo ${photoId.slice(-6)}`);
-        }
+        if (DEBUG) console.log(`🗑️ SLOT MANAGER: Clearing slot ${slotIndex} for deleted photo ${photoId.slice(-6)}`);
         this.photoSlots.delete(photoId);
         this.slotPhotos.delete(slotIndex);
       }
@@ -74,16 +69,11 @@ export class SlotManager {
     // ONLY assign slots to NEW photos that don't have assignments yet
     for (const photo of safePhotos) {
       if (!this.photoSlots.has(photo.id)) {
-        // CRITICAL FIX: Make sure we don't exceed maxSlots
-        if (this.slotPhotos.size < this.maxSlots) {
-          const availableSlot = this.findAvailableSlot();
-          if (availableSlot < this.maxSlots) {
-            if (DEBUG) {
-              console.log(`➕ SLOT MANAGER: Assigning new photo ${photo.id.slice(-6)} to slot ${availableSlot}`);
-            }
-            this.photoSlots.set(photo.id, availableSlot);
-            this.slotPhotos.set(availableSlot, photo);
-          }
+        const availableSlot = this.findAvailableSlot();
+        if (availableSlot < this.maxSlots) {
+          if (DEBUG) console.log(`➕ SLOT MANAGER: Assigning new photo ${photo.id.slice(-6)} to slot ${availableSlot}`);
+          this.photoSlots.set(photo.id, availableSlot);
+          this.slotPhotos.set(availableSlot, photo);
         }
       }
     }
