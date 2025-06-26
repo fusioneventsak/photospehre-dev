@@ -55,24 +55,19 @@ export class FloatPattern extends BasePattern {
   generatePositions(time: number): PatternState {
     const positions: Position[] = [];
     const rotations: [number, number, number][] = [];
-
-    // Use pattern-specific photoCount if available
-    const photoCount = this.settings.patterns?.float?.photoCount !== undefined 
-      ? this.settings.patterns.float.photoCount 
-      : this.settings.photoCount;
     
-    const totalPhotos = Math.min(photoCount, 500);
+    const totalPhotos = Math.min(this.settings.photoCount, 500);
     
     // Use dynamic floor size from settings
     const floorSize = this.settings.floorSize || 200;
     
-    // Get base positions that adapt to floor size
+    // Get base positions that adapt to current floor size
     const basePositions = this.generateDynamicBasePositions(totalPhotos, floorSize);
     
     // UPDATED: Animation parameters - extremely high float height for completely out-of-view teleport
-    const riseSpeed = 8; // Units per second rising speed 
-    const maxHeight = this.settings.patterns?.float?.height || 300; // Height before recycling
-    const startHeight = -40; // Start below the floor
+    const riseSpeed = 8; // Units per second rising speed
+    const maxHeight = 300; // MASSIVELY INCREASED: Way higher before recycling (was 60, then 150)
+    const startHeight = -40; // DEEPER: Start even deeper below the floor (was -20, then -30)
     const cycleHeight = maxHeight - startHeight; // Total distance to travel (now 340 units!)
     
     const speed = this.settings.animationSpeed / 100;
@@ -108,7 +103,7 @@ export class FloatPattern extends BasePattern {
       
       if (this.settings.animationEnabled) {
         // Gentle horizontal drift as photos rise - scale with floor size
-        const driftStrength = Math.max(1.5, (this.settings.patterns?.float?.spread || 25) * 0.1); // Use spread setting
+        const driftStrength = Math.max(1.5, floorSize * 0.01); // Drift scales with floor size
         const driftSpeed = 0.3;
         x += Math.sin(animationTime * driftSpeed + i * 0.5) * driftStrength;
         z += Math.cos(animationTime * driftSpeed * 0.8 + i * 0.7) * driftStrength;
