@@ -4,6 +4,15 @@ import { create } from 'zustand';
 export type SceneSettings = {
   animationPattern: 'float' | 'wave' | 'spiral' | 'grid';
   gridAspectRatioPreset: '1:1' | '4:3' | '16:9' | '21:9' | 'custom';
+  cameraMode: 'orbit' | 'firstPerson' | 'cinematic' | 'auto';
+  cameraKeyframes: {
+    position: [number, number, number];
+    target: [number, number, number];
+    fov: number;
+    duration: number;
+  }[];
+  autoViewEnabled: boolean;
+  vrModeEnabled: boolean;
   patterns: {
     grid: {
       enabled: boolean;
@@ -80,6 +89,10 @@ export type SceneSettings = {
 const defaultSettings: SceneSettings = {
   animationPattern: 'grid',
   gridAspectRatioPreset: '16:9',
+  cameraMode: 'orbit',
+  cameraKeyframes: [],
+  autoViewEnabled: false,
+  vrModeEnabled: false,
   animationSpeed: 50,
   animationEnabled: true,
   photoCount: 50,

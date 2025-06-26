@@ -1,7 +1,7 @@
 // src/components/collage/SceneSettings.tsx - COMPLETE: Improved photo spacing control
 import React from 'react';
 import { type SceneSettings } from '../../store/sceneStore';
-import { Grid, Palette, CameraIcon, ImageIcon, Square, Sun, Lightbulb, RotateCw, Move, Eye } from 'lucide-react';
+import { Grid, Palette, CameraIcon, ImageIcon, Square, Sun, Lightbulb, RotateCw, Move, Eye, Video, Clapperboard, Gamepad2 } from 'lucide-react';
 
 const SceneSettings: React.FC<{
   settings: SceneSettings;
@@ -561,6 +561,82 @@ const SceneSettings: React.FC<{
       </div>
 
       {/* Camera Controls */}
+      <div>
+        <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
+          <CameraIcon className="h-4 w-4 mr-2" />
+          Camera Mode
+        </h4>
+        
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm text-gray-300 mb-2">
+              Camera Mode
+            </label>
+            <select
+              value={settings.cameraMode || 'orbit'}
+              onChange={(e) => onSettingsChange({ 
+                cameraMode: e.target.value as 'orbit' | 'firstPerson' | 'cinematic' | 'auto'
+              })}
+              className="w-full bg-gray-800 border border-gray-700 rounded-md py-2 px-3 text-white"
+            >
+              <option value="orbit">Orbit (Interactive)</option>
+              <option value="firstPerson">First Person</option>
+              <option value="cinematic">Cinematic Path</option>
+              <option value="auto">Auto (Best Views)</option>
+            </select>
+          </div>
+          
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              checked={settings.autoViewEnabled}
+              onChange={(e) => onSettingsChange({ 
+                autoViewEnabled: e.target.checked 
+              })}
+              className="mr-2 bg-gray-800 border-gray-700"
+            />
+            <label className="text-sm text-gray-300">
+              Enable Auto Best View
+            </label>
+          </div>
+
+          {settings.cameraMode === 'cinematic' && (
+            <div className="bg-gray-800/50 p-3 rounded-lg border border-gray-700">
+              <h5 className="text-sm font-medium text-gray-300 mb-2 flex items-center">
+                <Clapperboard className="h-3 w-3 mr-1" />
+                Cinematic Path Settings
+              </h5>
+              <p className="text-xs text-gray-400 mb-3">
+                The camera will automatically follow an optimal path around your photos.
+              </p>
+              <button
+                onClick={() => onSettingsChange({ 
+                  cameraKeyframes: [] // This will trigger regeneration
+                })}
+                className="w-full px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded"
+              >
+                Regenerate Camera Path
+              </button>
+            </div>
+          )}
+
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              checked={settings.vrModeEnabled}
+              onChange={(e) => onSettingsChange({ 
+                vrModeEnabled: e.target.checked 
+              })}
+              className="mr-2 bg-gray-800 border-gray-700"
+            />
+            <label className="text-sm text-gray-300 flex items-center">
+              <Gamepad2 className="h-3 w-3 mr-1" />
+              VR Compatible Mode
+            </label>
+          </div>
+        </div>
+      </div>
+
       <div>
         <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
           <CameraIcon className="h-4 w-4 mr-2" />

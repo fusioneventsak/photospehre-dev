@@ -4,8 +4,9 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
 import * as THREE from 'three';
 import { type SceneSettings } from '../../store/sceneStore';
-import { PatternFactory, SlotManager } from './patterns/PatternFactory';
+import { PatternFactory, SlotManager } from './patterns/PatternFactory'; 
 import { addCacheBustToUrl } from '../../lib/supabase';
+import CameraController, { CinematicPathProvider } from './CameraSystem';
 
 // Debug flag for logging
 const DEBUG = false;
@@ -105,103 +106,6 @@ const Grid: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
 };
 
 // CameraController component with FIXED controls
-const CameraController: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
-  const { camera } = useThree();
-  const controlsRef = useRef<any>();
-  const userInteractingRef = useRef(false);
-  const lastInteractionTimeRef = useRef(0);
-  
-  // Initialize camera position
-  useEffect(() => {
-    if (camera && controlsRef.current) {
-      const initialDistance = settings.cameraDistance || 20;
-      const initialHeight = settings.cameraHeight || 0;
-      const initialPosition = new THREE.Vector3(
-        initialDistance,
-        initialHeight,
-        initialDistance
-      );
-      camera.position.copy(initialPosition);
-      
-      const target = new THREE.Vector3(0, initialHeight * 0.3, 0);
-      controlsRef.current.target.copy(target);
-      controlsRef.current.update();
-    }
-  }, [camera, settings.cameraDistance, settings.cameraHeight]);
-
-  // Handle user interaction detection
-  useEffect(() => {
-    if (!controlsRef.current) return;
-
-    const handleStart = () => {
-      userInteractingRef.current = true;
-      lastInteractionTimeRef.current = Date.now();
-    };
-
-    const handleEnd = () => {
-      lastInteractionTimeRef.current = Date.now();
-      setTimeout(() => {
-        userInteractingRef.current = false;
-      }, 500);
-    };
-
-    const controls = controlsRef.current;
-    controls.addEventListener('start', handleStart);
-    controls.addEventListener('end', handleEnd);
-
-    return () => {
-      controls.removeEventListener('start', handleStart);
-      controls.removeEventListener('end', handleEnd);
-    };
-  }, []);
-
-  // Auto rotation when enabled
-  useFrame((state, delta) => {
-    if (!controlsRef.current) return;
-
-    // Only auto-rotate if camera rotation is enabled AND user isn't interacting
-    if (settings.cameraRotationEnabled && !userInteractingRef.current) {
-      const offset = new THREE.Vector3().copy(camera.position).sub(controlsRef.current.target);
-      const spherical = new THREE.Spherical().setFromVector3(offset);
-      
-      spherical.theta += (settings.cameraRotationSpeed || 0.5) * delta;
-      
-      const newPosition = new THREE.Vector3().setFromSpherical(spherical).add(controlsRef.current.target);
-      camera.position.copy(newPosition);
-      controlsRef.current.update();
-    }
-  });
-
-  // FIXED: Always return controls but respect cameraEnabled setting
-  return (
-    <OrbitControls
-      ref={controlsRef}
-      enabled={settings.cameraEnabled !== false} // Can be disabled via settings
-      enablePan={true}
-      enableZoom={true}
-      enableRotate={true}
-      minDistance={5}
-      maxDistance={200}
-      minPolarAngle={Math.PI / 6}
-      maxPolarAngle={Math.PI - Math.PI / 6}
-      enableDamping={true}
-      dampingFactor={0.05}
-      zoomSpeed={1.0}
-      rotateSpeed={1.0}
-      panSpeed={1.0}
-      // Enable touch controls for mobile
-      touches={{
-        ONE: THREE.TOUCH.ROTATE,
-        TWO: THREE.TOUCH.DOLLY_PAN
-      }}
-      mouseButtons={{
-        LEFT: THREE.MOUSE.ROTATE,
-        MIDDLE: THREE.MOUSE.DOLLY,
-        RIGHT: THREE.MOUSE.PAN
-      }}
-    />
-  );
-};
 
 // Scene Lighting component with WORKING spotlights
 const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
@@ -812,15 +716,30 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
         <Grid settings={safeSettings} />
         
         <AnimationController
+          key={`animation-controller-${safePhotos.length}`}
           settings={safeSettings}
           photos={safePhotos}
           onPositionsUpdate={setPhotosWithPositions}
         />
         
-        <PhotoRenderer 
-          photosWithPositions={photosWithPositions}
+        <CinematicPathProvider
+          photos={photosWithPositions}
           settings={safeSettings}
-        />
+        >
+          {(cinematicPath) => (
+            <>
+              <CameraController 
+                settings={safeSettings}
+                cinematicPath={cinematicPath}
+              />
+              
+              <PhotoRenderer 
+                photosWithPositions={photosWithPositions}
+                settings={safeSettings}
+              />
+            </>
+          )}
+        </CinematicPathProvider>
       </Canvas>
     </div>
   );
