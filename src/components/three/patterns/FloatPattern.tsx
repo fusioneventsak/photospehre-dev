@@ -55,9 +55,10 @@ export class FloatPattern extends BasePattern {
   generatePositions(time: number): PatternState {
     const positions: Position[] = [];
     const rotations: [number, number, number][] = [];
-
-    // CRITICAL FIX: Apply animation speed directly to the animation parameters
-    const speedFactor = this.settings.animationEnabled ? this.settings.animationSpeed / 50 : 0;
+    
+    // CRITICAL FIX: Always calculate positions, but only animate when enabled
+    // This ensures photos are properly positioned even when animation is disabled
+    const speedFactor = this.settings.animationEnabled ? Math.max(0.1, this.settings.animationSpeed / 50) : 0;
 
     // Use pattern-specific photoCount if available
     const photoCount = this.settings.patterns?.float?.photoCount !== undefined 
@@ -74,13 +75,13 @@ export class FloatPattern extends BasePattern {
     
     // Animation parameters - apply speed factor directly
     // CRITICAL FIX: Make rise speed much faster for better visibility
-    const riseSpeed = 12 * speedFactor; // Scale with animation speed setting
-    const maxHeight = this.settings.patterns?.float?.height || 60; // Height before recycling
+    const riseSpeed = 15 * speedFactor; // Increased from 12 to 15 for better visibility
+    const maxHeight = this.settings.patterns?.float?.height || 60; // Maximum height before recycling
     const startHeight = -40; // Start below the floor
     const cycleHeight = maxHeight - startHeight; // Total distance to travel (now 340 units!)
     
-    // CRITICAL FIX: Use raw time for animation, but only when animation is enabled
-    const animationTime = this.settings.animationEnabled ? time : 0;
+    // CRITICAL FIX: Always use time, but multiply by speedFactor which will be 0 when animation is disabled
+    const animationTime = time;
     
     for (let i = 0; i < totalPhotos; i++) {
       // Get base position for current floor size
@@ -89,7 +90,7 @@ export class FloatPattern extends BasePattern {
       // Calculate Y position with proper wrapping
       let y: number;
       
-      // CRITICAL FIX: Always calculate position, but use static positions when animation is disabled
+      // CRITICAL FIX: Calculate position based on animation state
       if (speedFactor > 0) {
         // Calculate total distance traveled including the phase offset
         const totalDistance = (animationTime * riseSpeed) + (basePos.phaseOffset * cycleHeight);
@@ -111,7 +112,7 @@ export class FloatPattern extends BasePattern {
       let x = basePos.x;
       let z = basePos.z;
       
-      // CRITICAL FIX: Only apply drift when animation is enabled
+      // CRITICAL FIX: Apply drift proportional to animation speed
       if (speedFactor > 0) {
         // Gentle horizontal drift as photos rise - scale with floor size
         const driftStrength = Math.max(1.5, (this.settings.patterns?.float?.spread || 25) * 0.1); // Use spread setting
@@ -123,19 +124,15 @@ export class FloatPattern extends BasePattern {
       positions.push([x, y, z]);
       
       // Calculate rotation
-      if (this.settings.photoRotation) {
-        // Face towards center with gentle wobble
-        // CRITICAL FIX: Always face camera in float mode
-        const rotationY = Math.atan2(-x, -z); 
-        
-        // Add gentle wobble - apply speed factor
-        const wobbleX = speedFactor > 0 ? Math.sin(animationTime * 0.5 * speedFactor + i * 0.2) * 0.03 : 0;
-        const wobbleZ = speedFactor > 0 ? Math.cos(animationTime * 0.4 * speedFactor + i * 0.3) * 0.03 : 0;
-        
-        rotations.push([wobbleX, rotationY, wobbleZ]);
-      } else {
-        rotations.push([0, 0, 0]);
-      }
+      // CRITICAL FIX: In float pattern, ALWAYS face camera regardless of photoRotation setting
+      // This ensures photos are visible as they float up
+      const rotationY = Math.atan2(-x, -z);
+      
+      // Add gentle wobble - apply speed factor
+      const wobbleX = speedFactor > 0 ? Math.sin(animationTime * 0.5 * speedFactor + i * 0.2) * 0.03 : 0;
+      const wobbleZ = speedFactor > 0 ? Math.cos(animationTime * 0.4 * speedFactor + i * 0.3) * 0.03 : 0;
+      
+      rotations.push([wobbleX, rotationY, wobbleZ]);
     }
 
     return { positions, rotations };
