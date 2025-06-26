@@ -419,19 +419,36 @@ const AnimationController: React.FC<{
   // ENHANCED: Handle photo changes without immediate position updates (prevents jumping)
   useEffect(() => {
     if (currentPhotoIds !== lastPhotoIds.current) {
+      const oldPhotoIds = lastPhotoIds.current.split(',').filter(id => id);
+      const newPhotoIds = currentPhotoIds.split(',').filter(id => id);
+      
+      const isPhotoDeletion = oldPhotoIds.length > newPhotoIds.length;
+      const isPhotoAddition = newPhotoIds.length > oldPhotoIds.length;
+      
       if (DEBUG) {
-        console.log('📷 PHOTOS CHANGED: New upload or deletion detected - using gradual update');
-        console.log('📷 Old IDs:', lastPhotoIds.current);
+        console.log('📷 PHOTOS CHANGED:', {
+          oldCount: oldPhotoIds.length,
+          newCount: newPhotoIds.length,
+          isDeletion: isPhotoDeletion,
+          isAddition: isPhotoAddition
+        });
+      }
         console.log('📷 New IDs:', currentPhotoIds);
       }
       
-      // CRITICAL FIX: Don't force immediate position update
-      // Let the natural animation frame handle the change gradually
       lastPhotoIds.current = currentPhotoIds;
       
-      // Update slot assignments immediately but don't force position recalculation
-      const safePhotos = Array.isArray(photos) ? photos.filter(p => p && p.id) : [];
-      slotManagerRef.current.assignSlots(safePhotos);
+      if (isPhotoDeletion) {
+        // IMMEDIATE update for deletions - photos should disappear right away
+        console.log('🗑️ PHOTO DELETION DETECTED - Triggering immediate update');
+        updatePositions(0);
+      } else if (isPhotoAddition) {
+        // Gradual update for additions - let them animate in nicely
+        console.log('➕ PHOTO ADDITION DETECTED - Using gradual update');
+        // Update slot assignments but let animation frame handle positioning
+        const safePhotos = Array.isArray(photos) ? photos.filter(p => p && p.id) : [];
+        slotManagerRef.current.assignSlots(safePhotos);
+      }
     }
   }, [currentPhotoIds, photos]);
 
