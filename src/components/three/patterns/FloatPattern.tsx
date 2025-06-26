@@ -56,8 +56,8 @@ export class FloatPattern extends BasePattern {
     const positions: Position[] = [];
     const rotations: [number, number, number][] = [];
 
-    // Apply animation speed directly to the animation parameters
-    const speedFactor = this.settings.animationSpeed / 50;
+    // CRITICAL FIX: Apply animation speed directly to the animation parameters
+    const speedFactor = this.settings.animationEnabled ? this.settings.animationSpeed / 50 : 0;
 
     // Use pattern-specific photoCount if available
     const photoCount = this.settings.patterns?.float?.photoCount !== undefined 
@@ -73,13 +73,14 @@ export class FloatPattern extends BasePattern {
     const basePositions = this.generateDynamicBasePositions(totalPhotos, floorSize);
     
     // Animation parameters - apply speed factor directly
-    const riseSpeed = 8 * speedFactor; // Scale with animation speed setting
+    // CRITICAL FIX: Make rise speed much faster for better visibility
+    const riseSpeed = 12 * speedFactor; // Scale with animation speed setting
     const maxHeight = this.settings.patterns?.float?.height || 60; // Height before recycling
     const startHeight = -40; // Start below the floor
     const cycleHeight = maxHeight - startHeight; // Total distance to travel (now 340 units!)
     
-    // Use raw time instead of scaled time - we apply speed to the rise speed directly
-    const animationTime = time;
+    // CRITICAL FIX: Use raw time for animation, but only when animation is enabled
+    const animationTime = this.settings.animationEnabled ? time : 0;
     
     for (let i = 0; i < totalPhotos; i++) {
       // Get base position for current floor size
@@ -88,7 +89,8 @@ export class FloatPattern extends BasePattern {
       // Calculate Y position with proper wrapping
       let y: number;
       
-      if (this.settings.animationEnabled) {
+      // CRITICAL FIX: Always calculate position, but use static positions when animation is disabled
+      if (speedFactor > 0) {
         // Calculate total distance traveled including the phase offset
         const totalDistance = (animationTime * riseSpeed) + (basePos.phaseOffset * cycleHeight);
         
@@ -109,7 +111,8 @@ export class FloatPattern extends BasePattern {
       let x = basePos.x;
       let z = basePos.z;
       
-      if (this.settings.animationEnabled) {
+      // CRITICAL FIX: Only apply drift when animation is enabled
+      if (speedFactor > 0) {
         // Gentle horizontal drift as photos rise - scale with floor size
         const driftStrength = Math.max(1.5, (this.settings.patterns?.float?.spread || 25) * 0.1); // Use spread setting
         const driftSpeed = 0.3 * speedFactor; // Apply speed factor to drift
@@ -122,11 +125,12 @@ export class FloatPattern extends BasePattern {
       // Calculate rotation
       if (this.settings.photoRotation) {
         // Face towards center with gentle wobble
-        const rotationY = Math.atan2(-x, -z);
+        // CRITICAL FIX: Always face camera in float mode
+        const rotationY = Math.atan2(-x, -z); 
         
         // Add gentle wobble - apply speed factor
-        const wobbleX = this.settings.animationEnabled ? Math.sin(animationTime * 0.5 * speedFactor + i * 0.2) * 0.03 : 0;
-        const wobbleZ = this.settings.animationEnabled ? Math.cos(animationTime * 0.4 * speedFactor + i * 0.3) * 0.03 : 0;
+        const wobbleX = speedFactor > 0 ? Math.sin(animationTime * 0.5 * speedFactor + i * 0.2) * 0.03 : 0;
+        const wobbleZ = speedFactor > 0 ? Math.cos(animationTime * 0.4 * speedFactor + i * 0.3) * 0.03 : 0;
         
         rotations.push([wobbleX, rotationY, wobbleZ]);
       } else {
