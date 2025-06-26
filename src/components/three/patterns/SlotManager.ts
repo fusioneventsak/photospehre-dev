@@ -106,3 +106,5 @@ export class SlotManager {
 }
 
 export default SlotManager;
+
+export { SlotManager }
