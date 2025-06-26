@@ -268,7 +268,7 @@ export const CameraController: React.FC<CameraControllerProps> = ({
         !userInteractingRef.current &&
         settings.cameraEnabled !== false) {
       
-      // Use camera rotation speed setting to control cinematic speed
+      // Use CAMERA rotation speed setting to control cinematic speed, NOT animation speed
       const cinematicSpeed = (settings.cameraRotationSpeed || 1.0) * 0.3;
       cinematicTimeRef.current += delta * cinematicSpeed;
       
