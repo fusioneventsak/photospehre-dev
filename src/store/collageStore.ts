@@ -767,8 +767,14 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
   // FIXED: Enhanced delete with proper database-first approach
   deletePhoto: async (photoId: string) => {
     try {
-      console.log('🗑️ STORE: Starting photo deletion for ID:', photoId?.slice(-6));
-      console.log('🗑️ Photos count BEFORE deletion:', get().photos.length);
+      console.log('🗑️ STORE: Starting photo deletion for ID:', photoId?.slice(-6), 'from', get().photos.length, 'photos');
+      
+      // Store original photos array for potential rollback
+      const originalPhotos = [...get().photos];
+      
+      // FIRST: Optimistically remove from UI for immediate feedback
+      get().removePhotoFromState(photoId);
+      console.log('🗑️ OPTIMISTIC: Removed from UI, now deleting from database');
       
       // First, get the photo to find the storage path
       const { data: photo, error: fetchError } = await supabase
@@ -778,17 +784,20 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
         .maybeSingle(); // FIXED: Use maybeSingle instead of single
 
       if (fetchError) {
-        console.error('❌ Error fetching photo for deletion:', fetchError);
-        throw fetchError;
+        console.error('❌ Error fetching photo for deletion:', fetchError.message);
+        
+        // Check if this is a "not found" error, which is fine - the photo is already gone
+        if (fetchError.code === 'PGRST116' || fetchError.message.includes('0 rows')) {
+          console.log('✅ Photo not found in database - already deleted');
+          return; // Photo is already gone, our optimistic update was correct
+        } else {
+          // Real error - rollback the optimistic update
+          console.error('❌ Rolling back optimistic update due to fetch error');
+          set({ photos: originalPhotos });
+          throw fetchError;
+        }
       }
       
-      if (!photo) {
-        console.warn('⚠️ Photo not found in database:', photoId);
-        // Remove from state since it doesn't exist in DB
-        get().removePhotoFromState(photoId);
-        return;
-      }
-
       if (!photo) {
         console.warn('⚠️ Photo not found in database:', photoId);
         // Remove from state since it doesn't exist in DB
@@ -797,53 +806,73 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
       }
 
       // Extract storage path from URL
-      const url = new URL(photo.url);
-      const pathParts = url.pathname.split('/');
-      const storagePathIndex = pathParts.findIndex(part => part === 'photos');
-      
-      if (storagePathIndex === -1) {
-        throw new Error('Invalid photo URL format');
+      let storagePath = null;
+      try {
+        const url = new URL(photo.url);
+        const pathParts = url.pathname.split('/');
+        const storagePathIndex = pathParts.findIndex(part => part === 'photos');
+        
+        if (storagePathIndex !== -1) {
+          storagePath = pathParts.slice(storagePathIndex + 1).join('/');
+          console.log('🗑️ Storage path:', storagePath);
+        }
+      } catch (urlError) {
+        console.warn('⚠️ Could not parse photo URL for storage cleanup:', urlError);
+        // Continue with deletion even if we can't parse the URL
       }
-      
-      const storagePath = pathParts.slice(storagePathIndex + 1).join('/');
-      console.log('🗑️ Storage path:', storagePath);
 
-      // Delete from database first - NO OPTIMISTIC UPDATE
+      // Delete from database
       const { error: deleteDbError } = await supabase
         .from('photos')
         .delete()
         .eq('id', photoId);
 
       if (deleteDbError) {
-        console.error('❌ Database delete error:', deleteDbError);
-        throw deleteDbError;
-      }
-
-      console.log('✅ Photo deleted from database successfully');
-      
-      // ONLY NOW remove from state after successful database deletion
-      get().removePhotoFromState(photoId);
-
-      // Delete from storage (non-critical)
-      try {
-        const { error: deleteStorageError } = await supabase.storage
-          .from('photos')
-          .remove([storagePath]);
-
-        if (deleteStorageError) {
-          console.warn('⚠️ Storage delete error (non-fatal):', deleteStorageError);
+        console.error('❌ Database delete error:', deleteDbError.message);
+        
+        // Check if this is a "not found" error, which is fine
+        if (deleteDbError.code === 'PGRST116' || deleteDbError.message.includes('0 rows')) {
+          console.log('✅ Photo was already deleted from database');
+          // This is fine - photo was already gone, our optimistic update was correct
         } else {
-          console.log('✅ Photo file deleted from storage');
+          // Real error - rollback the optimistic update
+          console.error('❌ Rolling back optimistic update due to delete error');
+          set({ photos: originalPhotos });
+          throw deleteDbError;
         }
-      } catch (storageError) {
-        console.warn('⚠️ Storage delete exception (non-fatal):', storageError);
+      } else {
+        console.log('✅ Photo deleted from database successfully');
+      }
+     
+      // Delete from storage (non-critical)
+      if (storagePath) {
+        try {
+          const { error: deleteStorageError } = await supabase.storage
+            .from('photos')
+            .remove([storagePath]);
+  
+          if (deleteStorageError) {
+            console.warn('⚠️ Storage delete error (non-fatal):', deleteStorageError.message);
+          } else {
+            console.log('✅ Photo file deleted from storage');
+          }
+        } catch (storageError) {
+          console.warn('⚠️ Storage delete exception (non-fatal):', storageError);
+        }
       }
 
       console.log('✅ Photo deletion process completed for ID:', photoId);
-      console.log('🗑️ Final photos count after all operations:', get().photos.length);
+      console.log('🗑️ Photos count AFTER deletion:', get().photos.length);
       
     } catch (error: any) {
       console.error('❌ Delete photo error:', error);
+      
+      // Don't throw error for "already deleted" scenarios
+      if (error.code === 'PGRST116' || error.message?.includes('0 rows')) {
+        console.log('✅ Treating as successful deletion (photo was already gone)');
+        return;
+      }
+      
       throw error;
     }
   }
