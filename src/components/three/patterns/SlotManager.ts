@@ -1,118 +1,96 @@
 // src/components/three/patterns/SlotManager.ts
 // A class to manage stable slot assignments for photos
 
+// Debug flag for logging
+const DEBUG = false;
+
 export class SlotManager {
-  private slotAssignments = new Map<string, number>();
-  private occupiedSlots = new Set<number>();
-  private availableSlots: number[] = [];
-  private totalSlots = 0;
-  private deletedSlots: number[] = []; // Track slots that were previously occupied but now empty
+  private photoSlots = new Map<string, number>(); // Maps photo ID to slot index
+  private slotPhotos = new Map<number, any>(); // Maps slot index to photo object
+  private maxSlots = 0;
 
   constructor(totalSlots: number) {
     this.updateSlotCount(totalSlots);
   }
 
   updateSlotCount(newTotal: number) {
-    if (newTotal === this.totalSlots) return;
-    
-    this.totalSlots = newTotal;
-    
-    // Remove assignments for slots that no longer exist
-    for (const [photoId, slotIndex] of this.slotAssignments.entries()) {
+    if (DEBUG) console.log(`🎮 SLOT MANAGER: Updating slot count from ${this.maxSlots} to ${newTotal}`);
+    this.maxSlots = newTotal;
+
+    // Remove any photos assigned to slots that no longer exist
+    for (const [photoId, slotIndex] of this.photoSlots.entries()) {
       if (slotIndex >= newTotal) {
-        this.slotAssignments.delete(photoId);
-        this.occupiedSlots.delete(slotIndex);
+        if (DEBUG) console.log(`🎮 SLOT MANAGER: Removing photo ${photoId.slice(-6)} from slot ${slotIndex} (out of range)`);
+        this.photoSlots.delete(photoId);
+        this.slotPhotos.delete(slotIndex);
       }
     }
-    
-    this.rebuildAvailableSlots();
   }
 
-  private rebuildAvailableSlots() {
-    this.availableSlots = [];
-    
-    // First, add any previously deleted slots to ensure they get reused first
-    for (const slot of this.deletedSlots) {
-      if (slot < this.totalSlots && !this.occupiedSlots.has(slot)) {
-        this.availableSlots.push(slot);
+  // Find the next available slot index
+  private findAvailableSlot(): number {
+    // First, look for any empty slots (slots without photos)
+    for (let i = 0; i < this.maxSlots; i++) {
+      if (!this.slotPhotos.has(i)) {
+        return i;
       }
     }
-    
-    // Then add any other available slots
-    for (let i = 0; i < this.totalSlots; i++) {
-      if (!this.occupiedSlots.has(i) && !this.availableSlots.includes(i)) {
-        this.availableSlots.push(i);
-      }
-    }
-    
-    // Sort available slots to ensure consistent assignment order
-    this.availableSlots.sort((a, b) => a - b);
-    
-    // Keep track of deleted slots but clear them from available slots
-    this.deletedSlots = [];
+    // If all slots are taken, return the max slot (shouldn't happen)
+    return this.maxSlots;
   }
 
   // CRITICAL FIX: Only assign new slots to new photos, preserve existing assignments
   assignSlots(photos: any[]): Map<string, number> {
     const safePhotos = Array.isArray(photos) ? photos.filter(p => p && p.id) : [];
-    const photoCount = safePhotos.length;
+    
+    if (DEBUG) console.log(`🎮 SLOT MANAGER: Assigning slots for ${safePhotos.length} photos`);
     
     // Get current photo IDs
     const currentPhotoIds = new Set(safePhotos.map(p => p.id));
     
-    // Find photos that were removed
-    const removedPhotoIds: string[] = [];
-    for (const [photoId, slotIndex] of this.slotAssignments.entries()) {
+    // CRITICAL: Only remove deleted photos from slots, don't reassign existing ones
+    for (const [photoId, slotIndex] of this.photoSlots.entries()) {
       if (!currentPhotoIds.has(photoId)) {
-        removedPhotoIds.push(photoId);
-        // Add the slot to deletedSlots to prioritize its reuse
-        this.deletedSlots.push(slotIndex);
+        // Photo was deleted - clear its slot but keep the slot available
+        if (DEBUG) console.log(`🗑️ SLOT MANAGER: Clearing slot ${slotIndex} for deleted photo ${photoId.slice(-6)}`);
+        this.photoSlots.delete(photoId);
+        this.slotPhotos.delete(slotIndex);
       }
     }
     
-    // Remove assignments for photos that no longer exist
-    for (const photoId of removedPhotoIds) {
-      const slotIndex = this.slotAssignments.get(photoId);
-      if (slotIndex !== undefined) {
-        this.slotAssignments.delete(photoId);
-        this.occupiedSlots.delete(slotIndex);
+    // Preserve existing assignments for photos that still exist
+    for (const photo of safePhotos) {
+      if (this.photoSlots.has(photo.id)) {
+        const slotIndex = this.photoSlots.get(photo.id)!;
+        this.slotPhotos.set(slotIndex, photo);
       }
     }
-    
-    // Rebuild available slots if any photos were removed
-    if (removedPhotoIds.length > 0) {
-      this.rebuildAvailableSlots();
-    }
-
-    // Sort photos for consistent assignment order
-    const sortedPhotos = [...safePhotos].sort((a, b) => {
-      if (a.created_at && b.created_at) {
-        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-      }
-      return a.id.localeCompare(b.id);
-    });
 
     // ONLY assign slots to NEW photos that don't have assignments yet
-    for (const photo of sortedPhotos) {
-      if (!this.slotAssignments.has(photo.id) && this.availableSlots.length > 0) {
-        // Get the next available slot
-        const newSlot = this.availableSlots.shift()!;
-        this.slotAssignments.set(photo.id, newSlot);
-        this.occupiedSlots.add(newSlot);
+    for (const photo of safePhotos) {
+      if (!this.photoSlots.has(photo.id)) {
+        const availableSlot = this.findAvailableSlot();
+        if (availableSlot < this.maxSlots) {
+          if (DEBUG) console.log(`➕ SLOT MANAGER: Assigning new photo ${photo.id.slice(-6)} to slot ${availableSlot}`);
+          this.photoSlots.set(photo.id, availableSlot);
+          this.slotPhotos.set(availableSlot, photo);
+        }
       }
     }
 
-    return new Map(this.slotAssignments);
+    return new Map(this.photoSlots);
   }
   
   // Get stats about slot usage
   getStats() {
+    const occupiedSlots = this.slotPhotos.size;
+    const availableSlots = this.maxSlots - occupiedSlots;
+    
     return {
-      totalSlots: this.totalSlots,
-      occupiedSlots: this.occupiedSlots.size,
-      availableSlots: this.availableSlots.length,
-      deletedSlots: this.deletedSlots.length,
-      assignments: this.slotAssignments.size
+      totalSlots: this.maxSlots,
+      occupiedSlots: occupiedSlots,
+      availableSlots: availableSlots,
+      assignments: this.photoSlots.size
     };
   }
 }
