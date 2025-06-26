@@ -432,7 +432,6 @@ const AnimationController: React.FC<{
           isDeletion: isPhotoDeletion,
           isAddition: isPhotoAddition
         });
-      }
         console.log('📷 New IDs:', currentPhotoIds);
       }
       
