@@ -1,4 +1,4 @@
-// src/store/collageStore.ts - FIXED: Handle missing collages properly
+// src/store/collageStore.ts - FIXED: Proper photo deletion without optimistic updates
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import { nanoid } from 'nanoid';
@@ -764,20 +764,18 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
     }
   },
 
-  // Enhanced delete with better error handling
+  // FIXED: Enhanced delete with proper database-first approach
   deletePhoto: async (photoId: string) => {
     try {
       console.log('🗑️ STORE: Starting photo deletion for ID:', photoId?.slice(-6));
       console.log('🗑️ Photos count BEFORE deletion:', get().photos.length);
-      
-      // DON'T do optimistic update first - wait for database confirmation
       
       // First, get the photo to find the storage path
       const { data: photo, error: fetchError } = await supabase
         .from('photos')
         .select('url')
         .eq('id', photoId)
-        .maybeSingle(); // CHANGED: Use maybeSingle instead of single
+        .maybeSingle(); // FIXED: Use maybeSingle instead of single
 
       if (fetchError) {
         console.error('❌ Error fetching photo for deletion:', fetchError);
@@ -789,9 +787,6 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
         // Remove from state since it doesn't exist in DB
         get().removePhotoFromState(photoId);
         return;
-      } else if (!photo) {
-        console.warn('⚠️ Photo not found in database, may have been already deleted:', photoId);
-        return; // Already deleted, no need to continue
       }
 
       // Extract storage path from URL
@@ -806,7 +801,7 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
       const storagePath = pathParts.slice(storagePathIndex + 1).join('/');
       console.log('🗑️ Storage path:', storagePath);
 
-      // Delete from database first
+      // Delete from database first - NO OPTIMISTIC UPDATE
       const { error: deleteDbError } = await supabase
         .from('photos')
         .delete()
@@ -819,25 +814,26 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
 
       console.log('✅ Photo deleted from database successfully');
       
-      // ONLY remove from state AFTER successful database deletion
+      // ONLY NOW remove from state after successful database deletion
       get().removePhotoFromState(photoId);
-      
-      // Delete from storage
+
+      // Delete from storage (non-critical)
       try {
         const { error: deleteStorageError } = await supabase.storage
           .from('photos')
           .remove([storagePath]);
-  
+
         if (deleteStorageError) {
           console.warn('⚠️ Storage delete error (non-fatal):', deleteStorageError);
-          // Don't throw here as the database record is already deleted
         } else {
           console.log('✅ Photo file deleted from storage');
         }
       } catch (storageError) {
         console.warn('⚠️ Storage delete exception (non-fatal):', storageError);
-        // Continue even if storage deletion fails
       }
+
+      console.log('✅ Photo deletion process completed for ID:', photoId);
+      console.log('🗑️ Final photos count after all operations:', get().photos.length);
       
     } catch (error: any) {
       console.error('❌ Delete photo error:', error);
