@@ -1,4 +1,4 @@
-// src/pages/CollageViewerPage.tsx - FIXED: Added real-time subscription
+// src/pages/CollageViewerPage.tsx - FIXED: Enhanced real-time synchronization
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { 
@@ -11,7 +11,8 @@ import {
   X, 
   ChevronLeft,
   Camera,
-  Settings
+  Settings,
+  RefreshCw
 } from 'lucide-react';
 import { useCollageStore } from '../store/collageStore';
 import { ErrorBoundary } from 'react-error-boundary';
@@ -19,28 +20,10 @@ import CollageScene from '../components/CollageScene';
 import PhotoUploader from '../components/collage/PhotoUploader';
 import RealtimeDebugPanel from '../components/debug/RealtimeDebugPanel';
 
-// Debug function to log subscription state
-const debugSubscription = () => {
-  const store = useCollageStore.getState();
-  console.log('🔍 VIEWER SUBSCRIPTION DEBUG:');
-  console.log('- Current collage ID:', store.currentCollage?.id);
-  console.log('- Realtime connected:', store.isRealtimeConnected);
-  console.log('- Channel topic:', store.realtimeChannel?.topic);
-  console.log('- Photos count:', store.photos?.length);
-  
-  // If no subscription, force one
-  if (store.currentCollage?.id && !store.isRealtimeConnected) {
-    console.log('⚠️ FORCING SUBSCRIPTION for collage:', store.currentCollage.id);
-    store.setupRealtimeSubscription(store.currentCollage.id);
-  }
-};
-
 // Debug flag for logging
-const DEBUG = false;
+const DEBUG = true; // Enable for debugging
 
 const CollageViewerPage: React.FC = () => {  
-  if (DEBUG) console.log('🖼️ VIEWER PAGE RENDER');
-  
   const { code } = useParams<{ code: string }>();
   const { 
     currentCollage, 
@@ -54,29 +37,85 @@ const CollageViewerPage: React.FC = () => {
     refreshPhotos
   } = useCollageStore();
   
-  // ADD THIS TEMPORARY DEBUG
-  console.log('🔍 VIEWER RENDER:', {
-    collageId: currentCollage?.id,
-    connected: isRealtimeConnected,
-    photosCount: photos.length,
-    renderTime: new Date().toISOString()
-  });
-  
-  // SAFETY: Ensure photos is always an array
-  const safePhotos = Array.isArray(photos) ? photos : [];
-  
-  // Add debugging for photo array changes
-  useEffect(() => { 
-    if (DEBUG) {
-      console.log('🖼️ VIEWER: Photos array updated. Count:', safePhotos.length);
-    }
-  }, [safePhotos]);
-  
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showUploader, setShowUploader] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(true);
+  const [lastPhotoCount, setLastPhotoCount] = useState(0);
   const navigate = useNavigate();
+
+  // SAFETY: Ensure photos is always an array
+  const safePhotos = Array.isArray(photos) ? photos : [];
+
+  // Track photo count changes for debugging
+  useEffect(() => {
+    if (safePhotos.length !== lastPhotoCount) {
+      console.log(`🖼️ VIEWER: Photo count changed: ${lastPhotoCount} -> ${safePhotos.length}`);
+      setLastPhotoCount(safePhotos.length);
+    }
+  }, [safePhotos.length, lastPhotoCount]);
+
+  // Normalize code to uppercase for consistent database lookup
+  const normalizedCode = code?.toUpperCase();
+
+  // Load collage and ensure real-time subscription
+  useEffect(() => {
+    if (normalizedCode) {
+      console.log('🖼️ VIEWER: Fetching collage with code:', normalizedCode);
+      fetchCollageByCode(normalizedCode);
+    }
+    
+    return () => { 
+      console.log('🧹 VIEWER: Cleaning up realtime subscription');
+      cleanupRealtimeSubscription();
+    };
+  }, [normalizedCode, fetchCollageByCode, cleanupRealtimeSubscription]);
+
+  // Ensure real-time subscription is active when collage is loaded
+  useEffect(() => {
+    if (currentCollage?.id && !isRealtimeConnected) {
+      console.log('🔄 VIEWER: Collage loaded but not connected to realtime. Setting up subscription...');
+      setupRealtimeSubscription(currentCollage.id);
+    }
+  }, [currentCollage?.id, isRealtimeConnected, setupRealtimeSubscription]);
+
+  // Periodic check to ensure we're still connected
+  useEffect(() => {
+    if (!currentCollage?.id) return;
+
+    const interval = setInterval(() => {
+      if (!isRealtimeConnected) {
+        console.log('🔄 VIEWER: Realtime disconnected. Attempting to reconnect...');
+        setupRealtimeSubscription(currentCollage.id);
+      }
+    }, 10000); // Check every 10 seconds
+
+    return () => clearInterval(interval);
+  }, [currentCollage?.id, isRealtimeConnected, setupRealtimeSubscription]);
+
+  // Manual refresh for debugging
+  const handleManualRefresh = useCallback(async () => {
+    if (currentCollage?.id) {
+      console.log('🔄 VIEWER: Manual refresh triggered');
+      try {
+        await refreshPhotos(currentCollage.id);
+        console.log('✅ VIEWER: Manual refresh completed');
+      } catch (error) {
+        console.error('❌ VIEWER: Manual refresh failed:', error);
+      }
+    }
+  }, [currentCollage?.id, refreshPhotos]);
+
+  // Force reconnection for debugging
+  const handleForceReconnect = useCallback(() => {
+    if (currentCollage?.id) {
+      console.log('🔄 VIEWER: Force reconnecting to realtime...');
+      cleanupRealtimeSubscription();
+      setTimeout(() => {
+        setupRealtimeSubscription(currentCollage.id);
+      }, 1000);
+    }
+  }, [currentCollage?.id, cleanupRealtimeSubscription, setupRealtimeSubscription]);
 
   // Close modal when clicking outside
   const handleModalBackdropClick = (e: React.MouseEvent) => {
@@ -84,30 +123,6 @@ const CollageViewerPage: React.FC = () => {
       setShowUploader(false);
     }
   };
-
-  // Normalize code to uppercase for consistent database lookup
-  const normalizedCode = code?.toUpperCase();
-  console.log('🔍 VIEWER: normalizedCode =', normalizedCode, 'currentCollage =', currentCollage?.id);
-
-  // Load collage (which will set up real-time subscription)
-  useEffect(() => {
-    if (normalizedCode) {
-      console.log('🖼️ VIEWER: Fetching collage with code:', normalizedCode);
-      fetchCollageByCode(normalizedCode);
-    }
-    return () => { 
-      console.log('🧹 VIEWER: Cleaning up realtime subscription');
-      cleanupRealtimeSubscription();
-    };
-  }, [normalizedCode, fetchCollageByCode, cleanupRealtimeSubscription]);
-
-  // Manual refresh for debugging
-  const handleManualRefresh = useCallback(async () => {
-    if (currentCollage?.id) {
-      console.log('🔄 VIEWER: Manual refresh triggered');
-      await refreshPhotos(currentCollage.id);
-    }
-  }, [currentCollage?.id, refreshPhotos]);
 
   // Handle fullscreen toggle
   const toggleFullscreen = async () => {
@@ -133,54 +148,16 @@ const CollageViewerPage: React.FC = () => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
-      console.error('Copy failed:', err);
+      console.error('Copy error:', err);
     }
   };
 
-  // Show/hide controls in fullscreen
-  useEffect(() => {
-    if (!isFullscreen) return;
-
-    let timeoutId: NodeJS.Timeout;
-
-    const showControls = () => {
-      setControlsVisible(true);
-      clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => setControlsVisible(false), 3000);
-    };
-
-    const handleMouseMove = () => showControls();
-    const handleKeyPress = () => showControls();
-
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('keydown', handleKeyPress);
-
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('keydown', handleKeyPress);
-      clearTimeout(timeoutId);
-    };
-  }, [isFullscreen]);
-
-  // Handle fullscreen change events
-  useEffect(() => {
-    const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
-      if (!document.fullscreenElement) {
-        setControlsVisible(true);
-      }
-    };
-
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
-  }, []);
-
-  if (loading) {
+  if (loading && !currentCollage) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-white mb-4"></div>
-          <p className="text-white">Loading collage...</p>
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+          <p className="mt-2 text-gray-400">Loading collage...</p>
         </div>
       </div>
     );
@@ -188,213 +165,176 @@ const CollageViewerPage: React.FC = () => {
 
   if (error || !currentCollage) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-center max-w-md mx-auto px-4">
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
           <h2 className="text-2xl font-bold text-white mb-4">Collage Not Found</h2>
           <p className="text-gray-400 mb-6">
-            The collage with code "{code}" doesn't exist or might have been removed.
+            The collage you're looking for doesn't exist or the code might be incorrect.
           </p>
           <Link 
-            to="/join" 
-            className="inline-flex items-center px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+            to="/" 
+            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
           >
-            <ChevronLeft className="w-4 h-4 mr-2" />
-            Try Another Code
+            <ChevronLeft className="w-4 h-4" />
+            Go Home
           </Link>
         </div>
       </div>
     );
   }
 
-  const shareUrl = `${window.location.origin}/collage/${currentCollage.code}`;
-
   return (
-    <div className="h-screen bg-black overflow-hidden relative">
-      {/* 3D Scene */}
-      <ErrorBoundary 
-        FallbackComponent={({ error, resetErrorBoundary }) => (
-          <div className="h-screen bg-black flex items-center justify-center">
-            <div className="text-center text-white">
-              <p className="text-xl mb-4">Scene Error</p>
-              <p className="text-red-300 text-sm mb-4">{error?.message}</p>
-              <button 
-                onClick={resetErrorBoundary} 
-                className="px-4 py-2 bg-purple-600 rounded-lg hover:bg-purple-700"
-              >
-                Try Again
-              </button>
-            </div>
-          </div>
-        )}
-        resetKeys={[currentCollage.id, safePhotos.length]}
-      >
-        <CollageScene 
-          settings={currentCollage.settings}
-          onSettingsChange={(newSettings) => {
-            console.log('🎛️ Settings changed from viewer:', newSettings);
-          }}
-        />
-      </ErrorBoundary>
-
-      {/* Transparent Header - Only shown when controls are visible */}
-      {controlsVisible && (
-        <div className="absolute top-0 left-0 right-0 z-20">
-          <div className="bg-black/40 backdrop-blur-sm border-b border-white/10">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="flex items-center justify-between h-16">
-                {/* Left side - Navigation & Title */}
-                <div className="flex items-center space-x-4">
-                  <Link 
-                    to="/join" 
-                    className="text-gray-300 hover:text-white transition-colors p-2 hover:bg-white/10 rounded-lg"
-                  >
-                    <ChevronLeft className="w-5 h-5" />
-                  </Link>
-                  <div>
-                    <h1 className="text-lg font-semibold text-white">
-                      {currentCollage.name}
-                    </h1>
-                    <div className="flex items-center space-x-2 text-sm text-gray-400">
-                      <span>Code: {currentCollage.code}</span>
-                      <span>•</span>
-                      <span>{safePhotos.length} photos</span>
-                      <span>•</span>
-                      <div className="flex items-center space-x-1">
-                        <div className={`w-2 h-2 rounded-full ${isRealtimeConnected ? 'bg-green-400' : 'bg-yellow-400'}`}></div>
-                        <span>{isRealtimeConnected ? 'Live' : 'Polling'}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Right side - Actions */}
-                <div className="flex items-center space-x-2">
-                  {/* Upload Photos Button */}
-                  <button
-                    onClick={() => setShowUploader(true)}
-                    className="flex items-center space-x-2 px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors text-sm"
-                  >
-                    <Upload className="w-4 h-4" />
-                    <span>Add Photos</span>
-                  </button>
-
-                  {/* Camera/Photobooth Button */}
-                  <button
-                    onClick={() => navigate(`/collage/${currentCollage.code}/photobooth`)}
-                    className="flex items-center space-x-2 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors text-sm"
-                  >
-                    <Camera className="w-4 h-4" />
-                    <span>Camera</span>
-                  </button>
-
-                  {/* Share Button */}
-                  <button
-                    onClick={() => handleCopy(shareUrl)}
-                    className="flex items-center space-x-2 px-3 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors text-sm"
-                  >
-                    {copied ? <Check className="w-4 h-4" /> : <Share className="w-4 h-4" />}
-                    <span>{copied ? 'Copied!' : 'Share'}</span>
-                  </button>
-
-                  {/* Fullscreen Toggle */}
-                  <button
-                    onClick={toggleFullscreen}
-                    className="p-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
-                  >
-                    {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
-                  </button>
-                </div>
-              </div>
-            </div>
+    <div className="min-h-screen bg-gray-900 relative">
+      {/* Connection Status and Debug Info */}
+      {DEBUG && (
+        <div className="fixed top-4 left-4 z-50 bg-black/80 text-white p-2 rounded text-xs">
+          <div>Collage: {currentCollage.name}</div>
+          <div>Photos: {safePhotos.length}</div>
+          <div>Connected: {isRealtimeConnected ? '✅' : '❌'}</div>
+          <div className="flex gap-1 mt-1">
+            <button 
+              onClick={handleManualRefresh}
+              className="px-2 py-1 bg-blue-600 rounded text-xs"
+            >
+              Refresh
+            </button>
+            <button 
+              onClick={handleForceReconnect}
+              className="px-2 py-1 bg-green-600 rounded text-xs"
+            >
+              Reconnect
+            </button>
           </div>
         </div>
       )}
 
-      {/* Upload Modal */}
+      {/* Main Controls */}
+      <div className={`absolute top-4 right-4 z-40 flex items-center gap-3 transition-opacity duration-300 ${
+        controlsVisible || !isFullscreen ? 'opacity-100' : 'opacity-0 hover:opacity-100'
+      }`}>
+        
+        {/* Realtime Status */}
+        <div className={`px-3 py-2 rounded-lg text-sm font-medium ${
+          isRealtimeConnected 
+            ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
+            : 'bg-red-500/20 text-red-400 border border-red-500/30'
+        }`}>
+          {isRealtimeConnected ? '🟢 Live' : '🔴 Offline'}
+        </div>
+
+        {/* Upload Button */}
+        <button
+          onClick={() => setShowUploader(true)}
+          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-2 transition-colors"
+        >
+          <Upload className="w-4 h-4" />
+          Add Photos
+        </button>
+
+        {/* Share Button */}
+        <button
+          onClick={() => handleCopy(window.location.href)}
+          className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg flex items-center gap-2 transition-colors"
+        >
+          {copied ? (
+            <>
+              <Check className="w-4 h-4" />
+              Copied!
+            </>
+          ) : (
+            <>
+              <Share className="w-4 h-4" />
+              Share
+            </>
+          )}
+        </button>
+
+        {/* Fullscreen Button */}
+        <button
+          onClick={toggleFullscreen}
+          className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg flex items-center gap-2 transition-colors"
+        >
+          {isFullscreen ? (
+            <Minimize className="w-4 h-4" />
+          ) : (
+            <Maximize className="w-4 h-4" />
+          )}
+        </button>
+      </div>
+
+      {/* Back Button (only in non-fullscreen) */}
+      {!isFullscreen && (
+        <div className="absolute top-4 left-4 z-40">
+          <Link
+            to="/dashboard"
+            className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg flex items-center gap-2 transition-colors"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            Back
+          </Link>
+        </div>
+      )}
+
+      {/* 3D Scene */}
+      <ErrorBoundary
+        fallback={
+          <div className="min-h-screen flex items-center justify-center">
+            <div className="text-center">
+              <p className="text-red-400 mb-4">Something went wrong with the 3D viewer</p>
+              <button
+                onClick={() => window.location.reload()}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg"
+              >
+                Reload Page
+              </button>
+            </div>
+          </div>
+        }
+      >
+        <CollageScene photos={safePhotos} />
+      </ErrorBoundary>
+
+      {/* Photo Uploader Modal */}
       {showUploader && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80"
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
           onClick={handleModalBackdropClick}
         >
-          <div 
-            className="bg-gray-900 rounded-lg w-full max-w-md max-h-[90vh] overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Modal Header */}
-            <div className="flex items-center justify-between p-4 border-b border-gray-700">
-              <h3 className="text-lg font-semibold text-white">Upload Photos</h3>
-              <button 
+          <div className="bg-gray-800 rounded-xl p-6 max-w-md w-full mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-semibold text-white">Upload Photos</h3>
+              <button
                 onClick={() => setShowUploader(false)}
-                className="text-gray-400 hover:text-white transition-colors p-1 hover:bg-gray-700 rounded"
+                className="text-gray-400 hover:text-white"
               >
-                <X className="w-6 h-6" />
+                <X className="w-5 h-5" />
               </button>
             </div>
             
-            {/* Modal Content - Scrollable */}
-            <div className="p-6 max-h-[calc(100vh-12rem)] overflow-y-auto">
-              <div className="space-y-4">
-                {/* Upload Instructions */}
-                <div className="text-center text-gray-300 text-sm">
-                  <p>Share your photos with the collage!</p>
-                  <p className="text-gray-400 text-xs mt-1">Supported: JPG, PNG, GIF, WebP (max 10MB)</p>
-                </div>
-                
-                {/* Photo Uploader Component */}
-                <div className="min-h-[200px]">
-                  <PhotoUploader 
-                    collageId={currentCollage.id}
-                    onUploadComplete={() => {
-                      console.log('📸 VIEWER: Photo upload completed from modal');
-                      if (!isRealtimeConnected) {
-                        handleManualRefresh();
-                      }
-                      // Show success message and optionally close modal
-                      setTimeout(() => {
-                        // setShowUploader(false); // Uncomment to auto-close
-                      }, 1500);
-                    }}
-                  />
-                </div>
-                
-                {/* Additional Info */}
-                <div className="text-center text-xs text-gray-500 border-t border-gray-700 pt-4">
-                  <p>Photos will appear in the collage automatically</p>
-                  <p>Code: <span className="font-mono text-gray-400">{currentCollage.code}</span></p>
-                </div>
-              </div>
-            </div>
+            {currentCollage && (
+              <PhotoUploader 
+                collageId={currentCollage.id}
+                onUploadComplete={() => {
+                  console.log('🖼️ VIEWER: Upload completed, photos should update via realtime');
+                }}
+              />
+            )}
           </div>
-        </div>
-      )}
-      
-      {/* Debug Realtime Status - Only visible in development */}
-      {import.meta.env.DEV && (
-        <div className="fixed top-20 left-4 z-50 flex flex-col space-y-2">
-          <button 
-            onClick={debugSubscription}
-            className="bg-red-600 text-white px-3 py-1 rounded text-sm"
-          >
-            Debug Subscription
-          </button>
-        </div>
-      )}
-      
-      {import.meta.env.DEV && (
-        <div className="fixed bottom-4 right-4 z-20 w-64">
-          <RealtimeDebugPanel 
-            collageId={currentCollage?.id} 
-          />
         </div>
       )}
 
-      {/* Fullscreen hint */}
-      {isFullscreen && controlsVisible && (
-        <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-20">
-          <div className="bg-black/60 backdrop-blur-sm text-white text-sm px-4 py-2 rounded-lg">
-            Move mouse or press any key to show controls
-          </div>
+      {/* Collage Info Overlay */}
+      {!isFullscreen && (
+        <div className="absolute bottom-4 left-4 z-40 bg-black/70 backdrop-blur-sm rounded-lg p-4 text-white">
+          <h2 className="text-xl font-semibold mb-1">{currentCollage.name}</h2>
+          <p className="text-gray-300 text-sm">Code: {currentCollage.code}</p>
+          <p className="text-gray-300 text-sm">{safePhotos.length} photos</p>
         </div>
+      )}
+
+      {/* Debug Panel */}
+      {DEBUG && (
+        <RealtimeDebugPanel />
       )}
     </div>
   );
