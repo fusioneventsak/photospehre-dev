@@ -56,6 +56,9 @@ export class FloatPattern extends BasePattern {
     const positions: Position[] = [];
     const rotations: [number, number, number][] = [];
 
+    // Apply animation speed directly to the animation parameters
+    const speedFactor = this.settings.animationSpeed / 50;
+
     // Use pattern-specific photoCount if available
     const photoCount = this.settings.patterns?.float?.photoCount !== undefined 
       ? this.settings.patterns.float.photoCount 
@@ -63,15 +66,15 @@ export class FloatPattern extends BasePattern {
     
     const totalPhotos = Math.min(photoCount, 500);
     
-    // Use dynamic floor size from settings
+    // Use floor size from settings
     const floorSize = this.settings.floorSize || 200;
     
     // Get base positions that adapt to floor size
     const basePositions = this.generateDynamicBasePositions(totalPhotos, floorSize);
     
-    // UPDATED: Animation parameters with speed from settings
-    const riseSpeed = 8 * (this.settings.animationSpeed / 50); // Scale with animation speed setting
-    const maxHeight = this.settings.patterns?.float?.height || 300; // Height before recycling
+    // Animation parameters - apply speed factor directly
+    const riseSpeed = 8 * speedFactor; // Scale with animation speed setting
+    const maxHeight = this.settings.patterns?.float?.height || 60; // Height before recycling
     const startHeight = -40; // Start below the floor
     const cycleHeight = maxHeight - startHeight; // Total distance to travel (now 340 units!)
     
@@ -109,7 +112,7 @@ export class FloatPattern extends BasePattern {
       if (this.settings.animationEnabled) {
         // Gentle horizontal drift as photos rise - scale with floor size
         const driftStrength = Math.max(1.5, (this.settings.patterns?.float?.spread || 25) * 0.1); // Use spread setting
-        const driftSpeed = 0.3 * (this.settings.animationSpeed / 50); // Scale drift speed with animation speed
+        const driftSpeed = 0.3 * speedFactor; // Apply speed factor to drift
         x += Math.sin(animationTime * driftSpeed + i * 0.5) * driftStrength;
         z += Math.cos(animationTime * driftSpeed * 0.8 + i * 0.7) * driftStrength;
       }
@@ -118,12 +121,12 @@ export class FloatPattern extends BasePattern {
       
       // Calculate rotation
       if (this.settings.photoRotation) {
-        // Face towards center
+        // Face towards center with gentle wobble
         const rotationY = Math.atan2(-x, -z);
         
-        // Add gentle wobble
-        const wobbleX = this.settings.animationEnabled ? Math.sin(animationTime * 0.5 + i * 0.2) * 0.03 : 0;
-        const wobbleZ = this.settings.animationEnabled ? Math.cos(animationTime * 0.4 + i * 0.3) * 0.03 : 0;
+        // Add gentle wobble - apply speed factor
+        const wobbleX = this.settings.animationEnabled ? Math.sin(animationTime * 0.5 * speedFactor + i * 0.2) * 0.03 : 0;
+        const wobbleZ = this.settings.animationEnabled ? Math.cos(animationTime * 0.4 * speedFactor + i * 0.3) * 0.03 : 0;
         
         rotations.push([wobbleX, rotationY, wobbleZ]);
       } else {

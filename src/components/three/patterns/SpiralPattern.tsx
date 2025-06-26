@@ -5,6 +5,9 @@ export class SpiralPattern extends BasePattern {
     const positions: Position[] = [];
     const rotations: [number, number, number][] = [];
     
+    // Apply animation speed directly to the animation parameters
+    const speedFactor = this.settings.animationSpeed / 50;
+    
     // Use pattern-specific photoCount if available
     const photoCount = this.settings.patterns?.spiral?.photoCount !== undefined 
       ? this.settings.patterns.spiral.photoCount 
@@ -12,14 +15,14 @@ export class SpiralPattern extends BasePattern {
     
     const totalPhotos = Math.min(photoCount, 500);
     
-    const speed = this.settings.animationSpeed / 50;
-    const animationTime = time * speed;
+    // Use raw time - we'll apply speed factor to individual parameters
+    const animationTime = time;
     
     // Tornado parameters
     const baseRadius = 3; // Narrow radius at ground level
     const topRadius = this.settings.patterns?.spiral?.radius || 30; // Wide radius at top
     const maxHeight = 40; // Height of the spiral
-    const rotationSpeed = 0.8; // Speed of rotation
+    const rotationSpeed = 0.8 * speedFactor; // Apply speed factor to rotation
     const orbitalChance = 0.2; // 20% chance for a photo to be on an outer orbit
     
     // Distribution parameters
@@ -54,7 +57,8 @@ export class SpiralPattern extends BasePattern {
         
         // Add vertical oscillation for orbital photos
         if (this.settings.animationEnabled) {
-          verticalWobble = Math.sin(animationTime * 2 + i) * 3;
+          // Apply speed factor to wobble
+          verticalWobble = Math.sin(animationTime * 2 * speedFactor + i) * 3;
         }
       } else {
         // Main funnel photos
@@ -68,7 +72,7 @@ export class SpiralPattern extends BasePattern {
       // Photos at the bottom rotate slower, creating a realistic vortex effect
       const heightSpeedFactor = 0.3 + normalizedHeight * 0.7; // Slower at bottom
       // Apply animation speed directly to rotation
-      const rotationFactor = rotationSpeed * (this.settings.animationSpeed / 50);
+        (time * rotationSpeed * heightSpeedFactor + i * 0.5 + angleOffset) : 
       const angle = this.settings.animationEnabled ?
         (time * rotationFactor * heightSpeedFactor + i * 0.5 + angleOffset) : 
         (i * 0.5 + angleOffset);
@@ -80,8 +84,9 @@ export class SpiralPattern extends BasePattern {
       // Add turbulence for more realistic tornado effect
       if (this.settings.animationEnabled) {
         const turbulenceStrength = isOrbital ? 2 : 1;
-        const turbulenceX = Math.sin(animationTime * 3 + y * 0.1 + i) * turbulenceStrength;
-        const turbulenceZ = Math.cos(animationTime * 2.5 + y * 0.1 + i * 1.3) * turbulenceStrength;
+        // Apply speed factor to turbulence
+        const turbulenceX = Math.sin(animationTime * 3 * speedFactor + y * 0.1 + i) * turbulenceStrength;
+        const turbulenceZ = Math.cos(animationTime * 2.5 * speedFactor + y * 0.1 + i * 1.3) * turbulenceStrength;
         
         x += turbulenceX;
         z += turbulenceZ;
@@ -109,9 +114,9 @@ export class SpiralPattern extends BasePattern {
         // Add dynamic tilting based on height and motion
         const tiltAmount = isOrbital ? 0.2 : 0.1;
         const rotationX = this.settings.animationEnabled ? 
-          Math.sin(animationTime * 1.5 + i * 0.3) * tiltAmount : 0;
+          Math.sin(animationTime * 1.5 * speedFactor + i * 0.3) * tiltAmount : 0;
         const rotationZ = this.settings.animationEnabled ? 
-          Math.cos(animationTime * 1.2 + i * 0.4) * tiltAmount : 0;
+          Math.cos(animationTime * 1.2 * speedFactor + i * 0.4) * tiltAmount : 0;
         
         rotations.push([rotationX, facingAngle, rotationZ]);
       } else {

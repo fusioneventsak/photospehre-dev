@@ -202,6 +202,7 @@ const AnimationController: React.FC<{
   const lastPhotoCount = useRef(settings.photoCount || 100);
   const lastPositionsRef = useRef<PhotoWithPosition[]>([]);
   const lastUpdateTimeRef = useRef(0);
+  const timeRef = useRef(0);
   
   // Create a key from photo IDs to detect changes
   const currentPhotoIds = useMemo(() => 
@@ -219,6 +220,9 @@ const AnimationController: React.FC<{
   
   const updatePositions = useCallback((time: number = 0) => {
     try {
+      // Store time for pattern transitions
+      timeRef.current = time;
+      
       const safePhotos = Array.isArray(photos) ? photos.filter(p => p && p.id) : [];
       const safeSettings = settings || {};
 
@@ -356,15 +360,16 @@ const AnimationController: React.FC<{
   }, [currentPhotoIds, photos]);
 
   // Regular animation updates
-  useFrame((state, delta) => {
-    const time = settings.animationEnabled ? 
-      state.clock.elapsedTime : 0;
+  useFrame((state) => {
+    // Always increment time for smooth transitions, but only use it when animation is enabled
+    const time = state.clock.elapsedTime;
+    const animationTime = settings.animationEnabled ? time : timeRef.current;
     
     // Throttle updates to improve performance (30fps is plenty for animations)
     const now = state.clock.elapsedTime;
     if (now - lastUpdateTimeRef.current > 1/30) {
       lastUpdateTimeRef.current = now;
-      updatePositions(time);
+      updatePositions(animationTime);
     }
   });
 
@@ -434,6 +439,7 @@ const PhotoMesh: React.FC<{
   const currentPosition = useRef<THREE.Vector3>(new THREE.Vector3(...photo.targetPosition));
   const currentRotation = useRef<THREE.Euler>(new THREE.Euler(...photo.targetRotation));
   const isNewPhotoRef = useRef(true);
+  const transitionSpeedRef = useRef(POSITION_SMOOTHING);
 
   // Log render for debugging
   useEffect(() => {
@@ -443,13 +449,16 @@ const PhotoMesh: React.FC<{
   // Initialize position immediately to prevent jarring movements
   useEffect(() => {
     currentPosition.current.set(...photo.targetPosition);
-    currentRotation.current.set(...photo.targetRotation);
+    currentRotation.current.set(...photo.targetRotation); 
     
     // For new photos with URLs (not empty slots), start them from above for a nice entrance
     if (photo.url && isNewPhotoRef.current && !photo.id.startsWith('placeholder')) {
       isNewPhotoRef.current = false;
       // Start 20 units above target position for a nice drop-in effect
       currentPosition.current.y += 20;
+      
+      // Use faster transition for new photos
+      transitionSpeedRef.current = POSITION_SMOOTHING * 1.5;
     }
   }, []);
 
@@ -515,6 +524,7 @@ const PhotoMesh: React.FC<{
     const targetPosition = new THREE.Vector3(...photo.targetPosition);
     const targetRotation = new THREE.Euler(...photo.targetRotation);
 
+    // Calculate distance to target
     const distance = currentPosition.current.distanceTo(targetPosition);
     const isTeleport = distance > TELEPORT_THRESHOLD;
 
@@ -522,12 +532,25 @@ const PhotoMesh: React.FC<{
       // Instant teleport for large movements
       currentPosition.current.copy(targetPosition);
       currentRotation.current.copy(targetRotation);
+      
+      // Reset transition speed after teleport
+      transitionSpeedRef.current = POSITION_SMOOTHING;
     } else {
       // Smooth interpolation for normal movement
-      currentPosition.current.lerp(targetPosition, POSITION_SMOOTHING);
+      // Use current transition speed
+      currentPosition.current.lerp(targetPosition, transitionSpeedRef.current);
       currentRotation.current.x += (targetRotation.x - currentRotation.current.x) * ROTATION_SMOOTHING;
       currentRotation.current.y += (targetRotation.y - currentRotation.current.y) * ROTATION_SMOOTHING;
       currentRotation.current.z += (targetRotation.z - currentRotation.current.z) * ROTATION_SMOOTHING;
+      
+      // Gradually return to normal transition speed
+      if (transitionSpeedRef.current > POSITION_SMOOTHING) {
+        transitionSpeedRef.current = THREE.MathUtils.lerp(
+          transitionSpeedRef.current, 
+          POSITION_SMOOTHING, 
+          0.01
+        );
+      }
     }
 
     meshRef.current.position.copy(currentPosition.current);
@@ -647,9 +670,20 @@ const PhotoRenderer: React.FC<{
 // Main CollageScene component
 const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSettingsChange }) => {
   const [photosWithPositions, setPhotosWithPositions] = useState<PhotoWithPosition[]>([]);
+  const prevAnimationPatternRef = useRef<string | null>(null);
 
   const safePhotos = Array.isArray(photos) ? photos : [];
   const safeSettings = { ...settings };
+
+  // Handle pattern transitions
+  useEffect(() => {
+    if (prevAnimationPatternRef.current && 
+        prevAnimationPatternRef.current !== safeSettings.animationPattern) {
+      console.log(`🔄 Animation pattern changed: ${prevAnimationPatternRef.current} -> ${safeSettings.animationPattern}`);
+    }
+    
+    prevAnimationPatternRef.current = safeSettings.animationPattern;
+  }, [safeSettings.animationPattern]);
 
   // Background style for gradient backgrounds
   const backgroundStyle = useMemo(() => {
@@ -716,7 +750,7 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
         <Grid settings={safeSettings} />
         
         <AnimationController
-          key={`animation-controller-${safePhotos.length}`}
+          key={`animation-controller-${safeSettings.animationPattern}`}
           settings={safeSettings}
           photos={safePhotos}
           onPositionsUpdate={setPhotosWithPositions}
