@@ -4,6 +4,9 @@ import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { SceneSettings } from '../../store/sceneStore';
 
+// Debug flag for logging
+const DEBUG = false;
+
 // Camera mode configuration interface
 export interface CameraMode {
   name: string;
@@ -190,10 +193,12 @@ export const CameraController: React.FC<CameraControllerProps> = ({
   const userInteractingRef = useRef(false);
   const lastInteractionTimeRef = useRef(0);
   const targetRef = useRef(new THREE.Vector3(0, 0, 0));
+  const lastAnimationTimeRef = useRef(0);
 
   // Update camera mode when settings change
   useEffect(() => {
     if (settings.cameraMode && settings.cameraMode !== cameraMode) {
+      if (DEBUG) console.log(`🎥 Camera mode changing from ${cameraMode} to ${settings.cameraMode}`);
       setCameraMode(settings.cameraMode);
     }
   }, [settings.cameraMode]);
@@ -222,11 +227,13 @@ export const CameraController: React.FC<CameraControllerProps> = ({
     if (!controlsRef.current) return;
 
     const handleStart = () => {
+      if (DEBUG) console.log('🎥 User interaction started');
       userInteractingRef.current = true;
       lastInteractionTimeRef.current = Date.now();
     };
 
     const handleEnd = () => {
+      if (DEBUG) console.log('🎥 User interaction ended');
       lastInteractionTimeRef.current = Date.now();
       // FIXED: Shorter timeout to allow animations to resume faster
       setTimeout(() => {
@@ -249,13 +256,18 @@ export const CameraController: React.FC<CameraControllerProps> = ({
   // FIXED: Handle all camera modes properly
   useFrame((state, delta) => {
     if (!controlsRef.current) return;
+    
+    // CRITICAL: Store animation time for pattern animations
+    // This ensures pattern animations continue even when camera is moving
+    lastAnimationTimeRef.current = state.clock.elapsedTime;
 
     // Handle automatic camera rotation for orbit mode - use cameraRotationSpeed
     if (cameraMode === 'orbit' && settings.cameraRotationEnabled && !userInteractingRef.current) {
-      const rotationSpeed = (settings.cameraRotationSpeed || 1.0) * 0.1;
+      // CRITICAL: Use cameraRotationSpeed for camera, NOT animationSpeed
+      const cameraSpeed = (settings.cameraRotationSpeed || 1.0) * 0.1;
       const radius = camera.position.distanceTo(controlsRef.current.target);
       const currentAngle = Math.atan2(camera.position.z, camera.position.x);
-      const newAngle = currentAngle + delta * rotationSpeed;
+      const newAngle = currentAngle + delta * cameraSpeed; // Use cameraSpeed, not animationSpeed
       
       camera.position.x = Math.cos(newAngle) * radius;
       camera.position.z = Math.sin(newAngle) * radius;
@@ -268,7 +280,7 @@ export const CameraController: React.FC<CameraControllerProps> = ({
         !userInteractingRef.current && 
         settings.cameraEnabled !== false) {
       
-      // Use cameraRotationSpeed for camera movement, NOT animationSpeed
+      // CRITICAL: Use cameraRotationSpeed for camera movement, NOT animationSpeed
       const cinematicSpeed = (settings.cameraRotationSpeed || 1.0) * 0.3;
       cinematicTimeRef.current += delta * cinematicSpeed;
       
@@ -363,10 +375,10 @@ export const CameraController: React.FC<CameraControllerProps> = ({
   // Determine which controls to enable based on camera mode
   const currentMode = CAMERA_MODES[cameraMode] || CAMERA_MODES.orbit;
   
-  // Calculate speed multipliers from settings  
+  // CRITICAL: Calculate speed multipliers from cameraRotationSpeed, not animationSpeed
   const rotationSpeed = settings.cameraRotationSpeed || 1.0;
-  const zoomSpeed = rotationSpeed; // Use rotation speed for consistency
-  const panSpeed = rotationSpeed; // Use rotation speed for consistency
+  const zoomSpeed = rotationSpeed; // Use camera rotation speed for consistency
+  const panSpeed = rotationSpeed; // Use camera rotation speed for consistency
   
   return (
     <>
@@ -383,7 +395,7 @@ export const CameraController: React.FC<CameraControllerProps> = ({
         enableDamping={true}
         dampingFactor={0.05}
         zoomSpeed={zoomSpeed} // FIXED: Use settings for zoom speed
-        rotateSpeed={rotationSpeed} // FIXED: Use settings for rotation speed
+        rotateSpeed={rotationSpeed} // FIXED: Use camera rotation speed
         panSpeed={panSpeed} // FIXED: Use settings for pan speed
         touches={{
           ONE: THREE.TOUCH.ROTATE,
@@ -410,11 +422,13 @@ export const CinematicPathProvider: React.FC<{
   // Generate path when photos or relevant settings change
   useEffect(() => {
     if (photos && photos.length > 0) {
+      if (DEBUG) console.log('🎥 Generating new cinematic path');
       const newPath = generateOptimalPath(photos, settings);
       setPath(newPath);
     }
   }, [photos, settings.animationPattern]);
   
+  // Expose the path to children
   return <>{children(path)}</>;
 };
 
