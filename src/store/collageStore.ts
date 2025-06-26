@@ -789,6 +789,13 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
         return;
       }
 
+      if (!photo) {
+        console.warn('⚠️ Photo not found in database:', photoId);
+        // Remove from state since it doesn't exist in DB
+        get().removePhotoFromState(photoId);
+        return;
+      }
+
       // Extract storage path from URL
       const url = new URL(photo.url);
       const pathParts = url.pathname.split('/');
