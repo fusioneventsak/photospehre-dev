@@ -4,10 +4,8 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
 import * as THREE from 'three';
 import { type SceneSettings } from '../../store/sceneStore';
-import { PatternFactory } from './patterns/PatternFactory';
-import { SlotManager } from './patterns/SlotManager';
+import { PatternFactory, SlotManager } from './patterns/PatternFactory';
 import { addCacheBustToUrl } from '../../lib/supabase';
-import CameraController, { CinematicPathProvider } from './CameraSystem';
 
 // Debug flag for logging
 const DEBUG = false;
@@ -107,6 +105,103 @@ const Grid: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
 };
 
 // CameraController component with FIXED controls
+const CameraController: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
+  const { camera } = useThree();
+  const controlsRef = useRef<any>();
+  const userInteractingRef = useRef(false);
+  const lastInteractionTimeRef = useRef(0);
+  
+  // Initialize camera position
+  useEffect(() => {
+    if (camera && controlsRef.current) {
+      const initialDistance = settings.cameraDistance || 20;
+      const initialHeight = settings.cameraHeight || 0;
+      const initialPosition = new THREE.Vector3(
+        initialDistance,
+        initialHeight,
+        initialDistance
+      );
+      camera.position.copy(initialPosition);
+      
+      const target = new THREE.Vector3(0, initialHeight * 0.3, 0);
+      controlsRef.current.target.copy(target);
+      controlsRef.current.update();
+    }
+  }, [camera, settings.cameraDistance, settings.cameraHeight]);
+
+  // Handle user interaction detection
+  useEffect(() => {
+    if (!controlsRef.current) return;
+
+    const handleStart = () => {
+      userInteractingRef.current = true;
+      lastInteractionTimeRef.current = Date.now();
+    };
+
+    const handleEnd = () => {
+      lastInteractionTimeRef.current = Date.now();
+      setTimeout(() => {
+        userInteractingRef.current = false;
+      }, 500);
+    };
+
+    const controls = controlsRef.current;
+    controls.addEventListener('start', handleStart);
+    controls.addEventListener('end', handleEnd);
+
+    return () => {
+      controls.removeEventListener('start', handleStart);
+      controls.removeEventListener('end', handleEnd);
+    };
+  }, []);
+
+  // Auto rotation when enabled
+  useFrame((state, delta) => {
+    if (!controlsRef.current) return;
+
+    // Only auto-rotate if camera rotation is enabled AND user isn't interacting
+    if (settings.cameraRotationEnabled && !userInteractingRef.current) {
+      const offset = new THREE.Vector3().copy(camera.position).sub(controlsRef.current.target);
+      const spherical = new THREE.Spherical().setFromVector3(offset);
+      
+      spherical.theta += (settings.cameraRotationSpeed || 0.5) * delta;
+      
+      const newPosition = new THREE.Vector3().setFromSpherical(spherical).add(controlsRef.current.target);
+      camera.position.copy(newPosition);
+      controlsRef.current.update();
+    }
+  });
+
+  // FIXED: Always return controls but respect cameraEnabled setting
+  return (
+    <OrbitControls
+      ref={controlsRef}
+      enabled={settings.cameraEnabled !== false} // Can be disabled via settings
+      enablePan={true}
+      enableZoom={true}
+      enableRotate={true}
+      minDistance={5}
+      maxDistance={200}
+      minPolarAngle={Math.PI / 6}
+      maxPolarAngle={Math.PI - Math.PI / 6}
+      enableDamping={true}
+      dampingFactor={0.05}
+      zoomSpeed={1.0}
+      rotateSpeed={1.0}
+      panSpeed={1.0}
+      // Enable touch controls for mobile
+      touches={{
+        ONE: THREE.TOUCH.ROTATE,
+        TWO: THREE.TOUCH.DOLLY_PAN
+      }}
+      mouseButtons={{
+        LEFT: THREE.MOUSE.ROTATE,
+        MIDDLE: THREE.MOUSE.DOLLY,
+        RIGHT: THREE.MOUSE.PAN
+      }}
+    />
+  );
+};
 
 // Scene Lighting component with WORKING spotlights
 const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
@@ -198,13 +293,11 @@ const AnimationController: React.FC<{
   settings: SceneSettings;
   photos: Photo[];
   onPositionsUpdate: (photos: PhotoWithPosition[]) => void;
-}> = React.memo(function AnimationController({ settings, photos, onPositionsUpdate }) {
+}> = React.memo(({ settings, photos, onPositionsUpdate }) => {
   const slotManagerRef = useRef(new SlotManager(settings.photoCount || 100));
   const lastPhotoCount = useRef(settings.photoCount || 100);
   const lastPositionsRef = useRef<PhotoWithPosition[]>([]);
   const lastUpdateTimeRef = useRef(0);
-  const timeRef = useRef(0);
-  const animationSpeedRef = useRef(settings.animationSpeed || 50);
   
   // Create a key from photo IDs to detect changes
   const currentPhotoIds = useMemo(() => 
@@ -222,9 +315,6 @@ const AnimationController: React.FC<{
   
   const updatePositions = useCallback((time: number = 0) => {
     try {
-      // Store time for pattern transitions
-      timeRef.current = time;
-      
       const safePhotos = Array.isArray(photos) ? photos.filter(p => p && p.id) : [];
       const safeSettings = settings || {};
 
@@ -362,25 +452,15 @@ const AnimationController: React.FC<{
   }, [currentPhotoIds, photos]);
 
   // Regular animation updates
-  useFrame((state) => {
-    // Always increment time for smooth transitions, but only use it when animation is enabled
-    const currentTime = state.clock.elapsedTime;
-    
-    // CRITICAL FIX: Separate animation time from camera time
-    // This ensures pattern animations run at their own speed independent of camera
-    if (settings.animationEnabled) {
-      // Update animation time based on animation speed, not camera speed
-      const speedFactor = settings.animationSpeed / 50;
-      timeRef.current += state.clock.getDelta() * speedFactor;
-    }
-    
-    // Use our own animation time that's controlled by animation speed
-    const animationTime = settings.animationEnabled ? timeRef.current : 0;
+  useFrame((state, delta) => {
+    const time = settings.animationEnabled ? 
+      state.clock.elapsedTime * ((settings.animationSpeed || 50) / 50) : 0;
     
     // Throttle updates to improve performance (30fps is plenty for animations)
-    if (currentTime - lastUpdateTimeRef.current > 1/30) {
-      lastUpdateTimeRef.current = currentTime;
-      updatePositions(animationTime);
+    const now = state.clock.elapsedTime;
+    if (now - lastUpdateTimeRef.current > 1/30) {
+      lastUpdateTimeRef.current = now;
+      updatePositions(time);
     }
   });
 
@@ -450,7 +530,6 @@ const PhotoMesh: React.FC<{
   const currentPosition = useRef<THREE.Vector3>(new THREE.Vector3(...photo.targetPosition));
   const currentRotation = useRef<THREE.Euler>(new THREE.Euler(...photo.targetRotation));
   const isNewPhotoRef = useRef(true);
-  const transitionSpeedRef = useRef(POSITION_SMOOTHING);
 
   // Log render for debugging
   useEffect(() => {
@@ -460,16 +539,13 @@ const PhotoMesh: React.FC<{
   // Initialize position immediately to prevent jarring movements
   useEffect(() => {
     currentPosition.current.set(...photo.targetPosition);
-    currentRotation.current.set(...photo.targetRotation); 
+    currentRotation.current.set(...photo.targetRotation);
     
     // For new photos with URLs (not empty slots), start them from above for a nice entrance
     if (photo.url && isNewPhotoRef.current && !photo.id.startsWith('placeholder')) {
       isNewPhotoRef.current = false;
       // Start 20 units above target position for a nice drop-in effect
       currentPosition.current.y += 20;
-      
-      // Use faster transition for new photos
-      transitionSpeedRef.current = POSITION_SMOOTHING * 1.5;
     }
   }, []);
 
@@ -535,7 +611,6 @@ const PhotoMesh: React.FC<{
     const targetPosition = new THREE.Vector3(...photo.targetPosition);
     const targetRotation = new THREE.Euler(...photo.targetRotation);
 
-    // Calculate distance to target
     const distance = currentPosition.current.distanceTo(targetPosition);
     const isTeleport = distance > TELEPORT_THRESHOLD;
 
@@ -543,25 +618,12 @@ const PhotoMesh: React.FC<{
       // Instant teleport for large movements
       currentPosition.current.copy(targetPosition);
       currentRotation.current.copy(targetRotation);
-      
-      // Reset transition speed after teleport
-      transitionSpeedRef.current = POSITION_SMOOTHING;
     } else {
       // Smooth interpolation for normal movement
-      // Use current transition speed
-      currentPosition.current.lerp(targetPosition, transitionSpeedRef.current);
+      currentPosition.current.lerp(targetPosition, POSITION_SMOOTHING);
       currentRotation.current.x += (targetRotation.x - currentRotation.current.x) * ROTATION_SMOOTHING;
       currentRotation.current.y += (targetRotation.y - currentRotation.current.y) * ROTATION_SMOOTHING;
       currentRotation.current.z += (targetRotation.z - currentRotation.current.z) * ROTATION_SMOOTHING;
-      
-      // Gradually return to normal transition speed
-      if (transitionSpeedRef.current > POSITION_SMOOTHING) {
-        transitionSpeedRef.current = THREE.MathUtils.lerp(
-          transitionSpeedRef.current, 
-          POSITION_SMOOTHING, 
-          0.01
-        );
-      }
     }
 
     meshRef.current.position.copy(currentPosition.current);
@@ -651,13 +713,8 @@ const PhotoMesh: React.FC<{
 const PhotoRenderer: React.FC<{ 
   photosWithPositions: PhotoWithPosition[]; 
   settings: SceneSettings;
-}> = React.memo(function PhotoRenderer({ photosWithPositions, settings }) {
-  // CRITICAL FIX: Determine if photos should face camera
-  // - Float pattern: ALWAYS face camera for better visibility
-  // - Other patterns: Respect the photoRotation setting
-  const shouldFaceCamera = settings.animationPattern === 'float' 
-    ? true // Float pattern always faces camera
-    : settings.photoRotation;
+}> = React.memo(({ photosWithPositions, settings }) => {
+  const shouldFaceCamera = settings.photoRotation;
   
   return (
     <group>
@@ -686,32 +743,9 @@ const PhotoRenderer: React.FC<{
 // Main CollageScene component
 const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSettingsChange }) => {
   const [photosWithPositions, setPhotosWithPositions] = useState<PhotoWithPosition[]>([]);
-  const prevAnimationPatternRef = useRef<string | null>(null);
 
   const safePhotos = Array.isArray(photos) ? photos : [];
   const safeSettings = { ...settings };
-
-  // Handle pattern transitions
-  useEffect(() => {
-    const prevPattern = prevAnimationPatternRef.current;
-    const currentPattern = safeSettings.animationPattern;
-    
-    if (prevPattern && prevPattern !== currentPattern) {
-      console.log(`🔄 Animation pattern changed: ${prevPattern} -> ${currentPattern}`);
-      
-      // CRITICAL FIX: When switching to float pattern, always enable animation
-      if (currentPattern === 'float' && onSettingsChange && !safeSettings.animationEnabled) {
-        console.log('🔄 Enabling animation for float pattern');
-        onSettingsChange({ 
-          animationEnabled: true,
-          // Set higher animation speed for float pattern if it's too low
-          animationSpeed: Math.max(70, safeSettings.animationSpeed || 0)
-        });
-      }
-    }
-    
-    prevAnimationPatternRef.current = currentPattern;
-  }, [safeSettings.animationPattern]);
 
   // Background style for gradient backgrounds
   const backgroundStyle = useMemo(() => {
@@ -778,30 +812,15 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
         <Grid settings={safeSettings} />
         
         <AnimationController
-          key={`animation-controller-${safeSettings.animationPattern}`}
           settings={safeSettings}
           photos={safePhotos}
           onPositionsUpdate={setPhotosWithPositions}
         />
         
-        <CinematicPathProvider
-          photos={photosWithPositions}
+        <PhotoRenderer 
+          photosWithPositions={photosWithPositions}
           settings={safeSettings}
-        >
-          {(cinematicPath) => (
-            <>
-              <CameraController 
-                settings={safeSettings}
-                cinematicPath={cinematicPath}
-              />
-              
-              <PhotoRenderer 
-                photosWithPositions={photosWithPositions}
-                settings={safeSettings}
-              />
-            </>
-          )}
-        </CinematicPathProvider>
+        />
       </Canvas>
     </div>
   );

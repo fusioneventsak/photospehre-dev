@@ -5,11 +5,6 @@ export class WavePattern extends BasePattern {
     const positions: Position[] = [];
     const rotations: [number, number, number][] = [];
 
-    // CRITICAL FIX: Apply animation speed directly to wave motion
-    const speedFactor = this.settings.animationEnabled 
-      ? this.settings.animationSpeed / 50 
-      : 0;
-
     // Use pattern-specific photoCount if available
     const photoCount = this.settings.patterns?.wave?.photoCount !== undefined 
       ? this.settings.patterns.wave.photoCount 
@@ -22,8 +17,8 @@ export class WavePattern extends BasePattern {
     const columns = Math.ceil(Math.sqrt(totalPhotos));
     const rows = Math.ceil(totalPhotos / columns);
     
-    // CRITICAL FIX: Apply speedFactor to wave phase calculation
-    const wavePhase = time * speedFactor * 2; // Multiply by 2 for faster wave motion
+    const speed = this.settings.animationSpeed / 50;
+    const wavePhase = time * speed * 2;
     
     // Generate positions for all photos
     for (let i = 0; i < totalPhotos; i++) {
@@ -36,13 +31,12 @@ export class WavePattern extends BasePattern {
       
       // Calculate wave height based on distance from center
       const distanceFromCenter = Math.sqrt(x * x + z * z);
-      const amplitude = this.settings.patterns?.wave?.amplitude || 5;
-      const frequency = this.settings.patterns?.wave?.frequency || 0.5;
+      const amplitude = this.settings.patterns?.wave?.amplitude || 15;
+      const frequency = this.settings.patterns?.wave?.frequency || 0.3;
       
       let y = this.settings.wallHeight;
       
       if (this.settings.animationEnabled) {
-        // Apply wave motion with phase
         y += Math.sin(distanceFromCenter * frequency - wavePhase) * amplitude;
         // Add some vertical offset based on distance
         y += Math.sin(wavePhase * 0.5) * (distanceFromCenter * 0.1);
@@ -53,7 +47,6 @@ export class WavePattern extends BasePattern {
       // Calculate rotations if photo rotation is enabled
       if (this.settings.photoRotation) {
         const angle = Math.atan2(x, z);
-        // Apply speedFactor through wavePhase to rotation
         const rotationX = Math.sin(wavePhase * 0.5 + distanceFromCenter * 0.1) * 0.1;
         const rotationY = angle;
         const rotationZ = Math.cos(wavePhase * 0.5 + distanceFromCenter * 0.1) * 0.1;

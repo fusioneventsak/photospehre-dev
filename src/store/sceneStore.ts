@@ -4,15 +4,6 @@ import { create } from 'zustand';
 export type SceneSettings = {
   animationPattern: 'float' | 'wave' | 'spiral' | 'grid';
   gridAspectRatioPreset: '1:1' | '4:3' | '16:9' | '21:9' | 'custom';
-  cameraMode: 'orbit' | 'firstPerson' | 'cinematic' | 'auto';
-  cameraKeyframes: {
-    position: [number, number, number];
-    target: [number, number, number];
-    fov: number;
-    duration: number;
-  }[];
-  autoViewEnabled: boolean;
-  vrModeEnabled: boolean;
   patterns: {
     grid: {
       enabled: boolean;
@@ -89,10 +80,6 @@ export type SceneSettings = {
 const defaultSettings: SceneSettings = {
   animationPattern: 'grid',
   gridAspectRatioPreset: '16:9',
-  cameraMode: 'orbit',
-  cameraKeyframes: [],
-  autoViewEnabled: false,
-  vrModeEnabled: false,
   animationSpeed: 50,
   animationEnabled: true,
   photoCount: 50,
@@ -205,48 +192,30 @@ export const useSceneStore = create<SceneState>()((set, get) => {
   const immediateUpdate = (newSettings: Partial<SceneSettings>) => {
     const currentSettings = get().settings;
 
-    // CRITICAL FIX: Handle pattern changes properly
+    // Handle pattern changes
     if (newSettings.animationPattern && newSettings.animationPattern !== currentSettings.animationPattern) {
-      console.log(`🔄 Changing animation pattern from ${currentSettings.animationPattern} to ${newSettings.animationPattern}`);
-
-      // Store the new pattern for reference
-      const newPattern = newSettings.animationPattern;
-      
-      // Create a deep copy of current patterns to avoid reference issues
+      // Update enabled states for patterns
       const updatedPatterns = { ...currentSettings.patterns };
+      const oldPattern = currentSettings.animationPattern;
+      const newPattern = newSettings.animationPattern;
       
       // Disable all patterns first
       Object.keys(updatedPatterns).forEach(pattern => {
         updatedPatterns[pattern as keyof typeof updatedPatterns].enabled = false;
       });
       
-      // Enable the selected pattern if it exists
+      // Enable the selected pattern
       if (newPattern && updatedPatterns[newPattern]) {
         updatedPatterns[newPattern].enabled = true;
         
-        // CRITICAL FIX: Force animation enabled when switching to float pattern
-        if (newSettings.animationPattern === 'float') {
-          newSettings.animationEnabled = true;
-          
-          // CRITICAL FIX: Set higher animation speed for float pattern if it's too low
-          if (!newSettings.animationSpeed || newSettings.animationSpeed < 50) {
-            console.log('🔄 Setting higher animation speed for float pattern');
-            newSettings.animationSpeed = 70;
-          }
-        }
-        
-        // CRITICAL FIX: Update global photoCount based on pattern-specific photoCount
+        // Update the global photoCount based on the pattern-specific photoCount
         if (updatedPatterns[newPattern].photoCount !== undefined) {
-          console.log(`📊 Setting photoCount to ${updatedPatterns[newPattern].photoCount} from ${newPattern} pattern`);
           newSettings.photoCount = updatedPatterns[newPattern].photoCount;
         }
       }
       
-      // Update the patterns in newSettings with our modified copy
+      // Update the patterns in newSettings
       newSettings.patterns = updatedPatterns;
-      
-      // CRITICAL FIX: Always enable animation when switching patterns
-      newSettings.animationEnabled = true;
     }
 
     // Handle photo count validation
@@ -300,7 +269,7 @@ export const useSceneStore = create<SceneState>()((set, get) => {
     settings: defaultSettings,
     updateSettings: (newSettings: Partial<SceneSettings>, debounce = false) => {
       if (debounce) {
-        debouncedUpdate(newSettings); 
+        debouncedUpdate(newSettings);
       } else {
         immediateUpdate(newSettings);
       }

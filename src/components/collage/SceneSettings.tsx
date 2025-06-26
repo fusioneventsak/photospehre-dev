@@ -1,6 +1,7 @@
+// src/components/collage/SceneSettings.tsx - COMPLETE: Improved photo spacing control
 import React from 'react';
 import { type SceneSettings } from '../../store/sceneStore';
-import { Grid, Palette, CameraIcon, ImageIcon, Square, Sun, Lightbulb, RotateCw, Move, Eye, Video, Clapperboard, Gamepad2 } from 'lucide-react';
+import { Grid, Palette, CameraIcon, ImageIcon, Square, Sun, Lightbulb, RotateCw, Move, Eye } from 'lucide-react';
 
 const SceneSettings: React.FC<{
   settings: SceneSettings;
@@ -34,43 +35,12 @@ const SceneSettings: React.FC<{
           <div>
             <label className="block text-sm text-gray-300 mb-2">
               Animation Pattern
-              <span className="ml-2 text-xs text-gray-400">
-                {settings.animationPattern === 'float' ? 'Float' : 
-                 settings.animationPattern === 'wave' ? 'Wave' : 
-                 settings.animationPattern === 'spiral' ? 'Spiral' : 'Grid'}
-              </span>
             </label>
             <select
               value={settings.animationPattern}
-              onChange={(e) => {
-                const newPattern = e.target.value as 'float' | 'wave' | 'spiral' | 'grid';
-                
-                // CRITICAL: Always enable animation and set appropriate speeds
-                const patternDefaults = {
-                  grid: { speed: 30, photoCount: 50 },
-                  float: { speed: 70, photoCount: 100 },
-                  wave: { speed: 50, photoCount: 75 },
-                  spiral: { speed: 40, photoCount: 60 }
-                };
-                
-                const defaults = patternDefaults[newPattern];
-                
-                onSettingsChange({ 
-                  animationPattern: newPattern as 'float' | 'wave' | 'spiral' | 'grid',
-                  animationEnabled: true, // ALWAYS enable
-                  animationSpeed: defaults.speed,
-                  photoCount: defaults.photoCount,
-                  // Update pattern-specific settings
-                  patterns: {
-                    ...settings.patterns,
-                    [newPattern]: {
-                      ...settings.patterns?.[newPattern],
-                      photoCount: defaults.photoCount,
-                      enabled: true
-                    }
-                  }
-                });
-              }}
+              onChange={(e) => onSettingsChange({ 
+                animationPattern: e.target.value as 'float' | 'wave' | 'spiral' | 'grid' 
+              })}
               className="w-full bg-gray-800 border border-gray-700 rounded-md py-2 px-3 text-white"
             >
               <option value="grid">Grid Wall</option>
@@ -83,11 +53,9 @@ const SceneSettings: React.FC<{
           {settings.animationEnabled && (
             <div>
               <label className="block text-sm text-gray-300 mb-2">
-                Pattern Animation Speed
+                Animation Speed
                 <span className="ml-2 text-xs text-gray-400">
-                  {settings.animationSpeed}% 
-                  {settings.animationPattern === 'float' && settings.animationSpeed < 50 && 
-                    " (Recommended: 70%+ for float pattern)"}
+                  {settings.animationSpeed}%
                 </span>
               </label>
               <input
@@ -96,18 +64,11 @@ const SceneSettings: React.FC<{
                 max="100"
                 step="1"
                 value={settings.animationSpeed}
-                onChange={(e) => {
-                  const speed = parseFloat(e.target.value);
-                  onSettingsChange({ 
-                    animationSpeed: speed
-                  });
-                }}
+                onChange={(e) => onSettingsChange({ 
+                  animationSpeed: parseFloat(e.target.value) 
+                }, true)}
                 className="w-full bg-gray-800"
               />
-              <p className="mt-1 text-xs text-gray-400">
-                <strong>Pattern speed only</strong> - controls how fast photos move in animation patterns 
-                (does NOT affect camera movement)
-              </p>
             </div>
           )}
         </div>
@@ -603,126 +564,9 @@ const SceneSettings: React.FC<{
       <div>
         <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
           <CameraIcon className="h-4 w-4 mr-2" />
-          Camera Mode
-        </h4>
-        
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm text-gray-300 mb-2">
-              Camera Mode
-            </label>
-            <select
-              value={settings.cameraMode || 'orbit'}
-              onChange={(e) => onSettingsChange({ 
-                cameraMode: e.target.value as 'orbit' | 'firstPerson' | 'cinematic' | 'auto'
-              })}
-              className="w-full bg-gray-800 border border-gray-700 rounded-md py-2 px-3 text-white"
-            >
-              <option value="orbit">Orbit (Interactive)</option>
-              <option value="firstPerson">First Person</option>
-              <option value="cinematic">Cinematic Path</option>
-              <option value="auto">Auto (Best Views)</option>
-            </select>
-          </div>
-          
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              checked={settings.autoViewEnabled}
-              onChange={(e) => onSettingsChange({ 
-                autoViewEnabled: e.target.checked 
-              })}
-              className="mr-2 bg-gray-800 border-gray-700"
-            />
-            <label className="text-sm text-gray-300">
-              Enable Auto Best View
-            </label>
-          </div>
-
-          {settings.cameraMode === 'cinematic' && (
-            <div className="bg-gray-800/50 p-3 rounded-lg border border-gray-700">
-              <h5 className="text-sm font-medium text-gray-300 mb-2 flex items-center">
-                <Clapperboard className="h-3 w-3 mr-1" />
-                Cinematic Path Settings
-              </h5>
-              <p className="text-xs text-gray-400 mb-3">
-                The camera will automatically follow an optimal path around your photos.
-              </p>
-              <button
-                onClick={() => onSettingsChange({ 
-                  cameraKeyframes: [] // This will trigger regeneration
-                })}
-                className="w-full px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded"
-              >
-                Regenerate Camera Path
-              </button>
-            </div>
-          )}
-
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              checked={settings.vrModeEnabled}
-              onChange={(e) => onSettingsChange({ 
-                vrModeEnabled: e.target.checked 
-              })}
-              className="mr-2 bg-gray-800 border-gray-700"
-            />
-            <label className="text-sm text-gray-300 flex items-center">
-              <Gamepad2 className="h-3 w-3 mr-1" />
-              VR Compatible Mode
-            </label>
-          </div>
-        </div>
-      </div>
-
-      <div>
-        <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
-          <CameraIcon className="h-4 w-4 mr-2" />
           Camera
         </h4>
         
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm text-gray-300 mb-2">
-              Camera Control Speed
-              <span className="ml-2 text-xs text-gray-400">{settings.cameraRotationSpeed?.toFixed(1)}x</span>
-            </label>
-            <input
-              type="range"
-              min="0.1"
-              max="3.0"
-              step="0.1"
-              value={settings.cameraRotationSpeed || 1.0}
-              onChange={(e) => onSettingsChange({ 
-                cameraRotationSpeed: parseFloat(e.target.value) 
-              }, true)}
-              className="w-full bg-gray-800"
-            />
-            <p className="text-xs text-gray-400 mt-1">
-              <strong>Camera speed only</strong> - controls camera rotation, zoom, pan, and cinematic movement speed 
-              (completely separate from pattern animation speed)
-            </p>
-          </div>
-
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              checked={settings.cameraRotationEnabled}
-              onChange={(e) => onSettingsChange({ 
-                cameraRotationEnabled: e.target.checked 
-              })}
-              className="mr-2 bg-gray-800 border-gray-700"
-            />
-            <label className="text-sm text-gray-300">
-              Auto-Rotate in Orbit Mode
-            </label>
-            <p className="text-xs text-gray-400 ml-2">
-              (Automatically rotates camera around the scene when not interacting)
-            </p>
-          </div>
-        </div>
-
         <div className="space-y-4">
           <div className="flex items-center">
             <input
@@ -817,7 +661,7 @@ const SceneSettings: React.FC<{
       {/* Lighting Settings */}
       <div>
         <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
-          <Sun className="h-4 w-4 mr-2" />
+          <Lightbulb className="h-4 w-4 mr-2" />
           Lighting
         </h4>
         
@@ -830,29 +674,76 @@ const SceneSettings: React.FC<{
             <input
               type="range"
               min="0"
-              max="2"
-              step="0.1"
+              max="10"
+              step="0.2"
               value={settings.ambientLightIntensity}
               onChange={(e) => onSettingsChange({ 
                 ambientLightIntensity: parseFloat(e.target.value) 
               }, true)}
               className="w-full bg-gray-800"
             />
+            <p className="mt-1 text-xs text-gray-400">
+              Global scene brightness (0% = pitch black, 1000% = very bright)
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Spotlight Settings */}
+      <div>
+        <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
+          <Sun className="h-4 w-4 mr-2" />
+          Spotlights
+        </h4>
+        
+        <div className="space-y-4">
+          <div className="bg-gray-800 p-3 rounded">
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">Spotlight Color</label>
+                <input
+                  type="color"
+                  value={settings.spotlightColor}
+                  onChange={(e) => onSettingsChange({ 
+                    spotlightColor: e.target.value 
+                  }, true)}
+                  className="w-full h-8 rounded cursor-pointer bg-gray-800"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">
+                  Number of Spotlights
+                  <span className="ml-2 text-xs text-gray-400">{settings.spotlightCount}</span>
+                </label>
+                <input
+                  type="range"
+                  min="1"
+                  max="4"
+                  step="1"
+                  value={settings.spotlightCount}
+                  onChange={(e) => onSettingsChange({ 
+                    spotlightCount: parseInt(e.target.value) 
+                  }, true)}
+                  className="w-full bg-gray-800"
+                />
+              </div>
+            </div>
           </div>
 
           <div>
             <label className="block text-sm text-gray-300 mb-2">
-              Directional Light
-              <span className="ml-2 text-xs text-gray-400">{(settings.directionalLightIntensity * 100).toFixed(0)}%</span>
+              Spotlight Height
+              <span className="ml-2 text-xs text-gray-400">{settings.spotlightHeight} units</span>
             </label>
             <input
               type="range"
-              min="0"
-              max="3"
-              step="0.1"
-              value={settings.directionalLightIntensity}
+              min="5"
+              max="50"
+              step="1"
+              value={settings.spotlightHeight}
               onChange={(e) => onSettingsChange({ 
-                directionalLightIntensity: parseFloat(e.target.value) 
+                spotlightHeight: parseFloat(e.target.value) 
               }, true)}
               className="w-full bg-gray-800"
             />
@@ -860,87 +751,294 @@ const SceneSettings: React.FC<{
 
           <div>
             <label className="block text-sm text-gray-300 mb-2">
-              Light Color
+              Spotlight Distance
+              <span className="ml-2 text-xs text-gray-400">{settings.spotlightDistance} units</span>
             </label>
             <input
-              type="color"
-              value={settings.lightColor}
+              type="range"
+              min="10"
+              max="100"
+              step="5"
+              value={settings.spotlightDistance}
               onChange={(e) => onSettingsChange({ 
-                lightColor: e.target.value 
+                spotlightDistance: parseFloat(e.target.value) 
               }, true)}
-              className="w-full h-8 rounded cursor-pointer bg-gray-800"
+              className="w-full bg-gray-800"
             />
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-300 mb-2">
+              Spotlight Intensity
+              <span className="ml-2 text-xs text-gray-400">{settings.spotlightIntensity.toFixed(0)}%</span>
+            </label>
+            <input
+              type="range"
+              min="1"
+              max="200"
+              step="1"
+              value={settings.spotlightIntensity}
+              onChange={(e) => onSettingsChange({ 
+                spotlightIntensity: parseFloat(e.target.value) 
+              }, true)}
+              className="w-full bg-gray-800"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-300 mb-2">
+              Spotlight Angle
+              <span className="ml-2 text-xs text-gray-400">{settings.spotlightAngle.toFixed(2)}</span>
+            </label>
+            <input
+              type="range"
+              min="0.1"
+              max="1.5"
+              step="0.05"
+              value={settings.spotlightAngle}
+              onChange={(e) => onSettingsChange({ 
+                spotlightAngle: parseFloat(e.target.value) 
+              }, true)}
+              className="w-full bg-gray-800"
+            />
+            <p className="mt-1 text-xs text-gray-400">
+              Controls the beam spread angle (0.1 = narrow beam, 1.5 = wide beam)
+            </p>
           </div>
         </div>
       </div>
 
-      {/* Environment Settings */}
+      {/* Floor Settings */}
       <div>
         <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
-          <Palette className="h-4 w-4 mr-2" />
-          Environment
+          <Square className="h-4 w-4 mr-2" />
+          Floor & Grid
         </h4>
         
         <div className="space-y-4">
-          <div>
-            <label className="block text-sm text-gray-300 mb-2">
-              Background Color
-            </label>
-            <input
-              type="color"
-              value={settings.backgroundColor}
-              onChange={(e) => onSettingsChange({ 
-                backgroundColor: e.target.value 
-              }, true)}
-              className="w-full h-8 rounded cursor-pointer bg-gray-800"
-            />
-          </div>
-
           <div className="flex items-center">
             <input
               type="checkbox"
-              checked={settings.fogEnabled}
+              checked={settings.floorEnabled}
               onChange={(e) => onSettingsChange({ 
-                fogEnabled: e.target.checked 
+                floorEnabled: e.target.checked 
               })}
               className="mr-2 bg-gray-800 border-gray-700"
             />
             <label className="text-sm text-gray-300">
-              Enable Fog
+              Show Floor
             </label>
           </div>
 
-          {settings.fogEnabled && (
+          {settings.floorEnabled && (
             <div className="space-y-4">
               <div>
+                <label className="block text-sm text-gray-300 mb-2">Floor Color</label>
+                <input
+                  type="color"
+                  value={settings.floorColor}
+                  onChange={(e) => onSettingsChange({ 
+                    floorColor: e.target.value 
+                  }, true)}
+                  className="w-full h-8 rounded cursor-pointer bg-gray-800"
+                />
+              </div>
+              
+              <div>
                 <label className="block text-sm text-gray-300 mb-2">
-                  Fog Density
-                  <span className="ml-2 text-xs text-gray-400">{(settings.fogDensity * 1000).toFixed(1)}</span>
+                  Floor Size
+                  <span className="ml-2 text-xs text-gray-400">{settings.floorSize} units</span>
                 </label>
                 <input
                   type="range"
-                  min="0"
-                  max="0.1"
-                  step="0.001"
-                  value={settings.fogDensity}
-                  onChange={(e) => onSettingsChange({ 
-                    fogDensity: parseFloat(e.target.value) 
-                  }, true)}
+                  min="50"
+                  max="300"
+                  step="10"
+                  value={settings.floorSize}
+                  onChange={(e) => onSettingsChange({ floorSize: parseFloat(e.target.value) }, true)}
                   className="w-full bg-gray-800"
                 />
               </div>
 
               <div>
                 <label className="block text-sm text-gray-300 mb-2">
-                  Fog Color
+                  Floor Opacity
+                  <span className="ml-2 text-xs text-gray-400">{Math.round(settings.floorOpacity * 100)}%</span>
                 </label>
                 <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.1"
+                  value={settings.floorOpacity}
+                  onChange={(e) => onSettingsChange({
+                    floorOpacity: parseFloat(e.target.value)
+                  }, true)}
+                  className="w-full bg-gray-800"
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              checked={settings.gridEnabled}
+              onChange={(e) => onSettingsChange({ 
+                gridEnabled: e.target.checked 
+              })}
+              className="mr-2 bg-gray-800 border-gray-700"
+            />
+            <label className="text-sm text-gray-300">
+              Show Grid Lines
+            </label>
+          </div>
+
+          {settings.gridEnabled && (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">Grid Color</label>
+                <input
                   type="color"
-                  value={settings.fogColor}
+                  value={settings.gridColor}
                   onChange={(e) => onSettingsChange({ 
-                    fogColor: e.target.value 
+                    gridColor: e.target.value 
                   }, true)}
                   className="w-full h-8 rounded cursor-pointer bg-gray-800"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">
+                  Grid Size
+                  <span className="ml-2 text-xs text-gray-400">{settings.gridSize} units</span>
+                </label>
+                <input
+                  type="range"
+                  min="50"
+                  max="300"
+                  step="10"
+                  value={settings.gridSize}
+                  onChange={(e) => onSettingsChange({ gridSize: parseFloat(e.target.value) }, true)}
+                  className="w-full bg-gray-800"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">
+                  Grid Divisions
+                  <span className="ml-2 text-xs text-gray-400">{Math.round(settings.gridDivisions)} lines</span>
+                </label>
+                <input
+                  type="range"
+                  min="10"
+                  max="100"
+                  step="5"
+                  value={settings.gridDivisions}
+                  onChange={(e) => onSettingsChange({
+                    gridDivisions: parseFloat(e.target.value)
+                  }, true)}
+                  className="w-full bg-gray-800"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">
+                  Grid Opacity
+                  <span className="ml-2 text-xs text-gray-400">{Math.round(settings.gridOpacity * 100)}%</span>
+                </label>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.1"
+                  value={settings.gridOpacity}
+                  onChange={(e) => onSettingsChange({
+                    gridOpacity: parseFloat(e.target.value)
+                  }, true)}
+                  className="w-full bg-gray-800"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Background Settings */}
+      <div>
+        <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
+          <Palette className="h-4 w-4 mr-2" />
+          Background
+        </h4>
+        
+        <div className="space-y-4">
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              checked={settings.backgroundGradient}
+              onChange={(e) => onSettingsChange({ 
+                backgroundGradient: e.target.checked 
+              })}
+              className="mr-2 bg-gray-800 border-gray-700"
+            />
+            <label className="text-sm text-gray-300">
+              Use Gradient Background
+            </label>
+          </div>
+
+          {!settings.backgroundGradient ? (
+            <div>
+              <label className="block text-sm text-gray-300 mb-2">Background Color</label>
+              <input
+                type="color"
+                value={settings.backgroundColor}
+                onChange={(e) => onSettingsChange({ 
+                  backgroundColor: e.target.value 
+                }, true)}
+                className="w-full h-8 rounded cursor-pointer bg-gray-800"
+              />
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">Gradient Start</label>
+                <input
+                  type="color"
+                  value={settings.backgroundGradientStart}
+                  onChange={(e) => onSettingsChange({ 
+                    backgroundGradientStart: e.target.value 
+                  }, true)}
+                  className="w-full h-8 rounded cursor-pointer bg-gray-800"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">Gradient End</label>
+                <input
+                  type="color"
+                  value={settings.backgroundGradientEnd}
+                  onChange={(e) => onSettingsChange({ 
+                    backgroundGradientEnd: e.target.value 
+                  }, true)}
+                  className="w-full h-8 rounded cursor-pointer bg-gray-800"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">
+                  Gradient Angle
+                  <span className="ml-2 text-xs text-gray-400">{settings.backgroundGradientAngle}°</span>
+                </label>
+                <input
+                  type="range"
+                  min="0"
+                  max="360"
+                  step="15"
+                  value={settings.backgroundGradientAngle}
+                  onChange={(e) => onSettingsChange({ 
+                    backgroundGradientAngle: parseInt(e.target.value) 
+                  }, true)}
+                  className="w-full bg-gray-800"
                 />
               </div>
             </div>
@@ -952,9 +1050,9 @@ const SceneSettings: React.FC<{
       <div className="pt-4 border-t border-gray-700">
         <button
           onClick={onReset}
-          className="w-full px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors"
+          className="w-full px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-md transition-colors text-sm"
         >
-          Reset to Defaults
+          Reset All Settings
         </button>
       </div>
     </div>
