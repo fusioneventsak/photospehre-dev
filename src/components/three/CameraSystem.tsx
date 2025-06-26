@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { useThree, useFrame } from '@react-three/fiber';
-import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
+import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { SceneSettings } from '../../store/sceneStore';
 
@@ -34,7 +34,7 @@ export interface CameraKeyframe {
   duration: number;
 }
 
-// Available camera modes
+// Available camera modes - FIXED: Default to orbit mode with controls enabled
 export const CAMERA_MODES: Record<string, CameraMode> = {
   orbit: {
     name: 'Orbit',
@@ -53,7 +53,7 @@ export const CAMERA_MODES: Record<string, CameraMode> = {
   firstPerson: {
     name: 'First Person',
     controls: {
-      enableOrbit: false,
+      enableOrbit: true, // FIXED: Enable orbit controls for mouse interaction
       enableFirstPerson: true,
       enableCinematic: false,
       vrCompatible: true
@@ -67,7 +67,7 @@ export const CAMERA_MODES: Record<string, CameraMode> = {
   cinematic: {
     name: 'Cinematic',
     controls: {
-      enableOrbit: false,
+      enableOrbit: true, // FIXED: Enable orbit controls for user override
       enableFirstPerson: false,
       enableCinematic: true,
       vrCompatible: false
@@ -81,7 +81,7 @@ export const CAMERA_MODES: Record<string, CameraMode> = {
   auto: {
     name: 'Auto',
     controls: {
-      enableOrbit: false,
+      enableOrbit: true, // FIXED: Enable orbit controls for user override
       enableFirstPerson: false,
       enableCinematic: true,
       vrCompatible: false
@@ -96,13 +96,11 @@ export const CAMERA_MODES: Record<string, CameraMode> = {
 
 // Helper function to create a cinematic path from keyframes
 export const createCinematicPath = (keyframes: CameraKeyframe[]) => {
-  // Ensure we have at least two keyframes
   if (keyframes.length < 2) {
     console.warn('Cinematic path requires at least two keyframes');
     return null;
   }
 
-  // Create position and target curves
   const positionCurve = new THREE.CatmullRomCurve3(
     keyframes.map(kf => new THREE.Vector3(...kf.position))
   );
@@ -111,10 +109,8 @@ export const createCinematicPath = (keyframes: CameraKeyframe[]) => {
     keyframes.map(kf => new THREE.Vector3(...kf.target))
   );
 
-  // Calculate total duration
   const totalDuration = keyframes.reduce((sum, kf) => sum + kf.duration, 0);
   
-  // Create timing map for interpolation
   const timingMap = keyframes.reduce((result, kf, index) => {
     const prevTime = index > 0 ? result[index - 1] : 0;
     result.push(prevTime + kf.duration / totalDuration);
@@ -124,65 +120,51 @@ export const createCinematicPath = (keyframes: CameraKeyframe[]) => {
   return {
     positionCurve,
     targetCurve,
-    timingMap,
     totalDuration,
+    timingMap,
     keyframes
   };
 };
 
-// Generate optimal camera path based on photo positions
-export const generateOptimalPath = (
-  photos: { targetPosition: [number, number, number] }[],
-  settings: SceneSettings
-) => {
-  if (!photos || photos.length === 0) {
-    return null;
-  }
+// Generate optimal path through photos
+const generateOptimalPath = (photos: { targetPosition: [number, number, number] }[], settings: SceneSettings) => {
+  if (!photos || photos.length === 0) return null;
 
-  // Extract photo positions
-  const positions = photos
-    .filter(p => p.targetPosition)
-    .map(p => new THREE.Vector3(...p.targetPosition));
-
-  if (positions.length === 0) {
-    return null;
-  }
-
-  // Calculate bounding box of all photos
-  const box = new THREE.Box3().setFromPoints(positions);
-  const center = new THREE.Vector3();
-  box.getCenter(center);
-  
-  // Calculate size and optimal distance
-  const size = new THREE.Vector3();
-  box.getSize(size);
-  const maxDim = Math.max(size.x, size.y, size.z);
-  const optimalDistance = maxDim * 1.5;
-
-  // Create keyframes that orbit around the center
+  // Create keyframes that tour through the photos
   const keyframes: CameraKeyframe[] = [];
-  const numPoints = 8; // Number of points around the orbit
+  const photoPositions = photos.map(p => p.targetPosition);
   
-  for (let i = 0; i < numPoints; i++) {
-    const angle = (i / numPoints) * Math.PI * 2;
-    const height = center.y + size.y * 0.5 + Math.sin(angle * 2) * size.y * 0.3;
+  // Add starting position
+  keyframes.push({
+    position: [20, 10, 20],
+    target: [0, 0, 0],
+    fov: 60,
+    duration: 2.0
+  });
+
+  // Tour through photo clusters
+  const clusters = Math.min(8, Math.max(3, Math.floor(photos.length / 10)));
+  for (let i = 0; i < clusters; i++) {
+    const clusterIndex = Math.floor((i / clusters) * photos.length);
+    const photo = photoPositions[clusterIndex];
     
-    keyframes.push({
-      position: [
-        center.x + Math.cos(angle) * optimalDistance,
-        height,
-        center.z + Math.sin(angle) * optimalDistance
-      ],
-      target: [center.x, center.y, center.z],
-      fov: 75,
-      duration: 5.0 // seconds per segment
-    });
+    if (photo) {
+      // Position camera to view this photo cluster
+      const offset = new THREE.Vector3(15, 8, 15);
+      const position = new THREE.Vector3(...photo).add(offset);
+      
+      keyframes.push({
+        position: [position.x, position.y, position.z],
+        target: photo,
+        fov: 60,
+        duration: 3.0
+      });
+    }
   }
 
   return createCinematicPath(keyframes);
 };
 
-// Main camera controller component
 interface CameraControllerProps {
   settings: SceneSettings;
   cinematicPath?: ReturnType<typeof createCinematicPath>;
@@ -235,7 +217,7 @@ export const CameraController: React.FC<CameraControllerProps> = ({
     }
   }, [camera, settings.cameraDistance, settings.cameraHeight]);
 
-  // Handle user interaction detection
+  // FIXED: Simplified user interaction detection
   useEffect(() => {
     if (!controlsRef.current) return;
 
@@ -246,9 +228,10 @@ export const CameraController: React.FC<CameraControllerProps> = ({
 
     const handleEnd = () => {
       lastInteractionTimeRef.current = Date.now();
+      // FIXED: Shorter timeout to allow animations to resume faster
       setTimeout(() => {
         userInteractingRef.current = false;
-      }, 500);
+      }, 100);
     };
 
     const controls = controlsRef.current;
@@ -256,14 +239,42 @@ export const CameraController: React.FC<CameraControllerProps> = ({
     controls.addEventListener('end', handleEnd);
 
     return () => {
-      controls.removeEventListener('start', handleStart);
-      controls.removeEventListener('end', handleEnd);
+      if (controls) {
+        controls.removeEventListener('start', handleStart);
+        controls.removeEventListener('end', handleEnd);
+      }
     };
-  }, []);
+  }, [controlsRef.current]);
 
-  // Handle cinematic path following
+  // FIXED: Conditional useFrame - only run cinematic logic when needed
   useFrame((state, delta) => {
     if (!controlsRef.current) return;
+
+    // Only handle cinematic modes when specifically enabled and user not interacting
+    if ((cameraMode === 'cinematic' || cameraMode === 'auto') && 
+        cinematicPath && 
+        !userInteractingRef.current &&
+        settings.cameraEnabled !== false) {
+      
+      cinematicTimeRef.current += delta;
+      
+      // Reset time when it exceeds path duration
+      if (cinematicTimeRef.current >= cinematicPath.totalDuration) {
+        cinematicTimeRef.current = 0;
+      }
+      
+      const normalizedTime = cinematicTimeRef.current / cinematicPath.totalDuration;
+      
+      // Get position and target from curves
+      const position = cinematicPath.positionCurve.getPoint(normalizedTime);
+      const target = cinematicPath.targetCurve.getPoint(normalizedTime);
+      
+      // FIXED: Smooth interpolation to avoid jarring movements
+      camera.position.lerp(position, delta * 2);
+      controlsRef.current.target.lerp(target, delta * 2);
+      targetRef.current.copy(target);
+      controlsRef.current.update();
+    }
 
     // Handle transitions between camera positions
     if (transitionData) {
@@ -272,13 +283,14 @@ export const CameraController: React.FC<CameraControllerProps> = ({
       
       // Apply easing
       let easedProgress = progress;
-      if (CAMERA_MODES[cameraMode]?.transitions.easing === 'easeInOut') {
+      const transitionConfig = CAMERA_MODES[cameraMode]?.transitions;
+      if (transitionConfig?.easing === 'easeInOut') {
         easedProgress = progress < 0.5
           ? 2 * progress * progress
           : 1 - Math.pow(-2 * progress + 2, 2) / 2;
-      } else if (CAMERA_MODES[cameraMode]?.transitions.easing === 'easeIn') {
+      } else if (transitionConfig?.easing === 'easeIn') {
         easedProgress = progress * progress;
-      } else if (CAMERA_MODES[cameraMode]?.transitions.easing === 'easeOut') {
+      } else if (transitionConfig?.easing === 'easeOut') {
         easedProgress = 1 - Math.pow(1 - progress, 2);
       }
       
@@ -306,75 +318,24 @@ export const CameraController: React.FC<CameraControllerProps> = ({
         setTransitionData(null);
       }
     }
-    // Handle cinematic path following
-    else if (cameraMode === 'cinematic' && cinematicPath && !userInteractingRef.current) {
-      cinematicTimeRef.current += delta;
-      
-      // Loop through the path
-      const loopTime = cinematicTimeRef.current % cinematicPath.totalDuration;
-      const normalizedTime = loopTime / cinematicPath.totalDuration;
-      
-      // Find the appropriate segment
-      let segmentIndex = 0;
-      while (segmentIndex < cinematicPath.timingMap.length - 1 && 
-             normalizedTime > cinematicPath.timingMap[segmentIndex]) {
-        segmentIndex++;
-      }
-      
-      // Get position and target from curves
-      const position = cinematicPath.positionCurve.getPoint(normalizedTime);
-      const target = cinematicPath.targetCurve.getPoint(normalizedTime);
-      
-      // Apply to camera
-      camera.position.copy(position);
-      controlsRef.current.target.copy(target);
-      targetRef.current.copy(target);
-      controlsRef.current.update();
-    }
-    // Handle auto rotation when enabled
-    else if (settings.cameraRotationEnabled && !userInteractingRef.current) {
-      const offset = new THREE.Vector3().copy(camera.position).sub(controlsRef.current.target);
-      const spherical = new THREE.Spherical().setFromVector3(offset);
-      
-      spherical.theta += (settings.cameraRotationSpeed || 0.5) * delta;
-      
-      const newPosition = new THREE.Vector3().setFromSpherical(spherical).add(controlsRef.current.target);
-      camera.position.copy(newPosition);
-      controlsRef.current.update();
-    }
   });
 
-  // Function to transition to a new camera position
+  // Function to smoothly transition camera to a new position
   const transitionToPosition = (
     newPosition: THREE.Vector3,
     newTarget: THREE.Vector3,
     duration: number = 1.0
   ) => {
+    if (!controlsRef.current) return;
+
     setTransitionData({
       startPosition: camera.position.clone(),
       endPosition: newPosition,
-      startTarget: targetRef.current.clone(),
+      startTarget: controlsRef.current.target.clone(),
       endTarget: newTarget,
       startTime: performance.now() / 1000,
       duration
     });
-  };
-
-  // Function to switch to a specific keyframe in the cinematic path
-  const goToKeyframe = (index: number) => {
-    if (!cinematicPath || index >= cinematicPath.keyframes.length) {
-      return;
-    }
-    
-    const keyframe = cinematicPath.keyframes[index];
-    const newPosition = new THREE.Vector3(...keyframe.position);
-    const newTarget = new THREE.Vector3(...keyframe.target);
-    
-    transitionToPosition(
-      newPosition,
-      newTarget,
-      CAMERA_MODES[cameraMode]?.transitions.duration || 1.0
-    );
   };
 
   // Determine which controls to enable based on camera mode
@@ -385,9 +346,9 @@ export const CameraController: React.FC<CameraControllerProps> = ({
       <OrbitControls
         ref={controlsRef}
         enabled={currentMode.controls.enableOrbit && settings.cameraEnabled !== false}
-        enablePan={currentMode.controls.enableOrbit}
+        enablePan={true} // FIXED: Always enable pan for better user control
         enableZoom={true}
-        enableRotate={currentMode.controls.enableOrbit}
+        enableRotate={true} // FIXED: Always enable rotate for better user control
         minDistance={5}
         maxDistance={200}
         minPolarAngle={Math.PI / 6}
