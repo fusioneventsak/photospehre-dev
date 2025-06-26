@@ -1,6 +1,3 @@
-Here's the fixed version with all missing closing brackets and parentheses added:
-
-```typescript
 // src/components/collage/SceneSettings.tsx - COMPLETE: Improved photo spacing control
 import React from 'react';
 import { type SceneSettings } from '../../store/sceneStore';
@@ -825,4 +822,98 @@ const SceneSettings: React.FC<{
 
       {/* Lighting Settings */}
       <div>
-        <h4 className="flex items-center text-sm font-medium text-gray-200
+        <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
+          <Lightbulb className="h-4 w-4 mr-2" />
+          Lighting
+        </h4>
+        
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm text-gray-300 mb-2">
+              Ambient Light Intensity
+              <span className="ml-2 text-xs text-gray-400">{(settings.ambientLightIntensity * 100).toFixed(0)}%</span>
+            </label>
+            <input
+              type="range"
+              min="0"
+              max="2"
+              step="0.1"
+              value={settings.ambientLightIntensity}
+              onChange={(e) => onSettingsChange({ 
+                ambientLightIntensity: parseFloat(e.target.value) 
+              }, true)}
+              className="w-full bg-gray-800"
+            />
+            <p className="mt-1 text-xs text-gray-400">
+              Overall scene brightness (0% = very dark, 200% = very bright)
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-300 mb-2">
+              Ambient Light Color
+            </label>
+            <input
+              type="color"
+              value={settings.ambientLightColor}
+              onChange={(e) => onSettingsChange({ 
+                ambientLightColor: e.target.value 
+              }, true)}
+              className="w-full h-8 rounded cursor-pointer bg-gray-800"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Background Settings */}
+      <div>
+        <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
+          <Palette className="h-4 w-4 mr-2" />
+          Background
+        </h4>
+        
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm text-gray-300 mb-2">
+              Background Color
+            </label>
+            <input
+              type="color"
+              value={settings.backgroundColor}
+              onChange={(e) => onSettingsChange({ 
+                backgroundColor: e.target.value 
+              }, true)}
+              className="w-full h-8 rounded cursor-pointer bg-gray-800"
+            />
+          </div>
+
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              checked={settings.showGrid}
+              onChange={(e) => onSettingsChange({ 
+                showGrid: e.target.checked 
+              })}
+              className="mr-2 bg-gray-800 border-gray-700"
+            />
+            <label className="text-sm text-gray-300">
+              Show Grid Helper
+            </label>
+          </div>
+        </div>
+      </div>
+
+      {/* Reset Button */}
+      <div className="pt-4 border-t border-gray-700">
+        <button
+          onClick={onReset}
+          className="w-full px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md text-sm font-medium"
+        >
+          Reset All Settings
+        </button>
+      </div>
+    </div>
+  );
+};
+
+export default SceneSettings;
