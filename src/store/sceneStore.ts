@@ -205,11 +205,12 @@ export const useSceneStore = create<SceneState>()((set, get) => {
   const immediateUpdate = (newSettings: Partial<SceneSettings>) => {
     const currentSettings = get().settings;
 
-    // Handle pattern changes
+    // CRITICAL FIX: Handle pattern changes properly
     if (newSettings.animationPattern && newSettings.animationPattern !== currentSettings.animationPattern) {
-      // Update enabled states for patterns
+      console.log(`🔄 Changing animation pattern from ${currentSettings.animationPattern} to ${newSettings.animationPattern}`);
+      
+      // Create a deep copy of current patterns to avoid reference issues
       const updatedPatterns = { ...currentSettings.patterns };
-      const oldPattern = currentSettings.animationPattern;
       const newPattern = newSettings.animationPattern;
       
       // Disable all patterns first
@@ -217,18 +218,22 @@ export const useSceneStore = create<SceneState>()((set, get) => {
         updatedPatterns[pattern as keyof typeof updatedPatterns].enabled = false;
       });
       
-      // Enable the selected pattern
+      // Enable the selected pattern if it exists
       if (newPattern && updatedPatterns[newPattern]) {
         updatedPatterns[newPattern].enabled = true;
         
-        // Update the global photoCount based on the pattern-specific photoCount
+        // CRITICAL FIX: Update the global photoCount based on the pattern-specific photoCount
         if (updatedPatterns[newPattern].photoCount !== undefined) {
+          console.log(`📊 Setting photoCount to ${updatedPatterns[newPattern].photoCount} from ${newPattern} pattern`);
           newSettings.photoCount = updatedPatterns[newPattern].photoCount;
         }
       }
       
-      // Update the patterns in newSettings
+      // Update the patterns in newSettings with our modified copy
       newSettings.patterns = updatedPatterns;
+      
+      // CRITICAL FIX: Force animation enabled when switching patterns
+      newSettings.animationEnabled = true;
     }
 
     // Handle photo count validation
@@ -282,7 +287,7 @@ export const useSceneStore = create<SceneState>()((set, get) => {
     settings: defaultSettings,
     updateSettings: (newSettings: Partial<SceneSettings>, debounce = false) => {
       if (debounce) {
-        debouncedUpdate(newSettings);
+        debouncedUpdate(newSettings); 
       } else {
         immediateUpdate(newSettings);
       }

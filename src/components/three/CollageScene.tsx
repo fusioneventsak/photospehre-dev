@@ -4,7 +4,8 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
 import * as THREE from 'three';
 import { type SceneSettings } from '../../store/sceneStore';
-import { PatternFactory, SlotManager } from './patterns/PatternFactory'; 
+import { PatternFactory } from './patterns/PatternFactory'; 
+import { SlotManager } from './patterns/SlotManager';
 import { addCacheBustToUrl } from '../../lib/supabase';
 import CameraController, { CinematicPathProvider } from './CameraSystem';
 
@@ -640,8 +641,9 @@ const PhotoMesh: React.FC<{
 const PhotoRenderer: React.FC<{ 
   photosWithPositions: PhotoWithPosition[]; 
   settings: SceneSettings;
-}> = React.memo(({ photosWithPositions, settings }) => {
-  const shouldFaceCamera = settings.photoRotation;
+}> = React.memo(({ photosWithPositions, settings }) => {  
+  // CRITICAL FIX: Always face camera in float mode, otherwise use photoRotation setting
+  const shouldFaceCamera = settings.animationPattern === 'float' || settings.photoRotation;
   
   return (
     <group>

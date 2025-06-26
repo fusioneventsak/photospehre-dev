@@ -35,12 +35,19 @@ const SceneSettings: React.FC<{
           <div>
             <label className="block text-sm text-gray-300 mb-2">
               Animation Pattern
+              <span className="ml-2 text-xs text-gray-400">
+                {settings.animationEnabled ? 'Animated' : 'Static'}
+              </span>
             </label>
             <select
               value={settings.animationPattern}
-              onChange={(e) => onSettingsChange({ 
-                animationPattern: e.target.value as 'float' | 'wave' | 'spiral' | 'grid' 
-              })}
+              onChange={(e) => {
+                // CRITICAL FIX: When changing pattern, always enable animation
+                onSettingsChange({ 
+                  animationPattern: e.target.value as 'float' | 'wave' | 'spiral' | 'grid',
+                  animationEnabled: true
+                });
+              }}
               className="w-full bg-gray-800 border border-gray-700 rounded-md py-2 px-3 text-white"
             >
               <option value="grid">Grid Wall</option>
