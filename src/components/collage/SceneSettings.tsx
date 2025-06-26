@@ -644,6 +644,46 @@ const SceneSettings: React.FC<{
         </h4>
         
         <div className="space-y-4">
+          <div>
+            <label className="block text-sm text-gray-300 mb-2">
+              Camera Control Speed
+              <span className="ml-2 text-xs text-gray-400">{settings.cameraRotationSpeed?.toFixed(1)}x</span>
+            </label>
+            <input
+              type="range"
+              min="0.1"
+              max="3.0"
+              step="0.1"
+              value={settings.cameraRotationSpeed || 1.0}
+              onChange={(e) => onSettingsChange({ 
+                cameraRotationSpeed: parseFloat(e.target.value) 
+              }, true)}
+              className="w-full bg-gray-800"
+            />
+            <p className="text-xs text-gray-400 mt-1">
+              Controls camera rotation, zoom, pan, and cinematic movement speed (does NOT affect pattern animations)
+            </p>
+          </div>
+
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              checked={settings.cameraRotationEnabled}
+              onChange={(e) => onSettingsChange({ 
+                cameraRotationEnabled: e.target.checked 
+              })}
+              className="mr-2 bg-gray-800 border-gray-700"
+            />
+            <label className="text-sm text-gray-300">
+              Auto-Rotate in Orbit Mode
+            </label>
+            <p className="text-xs text-gray-400 ml-2">
+              (Automatically rotates camera around the scene when not interacting)
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-4">
           <div className="flex items-center">
             <input
               type="checkbox"
