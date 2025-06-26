@@ -5,8 +5,6 @@ import { ChevronLeft, Shield, RefreshCw, Trash2, Eye, AlertCircle } from 'lucide
 import { useCollageStore } from '../store/collageStore';
 import PhotoModerationModal from '../components/collage/PhotoModerationModal';
 import Layout from '../components/layout/Layout';
-import RealtimeStatus from '../components/debug/RealtimeStatus';
-import RealtimeDebugPanel from '../components/debug/RealtimeDebugPanel';
 import { useCallback } from 'react';
 
 // Debug flag for logging
@@ -46,7 +44,6 @@ const CollageModerationPage: React.FC = () => {
   const [deletingPhotos, setDeletingPhotos] = useState<Set<string>>(new Set());
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null); 
   const [showModerationModal, setShowModerationModal] = useState(false);
-  const [showDebugPanel, setShowDebugPanel] = useState(false);
 
   // DEBUG: Log photos changes in moderation
   useEffect(() => {
@@ -259,12 +256,6 @@ const CollageModerationPage: React.FC = () => {
                 >
                   Moderation Modal
                 </button>
-                <button
-                  onClick={() => setShowDebugPanel(!showDebugPanel)}
-                  className="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white rounded-md transition-colors text-sm"
-                >
-                  {showDebugPanel ? 'Hide Debug' : 'Show Debug'}
-                </button>
               </div>
             </div>
           </div>
@@ -411,16 +402,6 @@ const CollageModerationPage: React.FC = () => {
           photos={safePhotos} 
           onClose={() => setShowModerationModal(false)} 
         />
-      )}
-      
-      {/* Debug Panel */}
-      {showDebugPanel && (
-        <div className="fixed bottom-4 right-4 z-20 w-64">
-          <RealtimeDebugPanel 
-            collageId={currentCollage?.id} 
-            onClose={() => setShowDebugPanel(false)}
-          />
-        </div>
       )}
     </Layout>
   );
