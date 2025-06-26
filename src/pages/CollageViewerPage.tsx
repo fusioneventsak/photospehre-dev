@@ -1,76 +1,48 @@
-// src/pages/CollageViewerPage.tsx - Complete implementation
+// src/pages/CollageViewerPage.tsx - Clean version with transparent header
 import React, { useEffect, useState, useCallback } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { 
-  Maximize, 
-  Minimize, 
-  Upload, 
-  Share, 
-  Copy, 
-  Check, 
-  X, 
-  ChevronLeft,
-  Camera,
-  Settings
-} from 'lucide-react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { Share2, Upload, Edit, Maximize2, ChevronLeft, Camera, X } from 'lucide-react';
 import { useCollageStore } from '../store/collageStore';
 import { ErrorBoundary } from 'react-error-boundary';
-import CollageScene from '../components/CollageScene';
+import CollageScene from '../components/three/CollageScene';
 import PhotoUploader from '../components/collage/PhotoUploader';
-import RealtimeDebugPanel from '../components/debug/RealtimeDebugPanel';
 
-// Debug function to log subscription state
-const debugSubscription = () => {
-  const store = useCollageStore.getState();
-  console.log('🔍 VIEWER SUBSCRIPTION DEBUG:');
-  console.log('- Current collage ID:', store.currentCollage?.id);
-  console.log('- Realtime connected:', store.isRealtimeConnected);
-  console.log('- Channel topic:', store.realtimeChannel?.topic);
-  console.log('- Photos count:', store.photos?.length);
-  
-  // If no subscription, force one
-  if (store.currentCollage?.id && !store.isRealtimeConnected) {
-    console.log('⚠️ FORCING SUBSCRIPTION for collage:', store.currentCollage.id);
-    store.setupRealtimeSubscription(store.currentCollage.id);
-  }
-};
+// Error fallback component for 3D scene errors
+function SceneErrorFallback({ error, resetErrorBoundary }: { error: Error; resetErrorBoundary: () => void }) {
+  return (
+    <div className="bg-red-900/30 backdrop-blur-sm rounded-lg border border-red-500/50 p-6 flex flex-col items-center justify-center h-[calc(100vh-200px)]">
+      <h3 className="text-xl font-bold text-white mb-2">Something went wrong rendering the scene</h3>
+      <p className="text-red-200 mb-4 text-center max-w-md">
+        There was an error loading the 3D scene. This could be due to WebGL issues or resource limitations.
+      </p>
+      <pre className="bg-black/50 p-3 rounded text-red-300 text-xs max-w-full overflow-auto mb-4 max-h-32">
+        {error.message}
+      </pre>
+      <button
+        onClick={resetErrorBoundary}
+        className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors"
+      >
+        Try Again
+      </button>
+    </div>
+  );
+}
 
-// Debug flag for logging
-const DEBUG = false;
-
-const CollageViewerPage: React.FC = () => {  
-  if (DEBUG) console.log('🖼️ VIEWER PAGE RENDER');
-  
+const CollageViewerPage: React.FC = () => {
   const { code } = useParams<{ code: string }>();
   const { 
     currentCollage, 
+    photos, 
+    fetchCollageByCode, 
     loading, 
     error, 
-    photos,
     isRealtimeConnected,
-    fetchCollageByCode,
-    setupRealtimeSubscription,
-    cleanupRealtimeSubscription, 
-    refreshPhotos
+    refreshPhotos,
+    cleanupRealtimeSubscription
   } = useCollageStore();
-  
-  // ADD DEBUG INFO
-  console.log('🔍 VIEWER RENDER:', {
-    collageId: currentCollage?.id,
-    connected: isRealtimeConnected,
-    photosCount: photos.length,
-    renderTime: new Date().toISOString()
-  });
   
   // SAFETY: Ensure photos is always an array
   const safePhotos = Array.isArray(photos) ? photos : [];
-  
-  // Add debugging for photo array changes
-  useEffect(() => { 
-    if (DEBUG) {
-      console.log('🖼️ VIEWER: Photos array updated. Count:', safePhotos.length);
-    }
-  }, [safePhotos]);
   
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -87,16 +59,16 @@ const CollageViewerPage: React.FC = () => {
 
   // Normalize code to uppercase for consistent database lookup
   const normalizedCode = code?.toUpperCase();
-  console.log('🔍 VIEWER: normalizedCode =', normalizedCode, 'currentCollage =', currentCollage?.id);
 
-  // Load collage (which will set up real-time subscription)
+  // Load collage on mount
   useEffect(() => {
     if (normalizedCode) {
-      console.log('🖼️ VIEWER: Fetching collage with code:', normalizedCode);
+      console.log('🔍 Fetching collage with code:', normalizedCode);
       fetchCollageByCode(normalizedCode);
     }
-    return () => { 
-      console.log('🧹 VIEWER: Cleaning up realtime subscription');
+    
+    return () => {
+      console.log('🧹 Cleaning up realtime subscription');
       cleanupRealtimeSubscription();
     };
   }, [normalizedCode, fetchCollageByCode, cleanupRealtimeSubscription]);
@@ -104,7 +76,7 @@ const CollageViewerPage: React.FC = () => {
   // Manual refresh for debugging
   const handleManualRefresh = useCallback(async () => {
     if (currentCollage?.id) {
-      console.log('🔄 VIEWER: Manual refresh triggered');
+      console.log('🔄 Manual refresh triggered');
       await refreshPhotos(currentCollage.id);
     }
   }, [currentCollage?.id, refreshPhotos]);
@@ -122,65 +94,64 @@ const CollageViewerPage: React.FC = () => {
         setControlsVisible(true);
       }
     } catch (err) {
-      console.error('Fullscreen error:', err);
+      console.error('Error toggling fullscreen:', err);
     }
   };
 
-  // Handle copy to clipboard
-  const handleCopy = async (text: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error('Copy failed:', err);
-    }
-  };
-
-  // Show/hide controls in fullscreen
+  // Handle escape key to close modal
   useEffect(() => {
-    if (!isFullscreen) return;
-
-    let timeoutId: NodeJS.Timeout;
-
-    const showControls = () => {
-      setControlsVisible(true);
-      clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => setControlsVisible(false), 3000);
-    };
-
-    const handleMouseMove = () => showControls();
-    const handleKeyPress = () => showControls();
-
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('keydown', handleKeyPress);
-
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('keydown', handleKeyPress);
-      clearTimeout(timeoutId);
-    };
-  }, [isFullscreen]);
-
-  // Handle fullscreen change events
-  useEffect(() => {
-    const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
-      if (!document.fullscreenElement) {
-        setControlsVisible(true);
+    const handleEscapeKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && showUploader) {
+        setShowUploader(false);
       }
     };
 
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
-  }, []);
+    document.addEventListener('keydown', handleEscapeKey);
+    return () => {
+      document.removeEventListener('keydown', handleEscapeKey);
+    };
+  }, [showUploader]);
 
-  if (loading) {
+  // Show/hide controls in fullscreen
+  useEffect(() => {
+    if (isFullscreen) {
+      const showControls = () => {
+        setControlsVisible(true);
+        setTimeout(() => setControlsVisible(false), 3000);
+      };
+
+      const handleMouseMove = () => showControls();
+      const handleKeyPress = () => showControls();
+
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('keydown', handleKeyPress);
+      document.addEventListener('click', handleMouseMove);
+
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('keydown', handleKeyPress);
+        document.removeEventListener('click', handleMouseMove);
+      };
+    }
+  }, [isFullscreen]);
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(window.location.href);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  if (loading && !currentCollage) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-white mb-4"></div>
-          <p className="text-white">Loading collage...</p>
+      <div className="min-h-screen bg-black">
+        <div className="min-h-[calc(100vh-160px)] flex items-center justify-center">
+          <div className="text-center">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+            <p className="mt-2 text-gray-400">Loading collage...</p>
+            <p className="text-gray-500 text-sm mt-1">
+              Looking for: {normalizedCode}
+            </p>
+          </div>
         </div>
       </div>
     );
@@ -188,191 +159,134 @@ const CollageViewerPage: React.FC = () => {
 
   if (error || !currentCollage) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-center max-w-md mx-auto px-4">
-          <h2 className="text-2xl font-bold text-white mb-4">Collage Not Found</h2>
-          <p className="text-gray-400 mb-6">
-            The collage with code "{code}" doesn't exist or might have been removed.
-          </p>
-          <Link 
-            to="/" 
-            className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <ChevronLeft className="w-4 h-4" />
-            Back to Home
-          </Link>
+      <div className="min-h-screen bg-black">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="text-center py-12">
+            <h2 className="text-2xl font-bold text-white mb-4">Collage Not Found</h2>
+            <p className="text-gray-400 mb-6">
+              {error || `The collage "${normalizedCode}" doesn't exist or might have been removed.`}
+            </p>
+            <div className="space-x-4">
+              <Link
+                to="/join"
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700"
+              >
+                Try Another Code
+              </Link>
+              <Link
+                to="/"
+                className="inline-flex items-center px-4 py-2 border border-gray-600 text-sm font-medium rounded-md text-gray-300 hover:text-white hover:border-gray-500"
+              >
+                Go Home
+              </Link>
+            </div>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-black relative overflow-hidden">
-      {/* 3D Scene - Full viewport */}
-      <ErrorBoundary
-        fallback={
-          <div className="min-h-screen flex items-center justify-center">
-            <div className="text-center">
-              <p className="text-red-400 mb-4">Something went wrong with the 3D viewer</p>
-              <button
-                onClick={() => window.location.reload()}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg"
-              >
-                Reload Page
-              </button>
-            </div>
-          </div>
-        }
+    <div className="relative w-full h-screen bg-black overflow-hidden">
+      {/* Main 3D Scene */}
+      <ErrorBoundary 
+        FallbackComponent={SceneErrorFallback}
+        resetKeys={[currentCollage.id, safePhotos.length]}
       >
-        <CollageScene photos={safePhotos} />
+        <CollageScene 
+          photos={safePhotos}
+          settings={currentCollage.settings}
+          onSettingsChange={(newSettings) => {
+            console.log('🎛️ Settings changed from viewer:', newSettings);
+          }}
+        />
       </ErrorBoundary>
 
-      {/* Controls Overlay */}
-      {!isFullscreen && (
-        <div className="absolute inset-0 pointer-events-none">
-          {/* Top Navigation */}
-          <div className="absolute top-0 left-0 right-0 z-20 p-4">
-            <div className="flex items-center justify-between">
-              {/* Back Button */}
-              <Link
-                to="/dashboard"
-                className="pointer-events-auto inline-flex items-center gap-2 px-4 py-2 bg-black/60 backdrop-blur-sm text-white rounded-lg hover:bg-black/80 transition-colors"
-              >
-                <ChevronLeft className="w-4 h-4" />
-                Back
-              </Link>
-
-              {/* Status and Actions */}
-              <div className="flex items-center gap-3">
-                {/* Connection Status */}
-                <div className={`pointer-events-none px-3 py-2 rounded-lg text-sm font-medium ${
-                  isRealtimeConnected 
-                    ? 'bg-green-500/20 text-green-400 backdrop-blur-sm' 
-                    : 'bg-red-500/20 text-red-400 backdrop-blur-sm'
-                }`}>
-                  {isRealtimeConnected ? '🟢 Live' : '🔴 Offline'}
+      {/* Transparent Header - Only shown when controls are visible */}
+      {controlsVisible && (
+        <div className="absolute top-0 left-0 right-0 z-20">
+          <div className="bg-black/40 backdrop-blur-sm border-b border-white/10">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="flex items-center justify-between h-16">
+                {/* Left side - Navigation & Title */}
+                <div className="flex items-center space-x-4">
+                  <Link 
+                    to="/join" 
+                    className="text-gray-300 hover:text-white transition-colors p-2 hover:bg-white/10 rounded-lg"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </Link>
+                  <div>
+                    <h1 className="text-lg font-semibold text-white">
+                      {currentCollage.name}
+                    </h1>
+                    <div className="flex items-center space-x-2 text-sm text-gray-400">
+                      <span>Code: {currentCollage.code}</span>
+                      <span>•</span>
+                      <span>{safePhotos.length} photos</span>
+                      <span>•</span>
+                      <div className="flex items-center space-x-1">
+                        <div className={`w-2 h-2 rounded-full ${isRealtimeConnected ? 'bg-green-400' : 'bg-yellow-400'}`}></div>
+                        <span>{isRealtimeConnected ? 'Live' : 'Offline'}</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
-                {/* Upload Button */}
-                <button
-                  onClick={() => setShowUploader(true)}
-                  className="pointer-events-auto inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-                >
-                  <Upload className="w-4 h-4" />
-                  Add Photos
-                </button>
+                {/* Right side - Actions */}
+                <div className="flex items-center space-x-2">
+                  {/* Photobooth Link */}
+                  <Link
+                    to={`/photobooth/${currentCollage.code}`}
+                    className="inline-flex items-center space-x-2 px-3 py-2 bg-purple-600/80 hover:bg-purple-600 text-white text-sm rounded-lg transition-colors backdrop-blur-sm"
+                  >
+                    <Camera className="w-4 h-4" />
+                    <span className="hidden sm:inline">Photobooth</span>
+                  </Link>
 
-                {/* Share Button */}
-                <button
-                  onClick={() => handleCopy(window.location.href)}
-                  className="pointer-events-auto inline-flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
-                >
-                  {copied ? (
-                    <>
-                      <Check className="w-4 h-4" />
-                      Copied!
-                    </>
-                  ) : (
-                    <>
-                      <Share className="w-4 h-4" />
-                      Share
-                    </>
-                  )}
-                </button>
+                  {/* Upload Photos */}
+                  <button
+                    onClick={() => setShowUploader(!showUploader)}
+                    className="inline-flex items-center space-x-2 px-3 py-2 bg-blue-600/80 hover:bg-blue-600 text-white text-sm rounded-lg transition-colors backdrop-blur-sm"
+                  >
+                    <Upload className="w-4 h-4" />
+                    <span className="hidden sm:inline">Upload</span>
+                  </button>
 
-                {/* Fullscreen Button */}
-                <button
-                  onClick={toggleFullscreen}
-                  className="pointer-events-auto inline-flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
-                >
-                  <Maximize className="w-4 h-4" />
-                  Fullscreen
-                </button>
-              </div>
-            </div>
-          </div>
+                  {/* Share */}
+                  <button
+                    onClick={handleCopyLink}
+                    className="inline-flex items-center space-x-2 px-3 py-2 bg-gray-600/80 hover:bg-gray-600 text-white text-sm rounded-lg transition-colors backdrop-blur-sm"
+                  >
+                    <Share2 className="w-4 h-4" />
+                    <span className="hidden sm:inline">{copied ? 'Copied!' : 'Share'}</span>
+                  </button>
 
-          {/* Collage Info */}
-          <div className="absolute bottom-0 left-0 right-0 z-20 p-4">
-            <div className="bg-black/60 backdrop-blur-sm rounded-lg p-4 text-white max-w-sm">
-              <h2 className="text-xl font-semibold mb-1">{currentCollage.name}</h2>
-              <p className="text-gray-300 text-sm">Code: {currentCollage.code}</p>
-              <p className="text-gray-300 text-sm">{safePhotos.length} photos</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Fullscreen Controls */}
-      {isFullscreen && (
-        <div className={`absolute inset-0 pointer-events-none transition-opacity duration-300 ${
-          controlsVisible ? 'opacity-100' : 'opacity-0'
-        }`}>
-          {/* Fullscreen Top Bar */}
-          <div className="absolute top-0 left-0 right-0 z-20 p-4">
-            <div className="flex items-center justify-between">
-              {/* Collage Info */}
-              <div className="bg-black/60 backdrop-blur-sm rounded-lg px-4 py-2 text-white">
-                <div className="text-lg font-semibold">{currentCollage.name}</div>
-                <div className="text-sm text-gray-300">{safePhotos.length} photos</div>
-              </div>
-
-              {/* Fullscreen Actions */}
-              <div className="flex items-center gap-3">
-                {/* Connection Status */}
-                <div className={`px-3 py-2 rounded-lg text-sm font-medium ${
-                  isRealtimeConnected 
-                    ? 'bg-green-500/20 text-green-400 backdrop-blur-sm' 
-                    : 'bg-red-500/20 text-red-400 backdrop-blur-sm'
-                }`}>
-                  {isRealtimeConnected ? '🟢 Live' : '🔴 Offline'}
+                  {/* Fullscreen */}
+                  <button
+                    onClick={toggleFullscreen}
+                    className="p-2 bg-gray-600/80 hover:bg-gray-600 text-white rounded-lg transition-colors backdrop-blur-sm"
+                  >
+                    <Maximize2 className="w-4 h-4" />
+                  </button>
                 </div>
-
-                {/* Upload Button */}
-                <button
-                  onClick={() => setShowUploader(true)}
-                  className="pointer-events-auto inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-                >
-                  <Upload className="w-4 h-4" />
-                  Add Photos
-                </button>
-
-                {/* Share Button */}
-                <button
-                  onClick={() => handleCopy(window.location.href)}
-                  className="pointer-events-auto inline-flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
-                >
-                  {copied ? <Check className="w-4 h-4" /> : <Share className="w-4 h-4" />}
-                  <span>{copied ? 'Copied!' : 'Share'}</span>
-                </button>
-
-                {/* Exit Fullscreen */}
-                <button
-                  onClick={toggleFullscreen}
-                  className="pointer-events-auto p-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
-                >
-                  <Minimize className="w-5 h-5" />
-                </button>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Upload Modal */}
+      {/* Photo Uploader Modal */}
       {showUploader && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80"
+          className="fixed inset-0 z-30 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
           onClick={handleModalBackdropClick}
         >
-          <div 
-            className="bg-gray-900 rounded-lg w-full max-w-md max-h-[90vh] overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="bg-gray-900 rounded-xl shadow-2xl w-full max-w-lg my-8 mx-auto">
             {/* Modal Header */}
-            <div className="flex items-center justify-between p-4 border-b border-gray-700">
-              <h3 className="text-lg font-semibold text-white">Upload Photos</h3>
-              <button 
+            <div className="flex items-center justify-between p-6 border-b border-gray-700 sticky top-0 bg-gray-900 rounded-t-xl">
+              <h3 className="text-xl font-semibold text-white">Upload Photos</h3>
+              <button
                 onClick={() => setShowUploader(false)}
                 className="text-gray-400 hover:text-white transition-colors p-1 hover:bg-gray-700 rounded"
               >
@@ -394,7 +308,7 @@ const CollageViewerPage: React.FC = () => {
                   <PhotoUploader 
                     collageId={currentCollage.id}
                     onUploadComplete={() => {
-                      console.log('📸 VIEWER: Photo upload completed from modal');
+                      console.log('📸 Photo upload completed from modal');
                       if (!isRealtimeConnected) {
                         handleManualRefresh();
                       }
@@ -414,26 +328,6 @@ const CollageViewerPage: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
-      )}
-      
-      {/* Debug Realtime Status - Only visible in development */}
-      {import.meta.env.DEV && (
-        <div className="fixed top-20 left-4 z-50 flex flex-col space-y-2">
-          <button 
-            onClick={debugSubscription}
-            className="bg-red-600 text-white px-3 py-1 rounded text-sm"
-          >
-            Debug Subscription
-          </button>
-        </div>
-      )}
-      
-      {import.meta.env.DEV && (
-        <div className="fixed bottom-4 right-4 z-20 w-64">
-          <RealtimeDebugPanel 
-            collageId={currentCollage?.id} 
-          />
         </div>
       )}
 
