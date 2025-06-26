@@ -24,7 +24,7 @@ export class GridPattern extends BasePattern {
     // FIXED: True edge-to-edge when spacing is 0, equal spacing when spacing > 0
     let horizontalSpacing, verticalSpacing;
     
-    if (spacingPercentage === 0) {
+    if (spacingPercentage === 0) { 
       // SOLID WALL: Photos touch edge-to-edge with NO gaps or overlaps
       horizontalSpacing = photoSize * 0.562; // 56.2% = exact edge-to-edge for 16:9 photos
       verticalSpacing = photoSize;           // Full photo height = no vertical overlap

@@ -172,13 +172,6 @@ const CameraController: React.FC<{ settings: SceneSettings }> = ({ settings }) =
     }
   });
 
-  console.log('🎥 CAMERA: Controls state:', {
-    cameraEnabled: settings.cameraEnabled,
-    cameraRotationEnabled: settings.cameraRotationEnabled,
-    cameraDistance: settings.cameraDistance,
-    cameraHeight: settings.cameraHeight
-  });
-
   // FIXED: Always return controls but respect cameraEnabled setting
   return (
     <OrbitControls

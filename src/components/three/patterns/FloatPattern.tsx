@@ -66,7 +66,7 @@ export class FloatPattern extends BasePattern {
     // Use dynamic floor size from settings
     const floorSize = this.settings.floorSize || 200;
     
-    // Get base positions that adapt to current floor size
+    // Get base positions that adapt to floor size
     const basePositions = this.generateDynamicBasePositions(totalPhotos, floorSize);
     
     // UPDATED: Animation parameters - extremely high float height for completely out-of-view teleport

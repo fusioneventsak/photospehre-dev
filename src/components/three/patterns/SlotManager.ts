@@ -15,8 +15,6 @@ export class SlotManager {
   updateSlotCount(newTotal: number) {
     if (newTotal === this.totalSlots) return;
     
-    // console.log(`🎰 SlotManager: Updating slot count from ${this.totalSlots} to ${newTotal}`);
-    
     this.totalSlots = newTotal;
     
     // Remove assignments for slots that no longer exist
@@ -50,10 +48,8 @@ export class SlotManager {
     // Sort available slots to ensure consistent assignment order
     this.availableSlots.sort((a, b) => a - b);
     
-    // Keep track of deleted slots for debugging but clear them from available slots
+    // Keep track of deleted slots but clear them from available slots
     this.deletedSlots = [];
-    
-    // console.log(`🎰 SlotManager: Rebuilt available slots, ${this.availableSlots.length} available`);
   }
 
   // CRITICAL FIX: Only assign new slots to new photos, preserve existing assignments
@@ -69,7 +65,6 @@ export class SlotManager {
     for (const [photoId, slotIndex] of this.slotAssignments.entries()) {
       if (!currentPhotoIds.has(photoId)) {
         removedPhotoIds.push(photoId);
-        // console.log(`🎰 SlotManager: Photo ${photoId.slice(-6)} was removed, marking slot ${slotIndex} for reuse`);
         // Add the slot to deletedSlots to prioritize its reuse
         this.deletedSlots.push(slotIndex);
       }
@@ -79,7 +74,6 @@ export class SlotManager {
     for (const photoId of removedPhotoIds) {
       const slotIndex = this.slotAssignments.get(photoId);
       if (slotIndex !== undefined) {
-        // console.log(`🎰 SlotManager: Photo ${photoId.slice(-6)} removed, freeing slot ${slotIndex}`);
         this.slotAssignments.delete(photoId);
         this.occupiedSlots.delete(slotIndex);
       }
@@ -103,16 +97,11 @@ export class SlotManager {
       if (!this.slotAssignments.has(photo.id) && this.availableSlots.length > 0) {
         // Get the next available slot
         const newSlot = this.availableSlots.shift()!;
-        // console.log(`🎰 SlotManager: Assigning new photo ${photo.id.slice(-6)} to slot ${newSlot}`);
         this.slotAssignments.set(photo.id, newSlot);
         this.occupiedSlots.add(newSlot);
-        // console.log(`🎰 SlotManager: Assigned slot ${newSlot} to new photo ${photo.id.slice(-6)}`);
       }
     }
 
-    // Log a summary of the current state
-    // console.log(`🎰 SlotManager: ${photoCount} photos, ${this.slotAssignments.size} assignments, ${this.availableSlots.length} available slots`);
-    
     return new Map(this.slotAssignments);
   }
   
