@@ -246,17 +246,31 @@ export const CameraController: React.FC<CameraControllerProps> = ({
     };
   }, [controlsRef.current]);
 
-  // FIXED: Conditional useFrame - only run cinematic logic when needed
+  // FIXED: Handle all camera modes properly
   useFrame((state, delta) => {
     if (!controlsRef.current) return;
 
-    // Only handle cinematic modes when specifically enabled and user not interacting
+    // Handle automatic camera rotation for orbit mode
+    if (cameraMode === 'orbit' && settings.cameraRotationEnabled && !userInteractingRef.current) {
+      const rotationSpeed = (settings.cameraRotationSpeed || 1.0) * 0.1;
+      const radius = camera.position.distanceTo(controlsRef.current.target);
+      const currentAngle = Math.atan2(camera.position.z, camera.position.x);
+      const newAngle = currentAngle + delta * rotationSpeed;
+      
+      camera.position.x = Math.cos(newAngle) * radius;
+      camera.position.z = Math.sin(newAngle) * radius;
+      controlsRef.current.update();
+    }
+
+    // Handle cinematic and auto modes with path following
     if ((cameraMode === 'cinematic' || cameraMode === 'auto') && 
         cinematicPath && 
         !userInteractingRef.current &&
         settings.cameraEnabled !== false) {
       
-      cinematicTimeRef.current += delta;
+      // Use camera rotation speed setting to control cinematic speed
+      const cinematicSpeed = (settings.cameraRotationSpeed || 1.0) * 0.3;
+      cinematicTimeRef.current += delta * cinematicSpeed;
       
       // Reset time when it exceeds path duration
       if (cinematicTimeRef.current >= cinematicPath.totalDuration) {
@@ -269,10 +283,18 @@ export const CameraController: React.FC<CameraControllerProps> = ({
       const position = cinematicPath.positionCurve.getPoint(normalizedTime);
       const target = cinematicPath.targetCurve.getPoint(normalizedTime);
       
-      // FIXED: Smooth interpolation to avoid jarring movements
-      camera.position.lerp(position, delta * 2);
-      controlsRef.current.target.lerp(target, delta * 2);
+      // Smooth interpolation to avoid jarring movements
+      const lerpSpeed = 2.0;
+      camera.position.lerp(position, delta * lerpSpeed);
+      controlsRef.current.target.lerp(target, delta * lerpSpeed);
       targetRef.current.copy(target);
+      controlsRef.current.update();
+    }
+
+    // Handle first person mode (simplified - mainly just ensures controls work)
+    if (cameraMode === 'firstPerson') {
+      // First person mode mainly relies on user controls
+      // Could add WASD movement here in the future
       controlsRef.current.update();
     }
 
@@ -341,23 +363,28 @@ export const CameraController: React.FC<CameraControllerProps> = ({
   // Determine which controls to enable based on camera mode
   const currentMode = CAMERA_MODES[cameraMode] || CAMERA_MODES.orbit;
   
+  // Calculate speed multipliers from settings  
+  const rotationSpeed = settings.cameraRotationSpeed || 1.0;
+  const zoomSpeed = rotationSpeed; // Use rotation speed for consistency
+  const panSpeed = rotationSpeed; // Use rotation speed for consistency
+  
   return (
     <>
       <OrbitControls
         ref={controlsRef}
-        enabled={currentMode.controls.enableOrbit && settings.cameraEnabled !== false}
-        enablePan={true} // FIXED: Always enable pan for better user control
+        enabled={settings.cameraEnabled !== false} // FIXED: Always enable controls when camera is enabled
+        enablePan={true} // Always enable pan for better user control
         enableZoom={true}
-        enableRotate={true} // FIXED: Always enable rotate for better user control
+        enableRotate={true} // Always enable rotate for better user control
         minDistance={5}
         maxDistance={200}
         minPolarAngle={Math.PI / 6}
         maxPolarAngle={Math.PI - Math.PI / 6}
         enableDamping={true}
         dampingFactor={0.05}
-        zoomSpeed={1.0}
-        rotateSpeed={1.0}
-        panSpeed={1.0}
+        zoomSpeed={zoomSpeed} // FIXED: Use settings for zoom speed
+        rotateSpeed={rotationSpeed} // FIXED: Use settings for rotation speed
+        panSpeed={panSpeed} // FIXED: Use settings for pan speed
         touches={{
           ONE: THREE.TOUCH.ROTATE,
           TWO: THREE.TOUCH.DOLLY_PAN
