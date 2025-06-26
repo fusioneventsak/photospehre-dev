@@ -4,11 +4,8 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
 import * as THREE from 'three';
 import { type SceneSettings } from '../../store/sceneStore';
-import { PatternFactory, SlotManager } from './patterns/PatternFactory';
+import { PatternFactory } from './patterns/PatternFactory';
 import { addCacheBustToUrl } from '../../lib/supabase';
-
-// Debug flag for logging
-const DEBUG = false;
 
 type Photo = {
   id: string;
@@ -34,6 +31,80 @@ type PhotoWithPosition = Photo & {
 const POSITION_SMOOTHING = 0.1;
 const ROTATION_SMOOTHING = 0.1;
 const TELEPORT_THRESHOLD = 30;
+
+// ENHANCED: Stable slot assignment system that preserves slots during uploads
+class SlotManager {
+  private slotAssignments = new Map<string, number>();
+  private occupiedSlots = new Set<number>();
+  private availableSlots: number[] = [];
+  private totalSlots = 0;
+
+  constructor(totalSlots: number) {
+    this.updateSlotCount(totalSlots);
+  }
+
+  updateSlotCount(newTotal: number) {
+    if (newTotal === this.totalSlots) return;
+    
+    this.totalSlots = newTotal;
+    
+    for (const [photoId, slotIndex] of this.slotAssignments.entries()) {
+      if (slotIndex >= newTotal) {
+        this.slotAssignments.delete(photoId);
+        this.occupiedSlots.delete(slotIndex);
+      }
+    }
+    
+    this.rebuildAvailableSlots();
+  }
+
+  private rebuildAvailableSlots() {
+    this.availableSlots = [];
+    for (let i = 0; i < this.totalSlots; i++) {
+      if (!this.occupiedSlots.has(i)) {
+        this.availableSlots.push(i);
+      }
+    }
+    // Sort available slots to ensure consistent assignment order
+    this.availableSlots.sort((a, b) => a - b);
+  }
+
+  // CRITICAL FIX: Only assign new slots to new photos, preserve existing assignments
+  assignSlots(photos: Photo[]): Map<string, number> {
+    const safePhotos = Array.isArray(photos) ? photos.filter(p => p && p.id) : [];
+    
+    // Remove assignments for photos that no longer exist
+    const currentPhotoIds = new Set(safePhotos.map(p => p.id));
+    for (const [photoId, slotIndex] of this.slotAssignments.entries()) {
+      if (!currentPhotoIds.has(photoId)) {
+        this.slotAssignments.delete(photoId);
+        this.occupiedSlots.delete(slotIndex);
+      }
+    }
+
+    // Rebuild available slots after cleanup
+    this.rebuildAvailableSlots();
+
+    // Sort photos for consistent assignment order
+    const sortedPhotos = [...safePhotos].sort((a, b) => {
+      if (a.created_at && b.created_at) {
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      }
+      return a.id.localeCompare(b.id);
+    });
+
+    // ONLY assign slots to NEW photos that don't have assignments yet
+    for (const photo of sortedPhotos) {
+      if (!this.slotAssignments.has(photo.id) && this.availableSlots.length > 0) {
+        const newSlot = this.availableSlots.shift()!;
+        this.slotAssignments.set(photo.id, newSlot);
+        this.occupiedSlots.add(newSlot);
+      }
+    }
+
+    return new Map(this.slotAssignments);
+  }
+}
 
 // Floor component - FIXED to use all settings properly  
 const Floor: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
@@ -172,6 +243,13 @@ const CameraController: React.FC<{ settings: SceneSettings }> = ({ settings }) =
     }
   });
 
+  console.log('🎥 CAMERA: Controls state:', {
+    cameraEnabled: settings.cameraEnabled,
+    cameraRotationEnabled: settings.cameraRotationEnabled,
+    cameraDistance: settings.cameraDistance,
+    cameraHeight: settings.cameraHeight
+  });
+
   // FIXED: Always return controls but respect cameraEnabled setting
   return (
     <OrbitControls
@@ -203,26 +281,37 @@ const CameraController: React.FC<{ settings: SceneSettings }> = ({ settings }) =
   );
 };
 
-// Scene Lighting component with WORKING spotlights
+// Scene Lighting component with WORKING spotlights and FIXED refs
 const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   const groupRef = useRef<THREE.Group>(null);
+  const targetRefs = useRef<THREE.Object3D[]>([]);
 
   const spotlights = useMemo(() => {
     const lights = [];
     const count = Math.min(settings.spotlightCount || 4, 4);
     
+    // Ensure we have enough target refs
+    while (targetRefs.current.length < count) {
+      targetRefs.current.push(new THREE.Object3D());
+    }
+    
     for (let i = 0; i < count; i++) {
       const angle = (i / count) * Math.PI * 2;
       
-      // Position spotlights in a circle around the scene
-      const x = Math.cos(angle) * (settings.spotlightDistance || 40);
-      const z = Math.sin(angle) * (settings.spotlightDistance || 40);
-      const y = settings.spotlightHeight || 30;
+      // Position spotlights CLOSER and HIGHER for better intensity
+      const distance = Math.max(20, settings.spotlightDistance || 30); // Minimum 20 units
+      const x = Math.cos(angle) * distance;
+      const z = Math.sin(angle) * distance;
+      const y = Math.max(15, settings.spotlightHeight || 25); // Minimum 15 units high
+      
+      // Set target position
+      const targetPos = [0, (settings.wallHeight || 0) / 2, 0];
+      targetRefs.current[i].position.set(...targetPos);
       
       lights.push({
         key: `spotlight-${i}`,
         position: [x, y, z] as [number, number, number],
-        target: [0, (settings.wallHeight || 0) / 2, 0] as [number, number, number],
+        target: targetRefs.current[i],
       });
     }
     return lights;
@@ -235,16 +324,16 @@ const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
 
   return (
     <group ref={groupRef}>
-      {/* Ambient light */}
+      {/* Reduced ambient light to make spotlights more prominent */}
       <ambientLight 
-        intensity={settings.ambientLightIntensity || 0.4} 
+        intensity={(settings.ambientLightIntensity || 0.4) * 0.5} 
         color="#ffffff" 
       />
       
-      {/* Main directional light */}
+      {/* Reduced directional light */}
       <directionalLight
         position={[20, 30, 20]}
-        intensity={0.3}
+        intensity={0.1}
         color="#ffffff"
         castShadow={settings.shadowsEnabled}
         shadow-mapSize={[2048, 2048]}
@@ -256,34 +345,27 @@ const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
         shadow-bias={-0.0001}
       />
       
-      {/* Working spotlights positioned around the scene */}
-      {spotlights.map((light) => {
-        const targetRef = useRef<THREE.Object3D>(new THREE.Object3D());
-        
-        return (
-          <group key={light.key}>
-            <spotLight
-              position={light.position}
-              target={targetRef.current}
-              angle={Math.max(0.1, Math.min(Math.PI / 2, settings.spotlightAngle || 0.6))}
-              penumbra={settings.spotlightPenumbra || 0.4}
-              intensity={((settings.spotlightIntensity || 150) / 100) * 3}
-              color={settings.spotlightColor || '#ffffff'}
-              distance={(settings.spotlightDistance || 40) * 4}
-              decay={1.5}
-              castShadow={settings.shadowsEnabled}
-              shadow-mapSize={[1024, 1024]}
-              shadow-camera-near={0.5}
-              shadow-camera-far={(settings.spotlightDistance || 40) * 4}
-              shadow-bias={-0.0001}
-            />
-            <primitive 
-              object={targetRef.current} 
-              position={light.target}
-            />
-          </group>
-        );
-      })}
+      {/* INTENSE spotlights positioned closer to the scene */}
+      {spotlights.map((light, index) => (
+        <group key={light.key}>
+          <spotLight
+            position={light.position}
+            target={light.target}
+            angle={Math.max(0.2, Math.min(Math.PI / 3, settings.spotlightAngle || 0.8))}
+            penumbra={settings.spotlightPenumbra || 0.4}
+            intensity={((settings.spotlightIntensity || 150) / 100) * 8} // MUCH higher intensity
+            color={settings.spotlightColor || '#ffffff'}
+            distance={settings.spotlightDistance * 3 || 120}
+            decay={1}
+            castShadow={settings.shadowsEnabled}
+            shadow-mapSize={[1024, 1024]}
+            shadow-camera-near={0.5}
+            shadow-camera-far={settings.spotlightDistance * 2 || 100}
+            shadow-bias={-0.0001}
+          />
+          <primitive object={light.target} />
+        </group>
+      ))}
     </group>
   );
 };
@@ -293,13 +375,11 @@ const AnimationController: React.FC<{
   settings: SceneSettings;
   photos: Photo[];
   onPositionsUpdate: (photos: PhotoWithPosition[]) => void;
-}> = React.memo(({ settings, photos, onPositionsUpdate }) => {
+}> = ({ settings, photos, onPositionsUpdate }) => {
   const slotManagerRef = useRef(new SlotManager(settings.photoCount || 100));
   const lastPhotoCount = useRef(settings.photoCount || 100);
   const lastPositionsRef = useRef<PhotoWithPosition[]>([]);
-  const lastUpdateTimeRef = useRef(0);
   
-  // Create a key from photo IDs to detect changes
   const currentPhotoIds = useMemo(() => 
     (photos || []).map(p => p.id).sort().join(','), 
     [photos]
@@ -308,11 +388,6 @@ const AnimationController: React.FC<{
   const lastPhotoIds = useRef(currentPhotoIds);
   const animationFrameRef = useRef<number>();
   
-  // Log photos for debugging
-  useEffect(() => {
-    if (DEBUG) console.log('🎮 AnimationController render - Photos count:', photos.length, 'IDs:', photos.map(p => p.id.slice(-6)));
-  }, [photos]);
-  
   const updatePositions = useCallback((time: number = 0) => {
     try {
       const safePhotos = Array.isArray(photos) ? photos.filter(p => p && p.id) : [];
@@ -320,13 +395,6 @@ const AnimationController: React.FC<{
 
       // Get STABLE slot assignments - only new photos get new slots
       const slotAssignments = slotManagerRef.current.assignSlots(safePhotos);
-      
-      // Log slot manager stats
-      if (DEBUG) {
-        const stats = slotManagerRef.current.getStats();
-        console.log('🎮 Slot manager stats:', stats);
-        console.log('🎮 Empty slots:', stats.totalSlots - stats.occupiedSlots);
-      }
       
       // Generate pattern positions with error handling
       let patternState;
@@ -397,7 +465,6 @@ const AnimationController: React.FC<{
       if (positionsChanged) {
         lastPositionsRef.current = photosWithPositions;
         onPositionsUpdate(photosWithPositions);
-        if (DEBUG) console.log('🎮 Positions updated, photos count:', photosWithPositions.length);
       }
     } catch (error) {
       console.error('Error in updatePositions:', error);
@@ -407,9 +474,9 @@ const AnimationController: React.FC<{
   // CRITICAL FIX: Only update immediately for photo count changes, not photo additions
   useEffect(() => {
     const photoCountChanged = (settings.photoCount || 100) !== lastPhotoCount.current;
-
+    
     if (photoCountChanged) {
-      if (DEBUG) console.log('📊 PHOTO COUNT CHANGED: Force update');
+      console.log('📊 PHOTO COUNT CHANGED: Force update');
       slotManagerRef.current.updateSlotCount(settings.photoCount || 100);
       lastPhotoCount.current = settings.photoCount || 100;
       updatePositions(0);
@@ -419,49 +486,26 @@ const AnimationController: React.FC<{
   // ENHANCED: Handle photo changes without immediate position updates (prevents jumping)
   useEffect(() => {
     if (currentPhotoIds !== lastPhotoIds.current) {
-      const oldPhotoIds = lastPhotoIds.current.split(',').filter(id => id);
-      const newPhotoIds = currentPhotoIds.split(',').filter(id => id);
+      console.log('📷 PHOTOS CHANGED: New upload detected - using gradual update');
+      console.log('📷 Old IDs:', lastPhotoIds.current);
+      console.log('📷 New IDs:', currentPhotoIds);
       
-      const isPhotoDeletion = oldPhotoIds.length > newPhotoIds.length;
-      const isPhotoAddition = newPhotoIds.length > oldPhotoIds.length;
-      
-      if (DEBUG) {
-        console.log('📷 PHOTOS CHANGED:', {
-          oldCount: oldPhotoIds.length,
-          newCount: newPhotoIds.length,
-          isDeletion: isPhotoDeletion,
-          isAddition: isPhotoAddition
-        });
-        console.log('📷 New IDs:', currentPhotoIds);
-      }
-      
+      // CRITICAL FIX: Don't force immediate position update
+      // Let the natural animation frame handle the change gradually
       lastPhotoIds.current = currentPhotoIds;
       
-      if (isPhotoDeletion) {
-        // IMMEDIATE update for deletions - photos should disappear right away
-        console.log('🗑️ PHOTO DELETION DETECTED - Triggering immediate update');
-        updatePositions(0);
-      } else if (isPhotoAddition) {
-        // Gradual update for additions - let them animate in nicely
-        console.log('➕ PHOTO ADDITION DETECTED - Using gradual update');
-        // Update slot assignments but let animation frame handle positioning
-        const safePhotos = Array.isArray(photos) ? photos.filter(p => p && p.id) : [];
-        slotManagerRef.current.assignSlots(safePhotos);
-      }
+      // Update slot assignments immediately but don't force position recalculation
+      const safePhotos = Array.isArray(photos) ? photos.filter(p => p && p.id) : [];
+      slotManagerRef.current.assignSlots(safePhotos);
     }
   }, [currentPhotoIds, photos]);
 
   // Regular animation updates
-  useFrame((state, delta) => {
+  useFrame((state) => {
     const time = settings.animationEnabled ? 
       state.clock.elapsedTime * ((settings.animationSpeed || 50) / 50) : 0;
     
-    // Throttle updates to improve performance (30fps is plenty for animations)
-    const now = state.clock.elapsedTime;
-    if (now - lastUpdateTimeRef.current > 1/30) {
-      lastUpdateTimeRef.current = now;
-      updatePositions(time);
-    }
+    updatePositions(time);
   });
 
   // Cleanup animation frame on unmount
@@ -474,13 +518,7 @@ const AnimationController: React.FC<{
   }, []);
 
   return null;
-}, (prevProps, nextProps) => {
-  // Only re-render if settings or photos array reference changes
-  return (
-    prevProps.settings === nextProps.settings &&
-    prevProps.photos === nextProps.photos
-  );
-});
+};
 
 // Background renderer
 const BackgroundRenderer: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
@@ -511,6 +549,101 @@ const BackgroundRenderer: React.FC<{ settings: SceneSettings }> = ({ settings })
   return null;
 };
 
+// Enhanced PhotoMesh component for volumetric lighting
+const VolumetricSpotlight: React.FC<{
+  position: [number, number, number];
+  target: [number, number, number];
+  color: string;
+  intensity: number;
+  angle: number;
+  distance: number;
+  penumbra: number;
+}> = ({ position, target, color, intensity, angle, distance, penumbra }) => {
+  const lightRef = useRef<THREE.SpotLight>(null);
+  const targetRef = useRef<THREE.Object3D>(new THREE.Object3D());
+
+  useEffect(() => {
+    if (targetRef.current) {
+      targetRef.current.position.set(...target);
+    }
+  }, [target]);
+
+  useEffect(() => {
+    if (lightRef.current && targetRef.current) {
+      lightRef.current.target = targetRef.current;
+    }
+  }, []);
+
+  return (
+    <group>
+      <spotLight
+        ref={lightRef}
+        position={position}
+        color={color}
+        intensity={intensity}
+        angle={angle}
+        distance={distance}
+        penumbra={penumbra}
+        castShadow={true}
+        shadow-mapSize={[1024, 1024]}
+        shadow-camera-near={0.1}
+        shadow-camera-far={distance}
+        shadow-camera-fov={angle * 180 / Math.PI}
+      />
+      <primitive object={targetRef.current} />
+    </group>
+  );
+};
+
+// Dynamic lighting system
+const DynamicLightingSystem: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
+  const lights = useMemo(() => {
+    const lightCount = Math.min(settings.spotlightCount || 1, 4);
+    const lightArray = [];
+    
+    for (let i = 0; i < lightCount; i++) {
+      const angle = (i / lightCount) * Math.PI * 2;
+      const radius = 15 + Math.sin(i * 2.3) * 5;
+      const height = 10 + Math.cos(i * 1.7) * 5;
+      const intensityVariation = 0.8 + Math.sin(i * 3.1) * 0.2;
+      
+      lightArray.push({
+        position: [
+          Math.cos(angle) * radius,
+          height,
+          Math.sin(angle) * radius
+        ] as [number, number, number],
+        target: [0, 0, 0] as [number, number, number],
+        intensityVariation,
+      });
+    }
+    
+    return lightArray;
+  }, [settings.spotlightCount]);
+
+  return (
+    <group>
+      {lights.map((light, index) => {
+        const adjustedAngle = Math.max(0.1, Math.min(Math.PI / 3, (settings.spotlightAngle || 30) * Math.PI / 180));
+        
+        return (
+          <group key={index}>
+            <VolumetricSpotlight
+              position={light.position}
+              target={light.target}
+              angle={adjustedAngle}
+              color={settings.spotlightColor || '#ffffff'}
+              intensity={(settings.spotlightIntensity || 1) * light.intensityVariation}
+              distance={settings.spotlightDistance || 50}
+              penumbra={settings.spotlightPenumbra || 0.5}
+            />
+          </group>
+        );
+      })}
+    </group>
+  );
+};
+
 // ENHANCED: PhotoMesh with FIXED empty slot color
 const PhotoMesh: React.FC<{
   photo: PhotoWithPosition;
@@ -519,7 +652,7 @@ const PhotoMesh: React.FC<{
   pattern: string;
   shouldFaceCamera: boolean;
   brightness: number;
-}> = React.memo(function PhotoMesh({ photo, size, emptySlotColor, pattern, shouldFaceCamera, brightness }) {
+}> = React.memo(({ photo, size, emptySlotColor, pattern, shouldFaceCamera, brightness }) => {
   const meshRef = useRef<THREE.Mesh>(null);
   const { camera } = useThree();
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
@@ -529,24 +662,11 @@ const PhotoMesh: React.FC<{
   const lastPositionRef = useRef<[number, number, number]>([0, 0, 0]);
   const currentPosition = useRef<THREE.Vector3>(new THREE.Vector3(...photo.targetPosition));
   const currentRotation = useRef<THREE.Euler>(new THREE.Euler(...photo.targetRotation));
-  const isNewPhotoRef = useRef(true);
-
-  // Log render for debugging
-  useEffect(() => {
-    if (DEBUG) console.log(`🖼️ PhotoMesh render - ID: ${photo.id}, URL: ${photo.url ? 'has image' : 'empty'}, Slot: ${photo.slotIndex}`);
-  }, [photo.id, photo.url, photo.slotIndex]);
 
   // Initialize position immediately to prevent jarring movements
   useEffect(() => {
     currentPosition.current.set(...photo.targetPosition);
     currentRotation.current.set(...photo.targetRotation);
-    
-    // For new photos with URLs (not empty slots), start them from above for a nice entrance
-    if (photo.url && isNewPhotoRef.current && !photo.id.startsWith('placeholder')) {
-      isNewPhotoRef.current = false;
-      // Start 20 units above target position for a nice drop-in effect
-      currentPosition.current.y += 20;
-    }
   }, []);
 
   useEffect(() => {
@@ -703,9 +823,9 @@ const PhotoMesh: React.FC<{
     prevProps.emptySlotColor === nextProps.emptySlotColor &&
     prevProps.shouldFaceCamera === nextProps.shouldFaceCamera &&
     prevProps.brightness === nextProps.brightness &&
-    // Don't compare positions - let the animation handle that
-    prevProps.photo.id === nextProps.photo.id &&
-    prevProps.photo.url === nextProps.photo.url
+    prevProps.photo.targetPosition.every((pos, i) => 
+      Math.abs(pos - nextProps.photo.targetPosition[i]) < 0.001
+    )
   );
 });
 
@@ -713,8 +833,8 @@ const PhotoMesh: React.FC<{
 const PhotoRenderer: React.FC<{ 
   photosWithPositions: PhotoWithPosition[]; 
   settings: SceneSettings;
-}> = React.memo(({ photosWithPositions, settings }) => {
-  const shouldFaceCamera = settings.photoRotation;
+}> = ({ photosWithPositions, settings }) => {
+  const shouldFaceCamera = settings.animationPattern === 'float';
   
   return (
     <group>
@@ -731,14 +851,18 @@ const PhotoRenderer: React.FC<{
       ))}
     </group>
   );
-}, (prevProps, nextProps) => {
-  // Only re-render if settings change or photos array length changes
-  // Individual photo changes are handled by the PhotoMesh component
-  return (
-    prevProps.settings === nextProps.settings &&
-    prevProps.photosWithPositions.length === nextProps.photosWithPositions.length
-  );
-});
+};
+
+// Debug component to track photo changes
+const PhotoDebugger: React.FC<{ photos: Photo[] }> = ({ photos }) => {
+  useEffect(() => {
+    console.log('🔍 PHOTO DEBUGGER: Photos updated in scene');
+    console.log('🔍 Count:', photos?.length || 0);
+    console.log('🔍 IDs:', (photos || []).map(p => p.id.slice(-4)));
+  }, [photos]);
+  
+  return null;
+};
 
 // Main CollageScene component
 const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSettingsChange }) => {
@@ -765,15 +889,12 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
     safeSettings.backgroundGradientAngle
   ]);
 
-  if (DEBUG) {
-    console.log('🎬 COLLAGE SCENE RENDER:', {
-      photoCount: safePhotos.length,
-      settingsPhotoCount: safeSettings.photoCount,
-      positionsCount: photosWithPositions.length,
-      emptySlotCount: photosWithPositions.filter(p => !p.url).length,
-      emptySlotColor: safeSettings.emptySlotColor
-    });
-  }
+  console.log('🎬 COLLAGE SCENE RENDER:', {
+    photoCount: safePhotos.length,
+    settingsPhotoCount: safeSettings.photoCount,
+    positionsCount: photosWithPositions.length,
+    emptySlotColor: safeSettings.emptySlotColor
+  });
 
   return (
     <div style={backgroundStyle} className="w-full h-full">
@@ -817,10 +938,14 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
           onPositionsUpdate={setPhotosWithPositions}
         />
         
+        <PhotoDebugger photos={safePhotos} />
+        
         <PhotoRenderer 
           photosWithPositions={photosWithPositions}
           settings={safeSettings}
         />
+        
+        <DynamicLightingSystem settings={safeSettings} />
       </Canvas>
     </div>
   );
