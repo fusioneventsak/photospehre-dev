@@ -44,9 +44,9 @@ export class GridPattern extends BasePattern {
     const totalWallWidth = (columns - 1) * horizontalSpacing;
     const totalWallHeight = (rows - 1) * verticalSpacing;
     
-    // Animation settings
-    const speed = this.settings.animationSpeed / 100;
-    const animationTime = this.settings.animationEnabled ? time * speed : 0;
+    // Animation settings - apply speed directly to the animation
+    const speedFactor = this.settings.animationSpeed / 50;
+    const animationTime = this.settings.animationEnabled ? time * speedFactor : 0;
     
     // Generate positions for all photos
     for (let i = 0; i < totalPhotos; i++) {
@@ -63,9 +63,10 @@ export class GridPattern extends BasePattern {
       // Subtle animation when enabled (only when there's spacing)
       if (this.settings.animationEnabled && spacingPercentage > 0) {
         const waveIntensity = spacingPercentage * photoSize * 0.2; // Scale with spacing
-        
-        const waveX = Math.sin(animationTime * 0.5 + col * 0.3) * waveIntensity;
-        const waveY = Math.cos(animationTime * 0.5 + row * 0.3) * waveIntensity;
+
+        // Apply animation speed directly to the wave motion
+        const waveX = Math.sin(time * speedFactor * 0.5 + col * 0.3) * waveIntensity;
+        const waveY = Math.cos(time * speedFactor * 0.5 + row * 0.3) * waveIntensity;
         
         y += waveY;
         z += waveX;
@@ -81,9 +82,10 @@ export class GridPattern extends BasePattern {
         let rotationX = 0, rotationY = 0, rotationZ = 0;
         
         if (this.settings.animationEnabled && spacingPercentage > 0) {
-          rotationY = Math.atan2(x, z + 10);
-          rotationX = Math.sin(animationTime * 0.3 + col * 0.1) * 0.05;
-          rotationZ = Math.cos(animationTime * 0.3 + row * 0.1) * 0.05;
+          rotationY = Math.atan2(x, z + 10); 
+          // Apply animation speed to rotation
+          rotationX = Math.sin(time * speedFactor * 0.3 + col * 0.1) * 0.05;
+          rotationZ = Math.cos(time * speedFactor * 0.3 + row * 0.1) * 0.05;
         }
         
         rotations.push([rotationX, rotationY, rotationZ]);

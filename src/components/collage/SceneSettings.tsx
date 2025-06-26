@@ -53,7 +53,7 @@ const SceneSettings: React.FC<{
           {settings.animationEnabled && (
             <div>
               <label className="block text-sm text-gray-300 mb-2">
-                Animation Speed
+                Pattern Animation Speed
                 <span className="ml-2 text-xs text-gray-400">
                   {settings.animationSpeed}%
                 </span>
@@ -69,6 +69,9 @@ const SceneSettings: React.FC<{
                 }, true)}
                 className="w-full bg-gray-800"
               />
+              <p className="mt-1 text-xs text-gray-400">
+                Controls how fast photos move in animation patterns (does NOT affect camera movement)
+              </p>
             </div>
           )}
         </div>

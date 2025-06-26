@@ -358,7 +358,7 @@ const AnimationController: React.FC<{
   // Regular animation updates
   useFrame((state, delta) => {
     const time = settings.animationEnabled ? 
-      state.clock.elapsedTime * ((settings.animationSpeed || 50) / 50) : 0;
+      state.clock.elapsedTime : 0;
     
     // Throttle updates to improve performance (30fps is plenty for animations)
     const now = state.clock.elapsedTime;

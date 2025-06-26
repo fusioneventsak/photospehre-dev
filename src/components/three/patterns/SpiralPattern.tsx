@@ -13,7 +13,7 @@ export class SpiralPattern extends BasePattern {
     const totalPhotos = Math.min(photoCount, 500);
     
     const speed = this.settings.animationSpeed / 50;
-    const animationTime = time * speed * 2;
+    const animationTime = time * speed;
     
     // Tornado parameters
     const baseRadius = 3; // Narrow radius at ground level
@@ -67,8 +67,10 @@ export class SpiralPattern extends BasePattern {
       // Calculate angle with height-based rotation speed
       // Photos at the bottom rotate slower, creating a realistic vortex effect
       const heightSpeedFactor = 0.3 + normalizedHeight * 0.7; // Slower at bottom
-      const angle = this.settings.animationEnabled ? 
-        (animationTime * rotationSpeed * heightSpeedFactor + i * 0.5 + angleOffset) : 
+      // Apply animation speed directly to rotation
+      const rotationFactor = rotationSpeed * (this.settings.animationSpeed / 50);
+      const angle = this.settings.animationEnabled ?
+        (time * rotationFactor * heightSpeedFactor + i * 0.5 + angleOffset) : 
         (i * 0.5 + angleOffset);
       
       // Calculate position
@@ -83,6 +85,18 @@ export class SpiralPattern extends BasePattern {
         
         x += turbulenceX;
         z += turbulenceZ;
+      }
+      
+      // Subtle animation when enabled (only when there's spacing)
+      if (this.settings.animationEnabled && isOrbital) {
+        // Apply animation speed to wave intensity
+        const waveIntensity = 2 * (this.settings.animationSpeed / 50);
+        
+        const waveX = Math.sin(time * speed * 0.5 + i * 0.3) * waveIntensity;
+        const waveY = Math.cos(time * speed * 0.5 + i * 0.3) * waveIntensity;
+        
+        x += waveX;
+        z += waveY;
       }
       
       positions.push([x, y + verticalWobble, z]);

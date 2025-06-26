@@ -250,7 +250,7 @@ export const CameraController: React.FC<CameraControllerProps> = ({
   useFrame((state, delta) => {
     if (!controlsRef.current) return;
 
-    // Handle automatic camera rotation for orbit mode
+    // Handle automatic camera rotation for orbit mode - use cameraRotationSpeed
     if (cameraMode === 'orbit' && settings.cameraRotationEnabled && !userInteractingRef.current) {
       const rotationSpeed = (settings.cameraRotationSpeed || 1.0) * 0.1;
       const radius = camera.position.distanceTo(controlsRef.current.target);
@@ -265,10 +265,10 @@ export const CameraController: React.FC<CameraControllerProps> = ({
     // Handle cinematic and auto modes with path following
     if ((cameraMode === 'cinematic' || cameraMode === 'auto') && 
         cinematicPath && 
-        !userInteractingRef.current &&
+        !userInteractingRef.current && 
         settings.cameraEnabled !== false) {
       
-      // Use CAMERA rotation speed setting to control cinematic speed, NOT animation speed
+      // Use cameraRotationSpeed for camera movement, NOT animationSpeed
       const cinematicSpeed = (settings.cameraRotationSpeed || 1.0) * 0.3;
       cinematicTimeRef.current += delta * cinematicSpeed;
       
