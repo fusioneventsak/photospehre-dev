@@ -5,8 +5,10 @@ export class SpiralPattern extends BasePattern {
     const positions: Position[] = [];
     const rotations: [number, number, number][] = [];
     
-    // Apply animation speed directly to the animation parameters
-    const speedFactor = this.settings.animationSpeed / 50;
+    // CRITICAL FIX: Apply animation speed directly to rotation
+    const speedFactor = this.settings.animationEnabled 
+      ? this.settings.animationSpeed / 50 
+      : 0;
     
     // Use pattern-specific photoCount if available
     const photoCount = this.settings.patterns?.spiral?.photoCount !== undefined 
@@ -15,8 +17,8 @@ export class SpiralPattern extends BasePattern {
     
     const totalPhotos = Math.min(photoCount, 500);
     
-    // Use raw time - we'll apply speed factor to individual parameters
-    const animationTime = time;
+    // Use raw time from the scene
+    const animationTime = time; 
     
     // Tornado parameters
     const baseRadius = 3; // Narrow radius at ground level
@@ -71,11 +73,11 @@ export class SpiralPattern extends BasePattern {
       // Calculate angle with height-based rotation speed
       // Photos at the bottom rotate slower, creating a realistic vortex effect
       const heightSpeedFactor = 0.3 + normalizedHeight * 0.7; // Slower at bottom
-      // Apply animation speed directly to rotation
-      // Calculate the angle based on animation settings
-      const angle = this.settings.animationEnabled ?
-        (time * rotationSpeed * heightSpeedFactor + i * 0.5 + angleOffset) : 
-        (i * 0.5 + angleOffset);
+      
+      // CRITICAL FIX: Apply speedFactor to rotation calculation
+      const angle = this.settings.animationEnabled 
+        ? (animationTime * rotationSpeed * heightSpeedFactor + i * 0.5 + angleOffset)
+        : (i * 0.5 + angleOffset);
       
       // Calculate position
       let x = Math.cos(angle) * radius;
@@ -84,7 +86,7 @@ export class SpiralPattern extends BasePattern {
       // Add turbulence for more realistic tornado effect
       if (this.settings.animationEnabled) {
         const turbulenceStrength = isOrbital ? 2 : 1;
-        // Apply speed factor to turbulence
+        // Apply speedFactor to turbulence animation
         const turbulenceX = Math.sin(animationTime * 3 * speedFactor + y * 0.1 + i) * turbulenceStrength;
         const turbulenceZ = Math.cos(animationTime * 2.5 * speedFactor + y * 0.1 + i * 1.3) * turbulenceStrength;
         
@@ -97,14 +99,18 @@ export class SpiralPattern extends BasePattern {
       // Calculate rotation to face camera
       if (this.settings.photoRotation) {
         // Photos face outward from the center of the tornado
-        const facingAngle = Math.atan2(x, z);
+        const facingAngle = Math.atan2(x, z); // Direction to face outward
         
         // Add dynamic tilting based on height and motion
         const tiltAmount = isOrbital ? 0.2 : 0.1;
-        const rotationX = this.settings.animationEnabled ? 
-          Math.sin(animationTime * 1.5 * speedFactor + i * 0.3) * tiltAmount : 0;
-        const rotationZ = this.settings.animationEnabled ? 
-          Math.cos(animationTime * 1.2 * speedFactor + i * 0.4) * tiltAmount : 0;
+        
+        // Apply speedFactor to rotation animations
+        const rotationX = this.settings.animationEnabled 
+          ? Math.sin(animationTime * 1.5 * speedFactor + i * 0.3) * tiltAmount 
+          : 0;
+        const rotationZ = this.settings.animationEnabled 
+          ? Math.cos(animationTime * 1.2 * speedFactor + i * 0.4) * tiltAmount 
+          : 0;
         
         rotations.push([rotationX, facingAngle, rotationZ]);
       } else {

@@ -47,16 +47,19 @@ const SceneSettings: React.FC<{
                 // CRITICAL FIX: When changing pattern, always enable animation
                 const newPattern = e.target.value as 'float' | 'wave' | 'spiral' | 'grid';
                 
-                // Create a comprehensive update object
+                // CRITICAL FIX: Create a comprehensive update object with proper settings
                 const updates: Partial<SceneSettings> = { 
                   animationPattern: newPattern,
-                  // Always enable animation when switching patterns, especially for float
-                  animationEnabled: true
+                  // Always enable animation when switching patterns
+                  animationEnabled: true,
+                  // Reset camera rotation to enabled for better experience
+                  cameraRotationEnabled: true
                 };
                 
-                // Set higher animation speed for float pattern
+                // CRITICAL FIX: Set higher animation speed for float pattern
                 if (newPattern === 'float') {
-                  updates.animationSpeed = Math.max(70, settings.animationSpeed);
+                  updates.animationSpeed = Math.max(70, settings.animationSpeed || 0);
+                  console.log('🎮 Setting higher animation speed for float pattern:', updates.animationSpeed);
                 }
                 
                 // Apply the updates
@@ -78,7 +81,9 @@ const SceneSettings: React.FC<{
               <label className="block text-sm text-gray-300 mb-2">
                 Pattern Animation Speed
                 <span className="ml-2 text-xs text-gray-400">
-                  {settings.animationSpeed}%
+                  {settings.animationSpeed}% 
+                  {settings.animationPattern === 'float' && settings.animationSpeed < 50 && 
+                    " (Recommended: 70%+ for float pattern)"}
                 </span>
               </label>
               <input
@@ -93,7 +98,8 @@ const SceneSettings: React.FC<{
                 className="w-full bg-gray-800"
               />
               <p className="mt-1 text-xs text-gray-400">
-                Controls how fast photos move in animation patterns (does NOT affect camera movement)
+                <strong>Pattern speed only</strong> - controls how fast photos move in animation patterns 
+                (does NOT affect camera movement)
               </p>
             </div>
           )}
@@ -687,7 +693,8 @@ const SceneSettings: React.FC<{
               className="w-full bg-gray-800"
             />
             <p className="text-xs text-gray-400 mt-1">
-              Controls camera rotation, zoom, pan, and cinematic movement speed (does NOT affect pattern animations)
+              <strong>Camera speed only</strong> - controls camera rotation, zoom, pan, and cinematic movement speed 
+              (completely separate from pattern animation speed)
             </p>
           </div>
 

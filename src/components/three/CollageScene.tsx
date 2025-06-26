@@ -4,7 +4,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
 import * as THREE from 'three';
 import { type SceneSettings } from '../../store/sceneStore';
-import { PatternFactory } from './patterns/PatternFactory'; 
+import { PatternFactory } from './patterns/PatternFactory';
 import { SlotManager } from './patterns/SlotManager';
 import { addCacheBustToUrl } from '../../lib/supabase';
 import CameraController, { CinematicPathProvider } from './CameraSystem';
@@ -198,12 +198,13 @@ const AnimationController: React.FC<{
   settings: SceneSettings;
   photos: Photo[];
   onPositionsUpdate: (photos: PhotoWithPosition[]) => void;
-}> = React.memo(({ settings, photos, onPositionsUpdate }) => {
+}> = React.memo(function AnimationController({ settings, photos, onPositionsUpdate }) {
   const slotManagerRef = useRef(new SlotManager(settings.photoCount || 100));
   const lastPhotoCount = useRef(settings.photoCount || 100);
   const lastPositionsRef = useRef<PhotoWithPosition[]>([]);
   const lastUpdateTimeRef = useRef(0);
   const timeRef = useRef(0);
+  const animationSpeedRef = useRef(settings.animationSpeed || 50);
   
   // Create a key from photo IDs to detect changes
   const currentPhotoIds = useMemo(() => 
@@ -363,13 +364,22 @@ const AnimationController: React.FC<{
   // Regular animation updates
   useFrame((state) => {
     // Always increment time for smooth transitions, but only use it when animation is enabled
-    const time = state.clock.elapsedTime;
-    const animationTime = settings.animationEnabled ? time : timeRef.current;
+    const currentTime = state.clock.elapsedTime;
+    
+    // CRITICAL FIX: Separate animation time from camera time
+    // This ensures pattern animations run at their own speed independent of camera
+    if (settings.animationEnabled) {
+      // Update animation time based on animation speed, not camera speed
+      const speedFactor = settings.animationSpeed / 50;
+      timeRef.current += state.clock.getDelta() * speedFactor;
+    }
+    
+    // Use our own animation time that's controlled by animation speed
+    const animationTime = settings.animationEnabled ? timeRef.current : 0;
     
     // Throttle updates to improve performance (30fps is plenty for animations)
-    const now = state.clock.elapsedTime;
-    if (now - lastUpdateTimeRef.current > 1/30) {
-      lastUpdateTimeRef.current = now;
+    if (currentTime - lastUpdateTimeRef.current > 1/30) {
+      lastUpdateTimeRef.current = currentTime;
       updatePositions(animationTime);
     }
   });
@@ -641,10 +651,13 @@ const PhotoMesh: React.FC<{
 const PhotoRenderer: React.FC<{ 
   photosWithPositions: PhotoWithPosition[]; 
   settings: SceneSettings;
-}> = React.memo(({ photosWithPositions, settings }) => {
-  // CRITICAL FIX: Always face camera in float mode regardless of photoRotation setting
-  // For other patterns, respect the photoRotation setting
-  const shouldFaceCamera = settings.animationPattern === 'float' ? true : settings.photoRotation;
+}> = React.memo(function PhotoRenderer({ photosWithPositions, settings }) {
+  // CRITICAL FIX: Determine if photos should face camera
+  // - Float pattern: ALWAYS face camera for better visibility
+  // - Other patterns: Respect the photoRotation setting
+  const shouldFaceCamera = settings.animationPattern === 'float' 
+    ? true // Float pattern always faces camera
+    : settings.photoRotation;
   
   return (
     <group>
@@ -680,12 +693,24 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
 
   // Handle pattern transitions
   useEffect(() => {
-    if (prevAnimationPatternRef.current && 
-        prevAnimationPatternRef.current !== safeSettings.animationPattern) {
-      console.log(`🔄 Animation pattern changed: ${prevAnimationPatternRef.current} -> ${safeSettings.animationPattern}`);
+    const prevPattern = prevAnimationPatternRef.current;
+    const currentPattern = safeSettings.animationPattern;
+    
+    if (prevPattern && prevPattern !== currentPattern) {
+      console.log(`🔄 Animation pattern changed: ${prevPattern} -> ${currentPattern}`);
+      
+      // CRITICAL FIX: When switching to float pattern, always enable animation
+      if (currentPattern === 'float' && onSettingsChange && !safeSettings.animationEnabled) {
+        console.log('🔄 Enabling animation for float pattern');
+        onSettingsChange({ 
+          animationEnabled: true,
+          // Set higher animation speed for float pattern if it's too low
+          animationSpeed: Math.max(70, safeSettings.animationSpeed || 0)
+        });
+      }
     }
     
-    prevAnimationPatternRef.current = safeSettings.animationPattern;
+    prevAnimationPatternRef.current = currentPattern;
   }, [safeSettings.animationPattern]);
 
   // Background style for gradient backgrounds

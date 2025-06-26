@@ -6,8 +6,11 @@ export class GridPattern extends BasePattern {
     const positions: Position[] = [];
     const rotations: [number, number, number][] = []; 
 
-    // Apply animation speed directly to the animation parameters
-    const speedFactor = this.settings.animationSpeed / 50;
+    // CRITICAL FIX: Apply animation speed directly to animation parameters
+    // This ensures animation speed affects grid pattern properly
+    const speedFactor = this.settings.animationEnabled 
+      ? this.settings.animationSpeed / 50 
+      : 0;
 
     // Use pattern-specific photoCount if available
     const photoCount = this.settings.patterns?.grid?.photoCount !== undefined 
@@ -67,7 +70,7 @@ export class GridPattern extends BasePattern {
       if (this.settings.animationEnabled && spacingPercentage > 0) {
         const waveIntensity = spacingPercentage * photoSize * 0.2; // Scale with spacing
 
-        // Apply speed factor to wave motion
+        // CRITICAL FIX: Apply speedFactor to wave motion
         const waveX = Math.sin(animationTime * speedFactor * 0.5 + col * 0.3) * waveIntensity;
         const waveY = Math.cos(animationTime * speedFactor * 0.5 + row * 0.3) * waveIntensity;
         
@@ -85,8 +88,9 @@ export class GridPattern extends BasePattern {
         let rotationX = 0, rotationY = 0, rotationZ = 0;
         
         if (this.settings.animationEnabled && spacingPercentage > 0) {
-          rotationY = Math.atan2(x, z + 10); 
-          // Apply animation speed to rotation
+          rotationY = Math.atan2(x, z + 10);
+          
+          // CRITICAL FIX: Apply speedFactor to rotation animations
           rotationX = Math.sin(animationTime * speedFactor * 0.3 + col * 0.1) * 0.05;
           rotationZ = Math.cos(animationTime * speedFactor * 0.3 + row * 0.1) * 0.05;
         }

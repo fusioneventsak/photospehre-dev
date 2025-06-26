@@ -208,10 +208,12 @@ export const useSceneStore = create<SceneState>()((set, get) => {
     // CRITICAL FIX: Handle pattern changes properly
     if (newSettings.animationPattern && newSettings.animationPattern !== currentSettings.animationPattern) {
       console.log(`🔄 Changing animation pattern from ${currentSettings.animationPattern} to ${newSettings.animationPattern}`);
+
+      // Store the new pattern for reference
+      const newPattern = newSettings.animationPattern;
       
       // Create a deep copy of current patterns to avoid reference issues
       const updatedPatterns = { ...currentSettings.patterns };
-      const newPattern = newSettings.animationPattern;
       
       // Disable all patterns first
       Object.keys(updatedPatterns).forEach(pattern => {
@@ -226,13 +228,14 @@ export const useSceneStore = create<SceneState>()((set, get) => {
         if (newSettings.animationPattern === 'float') {
           newSettings.animationEnabled = true;
           
-          // Set higher animation speed for float pattern if it's too low
+          // CRITICAL FIX: Set higher animation speed for float pattern if it's too low
           if (!newSettings.animationSpeed || newSettings.animationSpeed < 50) {
+            console.log('🔄 Setting higher animation speed for float pattern');
             newSettings.animationSpeed = 70;
           }
         }
         
-        // CRITICAL FIX: Update the global photoCount based on the pattern-specific photoCount
+        // CRITICAL FIX: Update global photoCount based on pattern-specific photoCount
         if (updatedPatterns[newPattern].photoCount !== undefined) {
           console.log(`📊 Setting photoCount to ${updatedPatterns[newPattern].photoCount} from ${newPattern} pattern`);
           newSettings.photoCount = updatedPatterns[newPattern].photoCount;
@@ -242,7 +245,7 @@ export const useSceneStore = create<SceneState>()((set, get) => {
       // Update the patterns in newSettings with our modified copy
       newSettings.patterns = updatedPatterns;
       
-      // CRITICAL FIX: Force animation enabled when switching patterns
+      // CRITICAL FIX: Always enable animation when switching patterns
       newSettings.animationEnabled = true;
     }
 
