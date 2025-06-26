@@ -40,31 +40,36 @@ const SceneSettings: React.FC<{
                  settings.animationPattern === 'wave' ? 'Wave' : 
                  settings.animationPattern === 'spiral' ? 'Spiral' : 'Grid'}
               </span>
+              <span className="ml-2 text-xs text-gray-400">
+                {settings.animationPattern === 'float' ? 'Float' : 
+                 settings.animationPattern === 'wave' ? 'Wave' : 
+                 settings.animationPattern === 'spiral' ? 'Spiral' : 'Grid'}
+              </span>
             </label>
             <select
               value={settings.animationPattern}
               onChange={(e) => {
-                // CRITICAL FIX: When changing pattern, always enable animation
                 const newPattern = e.target.value as 'float' | 'wave' | 'spiral' | 'grid';
                 
-                // CRITICAL FIX: Create a comprehensive update object with proper settings
-                const updates: Partial<SceneSettings> = { 
-                  animationPattern: newPattern,
-                  // Always enable animation when switching patterns
-                  animationEnabled: true,
-                  // Reset camera rotation to enabled for better experience
-                  cameraRotationEnabled: true
-                };
-                
-                // CRITICAL FIX: Set higher animation speed for float pattern
-                if (newPattern === 'float') {
-                  updates.animationSpeed = Math.max(70, settings.animationSpeed || 0);
-                  console.log('🎮 Setting higher animation speed for float pattern:', updates.animationSpeed);
-                }
-                
-                // Apply the updates
+                // CRITICAL: Always enable animation and set appropriate speeds
+                const patternDefaults = {
+                  grid: { speed: 30, photoCount: 50 },
+                  float: { speed: 70, photoCount: 100 },
+                  wave: { speed: 50, photoCount: 75 },
                 onSettingsChange({ 
-                  ...updates
+                  animationPattern: newPattern as 'float' | 'wave' | 'spiral' | 'grid',
+                  animationEnabled: true, // ALWAYS enable
+                  animationSpeed: defaults.speed,
+                  photoCount: defaults.photoCount,
+                  // Update pattern-specific settings
+                  patterns: {
+                    ...settings.patterns,
+                    [newPattern]: {
+                      ...settings.patterns?.[newPattern],
+                      photoCount: defaults.photoCount,
+                      enabled: true
+                    }
+                  }
                 });
               }}
               className="w-full bg-gray-800 border border-gray-700 rounded-md py-2 px-3 text-white"
@@ -85,6 +90,10 @@ const SceneSettings: React.FC<{
                   {settings.animationPattern === 'float' && settings.animationSpeed < 50 && 
                     " (Recommended: 70%+ for float pattern)"}
                 </span>
+                  {settings.animationSpeed}% 
+                  {settings.animationPattern === 'float' && settings.animationSpeed < 50 && 
+                    " (Recommended: 70%+ for float pattern)"}
+                </span>
               </label>
               <input
                 type="range"
@@ -92,11 +101,32 @@ const SceneSettings: React.FC<{
                 max="100"
                 step="1"
                 value={settings.animationSpeed}
-                onChange={(e) => onSettingsChange({ 
-                  animationSpeed: parseFloat(e.target.value) 
-                }, true)}
+                onChange={(e) => {
+                  const speed = parseFloat(e.target.value);
+                  onSettingsChange({ 
+                    animationSpeed: speed,
+                  const value = parseFloat(e.target.value);
+                  if (settings.animationPattern === 'grid') {
+                    onSettingsChange({ 
+                      gridAspectRatio: value,
+                      patterns: {
+                        grid: {
+                          aspectRatio: value
+                        }
+                      }
+                    });
+                  } else {
+                    onSettingsChange({ 
+                      gridAspectRatio: value
+                    });
+                  }
+                }}
                 className="w-full bg-gray-800"
               />
+              <p className="mt-1 text-xs text-gray-400">
+                <strong>Pattern speed only</strong> - controls how fast photos move in animation patterns 
+                (does NOT affect camera movement)
+              </p>
               <p className="mt-1 text-xs text-gray-400">
                 <strong>Pattern speed only</strong> - controls how fast photos move in animation patterns 
                 (does NOT affect camera movement)
@@ -128,6 +158,16 @@ const SceneSettings: React.FC<{
                   ? settings.patterns.spiral.photoCount
                   : settings.photoCount} photos
               </span>
+                {settings.animationPattern === 'grid' && settings.patterns?.grid?.photoCount !== undefined
+                  ? settings.patterns.grid.photoCount
+                  : settings.animationPattern === 'float' && settings.patterns?.float?.photoCount !== undefined
+                  ? settings.patterns.float.photoCount
+                  : settings.animationPattern === 'wave' && settings.patterns?.wave?.photoCount !== undefined
+                  ? settings.patterns.wave.photoCount
+                  : settings.animationPattern === 'spiral' && settings.patterns?.spiral?.photoCount !== undefined
+                  ? settings.patterns.spiral.photoCount
+                  : settings.photoCount} photos
+              </span>
             </label>
             <input
               type="range"
@@ -138,6 +178,50 @@ const SceneSettings: React.FC<{
                 settings.animationPattern === 'grid' && settings.patterns?.grid?.photoCount !== undefined
                   ? settings.patterns.grid.photoCount
                   : settings.animationPattern === 'float' && settings.patterns?.float?.photoCount !== undefined
+                  ? settings.patterns.float.photoCount
+                  : settings.animationPattern === 'wave' && settings.patterns?.wave?.photoCount !== undefined
+                  ? settings.patterns.wave.photoCount
+                  : settings.animationPattern === 'spiral' && settings.patterns?.spiral?.photoCount !== undefined
+                  ? settings.patterns.spiral.photoCount
+                  : settings.photoCount
+              }
+              onChange={(e) => {
+                const value = parseInt(e.target.value);
+                
+                // Update both the global photoCount and the pattern-specific photoCount
+                const updates: Partial<SceneSettings> = {
+                  photoCount: value
+                };
+                
+                // Add pattern-specific update
+                if (settings.animationPattern === 'grid') {
+                  updates.patterns = {
+                    grid: {
+                      photoCount: value
+                    }
+                  };
+                } else if (settings.animationPattern === 'float') {
+                  updates.patterns = {
+                    float: {
+                      photoCount: value
+                    }
+                  };
+                } else if (settings.animationPattern === 'wave') {
+                  updates.patterns = {
+                    wave: {
+                      photoCount: value
+                    }
+                  };
+                } else if (settings.animationPattern === 'spiral') {
+                  updates.patterns = {
+                    spiral: {
+                      photoCount: value
+                    }
+                  };
+                }
+                
+                onSettingsChange(updates);
+              }}
                   ? settings.patterns.float.photoCount
                   : settings.animationPattern === 'wave' && settings.patterns?.wave?.photoCount !== undefined
                   ? settings.patterns.wave.photoCount
@@ -513,6 +597,18 @@ const SceneSettings: React.FC<{
                       gridAspectRatio: ratio
                     });
                   }
+                      patterns: {
+                        grid: {
+                          aspectRatio: ratio
+                        }
+                      }
+                    });
+                  } else {
+                    onSettingsChange({
+                      gridAspectRatioPreset: preset,
+                      gridAspectRatio: ratio
+                    });
+                  }
                 }}
                 className="w-full bg-gray-800 border border-gray-700 rounded-md py-2 px-3 text-white"
               >
@@ -672,10 +768,108 @@ const SceneSettings: React.FC<{
       <div>
         <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
           <CameraIcon className="h-4 w-4 mr-2" />
+          Camera Mode
+        </h4>
+        
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm text-gray-300 mb-2">
+              Camera Mode
+            </label>
+            <select
+              value={settings.cameraMode || 'orbit'}
+              onChange={(e) => onSettingsChange({ 
+                cameraMode: e.target.value as 'orbit' | 'firstPerson' | 'cinematic' | 'auto'
+              })}
+              className="w-full bg-gray-800 border border-gray-700 rounded-md py-2 px-3 text-white"
+            >
+              <option value="orbit">Orbit (Interactive)</option>
+              <option value="firstPerson">First Person</option>
+              <option value="cinematic">Cinematic Path</option>
+              <option value="auto">Auto (Best Views)</option>
+            </select>
+          </div>
+          
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              checked={settings.autoViewEnabled}
+              onChange={(e) => onSettingsChange({ 
+                autoViewEnabled: e.target.checked 
+              })}
+              className="mr-2 bg-gray-800 border-gray-700"
+            />
+            <label className="text-sm text-gray-300">
+              Enable Auto Best View
+            </label>
+          </div>
+
+          {settings.cameraMode === 'cinematic' && (
+            <div className="bg-gray-800/50 p-3 rounded-lg border border-gray-700">
+              <h5 className="text-sm font-medium text-gray-300 mb-2 flex items-center">
+                <Clapperboard className="h-3 w-3 mr-1" />
+                Cinematic Path Settings
+              </h5>
+              <p className="text-xs text-gray-400 mb-3">
+                The camera will automatically follow an optimal path around your photos.
+              </p>
+              <button
+                onClick={() => onSettingsChange({ 
+                  cameraKeyframes: [] // This will trigger regeneration
+                })}
+                className="w-full px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded"
+              >
+                Regenerate Camera Path
+              </button>
+            </div>
+          )}
+
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              checked={settings.vrModeEnabled}
+              onChange={(e) => onSettingsChange({ 
+                vrModeEnabled: e.target.checked 
+              })}
+              className="mr-2 bg-gray-800 border-gray-700"
+            />
+            <label className="text-sm text-gray-300 flex items-center">
+              <Gamepad2 className="h-3 w-3 mr-1" />
+              VR Compatible Mode
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
+          <CameraIcon className="h-4 w-4 mr-2" />
           Camera
         </h4>
         
         <div className="space-y-4">
+          <div>
+            <label className="block text-sm text-gray-300 mb-2">
+              Camera Control Speed
+              <span className="ml-2 text-xs text-gray-400">{settings.cameraRotationSpeed?.toFixed(1)}x</span>
+            </label>
+            <input
+              type="range"
+              min="0.1"
+              max="3.0"
+              step="0.1"
+              value={settings.cameraRotationSpeed || 1.0}
+              onChange={(e) => onSettingsChange({ 
+                cameraRotationSpeed: parseFloat(e.target.value) 
+              }, true)}
+              className="w-full bg-gray-800"
+            />
+            <p className="text-xs text-gray-400 mt-1">
+              <strong>Camera speed only</strong> - controls camera rotation, zoom, pan, and cinematic movement speed 
+              (completely separate from pattern animation speed)
+            </p>
+          </div>
+
           <div>
             <label className="block text-sm text-gray-300 mb-2">
               Camera Control Speed
