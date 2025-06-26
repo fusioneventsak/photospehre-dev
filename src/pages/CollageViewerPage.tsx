@@ -205,29 +205,29 @@ const CollageViewerPage: React.FC = () => {
       {/* Transparent Header - Only shown when controls are visible */}
       {controlsVisible && (
         <div className="absolute top-0 left-0 right-0 z-20">
-          <div className="bg-black/40 backdrop-blur-sm border-b border-white/10">
+          <div className="bg-black/20 backdrop-blur-sm border-b border-white/5">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="flex items-center justify-between h-16">
                 {/* Left side - Navigation & Title */}
                 <div className="flex items-center space-x-4">
                   <Link 
                     to="/join" 
-                    className="text-gray-300 hover:text-white transition-colors p-2 hover:bg-white/10 rounded-lg"
+                    className="text-white/80 hover:text-white transition-colors p-2 hover:bg-white/10 rounded-full backdrop-blur-md bg-white/10 border border-white/20"
                   >
                     <ChevronLeft className="w-5 h-5" />
                   </Link>
                   <div>
-                    <h1 className="text-lg font-semibold text-white">
+                    <h1 className="text-lg font-semibold text-white/90 backdrop-blur-md">
                       {currentCollage.name}
                     </h1>
-                    <div className="flex items-center space-x-2 text-sm text-gray-400">
-                      <span>Code: {currentCollage.code}</span>
+                    <div className="flex items-center space-x-2 text-sm text-white/70">
+                      <span className="backdrop-blur-md">Code: {currentCollage.code}</span>
                       <span>•</span>
                       <span>{safePhotos.length} photos</span>
                       <span>•</span>
                       <div className="flex items-center space-x-1">
-                        <div className={`w-2 h-2 rounded-full ${isRealtimeConnected ? 'bg-green-400' : 'bg-yellow-400'}`}></div>
-                        <span>{isRealtimeConnected ? 'Live' : 'Offline'}</span>
+                        <div className={`w-2 h-2 rounded-full ${isRealtimeConnected ? 'bg-green-400/80' : 'bg-yellow-400/80'}`}></div>
+                        <span className="backdrop-blur-md">{isRealtimeConnected ? 'Live' : 'Offline'}</span>
                       </div>
                     </div>
                   </div>
@@ -238,7 +238,7 @@ const CollageViewerPage: React.FC = () => {
                   {/* Photobooth Link */}
                   <Link
                     to={`/photobooth/${currentCollage.code}`}
-                    className="inline-flex items-center space-x-2 px-3 py-2 bg-purple-600/80 hover:bg-purple-600 text-white text-sm rounded-lg transition-colors backdrop-blur-sm"
+                    className="inline-flex items-center space-x-2 px-3 py-2 bg-white/15 hover:bg-white/25 text-white/90 text-sm rounded-lg transition-colors backdrop-blur-md border border-white/20"
                   >
                     <Camera className="w-4 h-4" />
                     <span className="hidden sm:inline">Photobooth</span>
@@ -247,7 +247,7 @@ const CollageViewerPage: React.FC = () => {
                   {/* Upload Photos */}
                   <button
                     onClick={() => setShowUploader(!showUploader)}
-                    className="inline-flex items-center space-x-2 px-3 py-2 bg-blue-600/80 hover:bg-blue-600 text-white text-sm rounded-lg transition-colors backdrop-blur-sm"
+                    className="inline-flex items-center space-x-2 px-3 py-2 bg-white/15 hover:bg-white/25 text-white/90 text-sm rounded-lg transition-colors backdrop-blur-md border border-white/20"
                   >
                     <Upload className="w-4 h-4" />
                     <span className="hidden sm:inline">Upload</span>
@@ -256,7 +256,7 @@ const CollageViewerPage: React.FC = () => {
                   {/* Share */}
                   <button
                     onClick={handleCopyLink}
-                    className="inline-flex items-center space-x-2 px-3 py-2 bg-gray-600/80 hover:bg-gray-600 text-white text-sm rounded-lg transition-colors backdrop-blur-sm"
+                    className="inline-flex items-center space-x-2 px-3 py-2 bg-white/15 hover:bg-white/25 text-white/90 text-sm rounded-lg transition-colors backdrop-blur-md border border-white/20"
                   >
                     <Share2 className="w-4 h-4" />
                     <span className="hidden sm:inline">{copied ? 'Copied!' : 'Share'}</span>
@@ -265,7 +265,7 @@ const CollageViewerPage: React.FC = () => {
                   {/* Fullscreen */}
                   <button
                     onClick={toggleFullscreen}
-                    className="p-2 bg-gray-600/80 hover:bg-gray-600 text-white rounded-lg transition-colors backdrop-blur-sm"
+                    className="p-2 bg-white/15 hover:bg-white/25 text-white/90 rounded-lg transition-colors backdrop-blur-md border border-white/20"
                   >
                     <Maximize2 className="w-4 h-4" />
                   </button>

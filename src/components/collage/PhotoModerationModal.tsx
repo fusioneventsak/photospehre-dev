@@ -81,27 +81,27 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
   const currentPhotos = photos;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80">
-      <div className="bg-gray-900 rounded-lg w-full max-w-6xl max-h-[90vh] overflow-hidden">
-        <div className="p-4 border-b border-gray-800 flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-white">Photo Moderation</h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="bg-black/30 backdrop-blur-md border border-white/10 rounded-lg w-full max-w-6xl max-h-[90vh] overflow-hidden">
+        <div className="p-4 border-b border-white/10 flex items-center justify-between">
+          <h2 className="text-xl font-semibold text-white/90">Photo Moderation</h2>
           <div className="flex items-center space-x-2">
-            <div className="text-xs text-gray-400">
+            <div className="text-xs text-white/70">
               {currentPhotos.length} photos
             </div>
             <button
               onClick={handleRefresh}
               disabled={refreshing}
-              className="p-2 mr-2 hover:bg-gray-800 rounded-full transition-colors"
+              className="p-2 mr-2 hover:bg-white/10 rounded-full transition-colors backdrop-blur-md"
               title="Refresh photos"
             >
-              <RefreshCw className={`h-5 w-5 text-gray-400 ${refreshing ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`h-5 w-5 text-white/70 ${refreshing ? 'animate-spin' : ''}`} />
             </button>
             <button
               onClick={onClose}
-              className="p-1 hover:bg-gray-800 rounded-full transition-colors"
+              className="p-1 hover:bg-white/10 rounded-full transition-colors backdrop-blur-md"
             >
-              <X className="h-6 w-6 text-gray-400" />
+              <X className="h-6 w-6 text-white/70" />
             </button>
           </div>
         </div>
@@ -118,12 +118,12 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
           </div>
         )}
 
-        <div className="p-4 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 overflow-y-auto max-h-[calc(90vh-120px)]">
+        <div className="p-4 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 overflow-y-auto max-h-[calc(90vh-120px)] bg-black/10 backdrop-blur-sm">
           {currentPhotos.length > 0 ? (
             currentPhotos.map((photo) => (
               <div
                 key={photo.id}
-                className="relative group aspect-[2/3] rounded-lg overflow-hidden cursor-pointer"
+                className="relative group aspect-[2/3] rounded-lg overflow-hidden cursor-pointer border border-white/10 hover:border-white/30 transition-all"
                 onClick={() => setSelectedPhoto(photo)}
                 data-photo-id={photo.id}
               >
@@ -133,36 +133,36 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
                   className="w-full h-full object-cover"
                   onError={(e) => {
                     const target = e.target as HTMLImageElement;
-                    target.src = `https://via.placeholder.com/300x450?text=Error+${photo.id.slice(-4)}`;
+                    target.src = `https://via.placeholder.com/300x450?text=Error+${photo.id.slice(-4)}`; 
                   }}
                 />
-                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                <div className="absolute inset-0 bg-black/30 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       handleDeletePhoto(photo);
                     }}
-                    className="p-2 bg-red-600 rounded-full hover:bg-red-700 transition-colors"
+                    className="p-2 bg-white/20 border border-white/30 rounded-full hover:bg-white/30 transition-colors backdrop-blur-md"
                     disabled={deletingPhotoId === photo.id}
                   >
                     {deletingPhotoId === photo.id ? (
                       <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                     ) : (
-                      <Trash2 className="h-5 w-5 text-white" />
+                      <Trash2 className="h-5 w-5 text-white/90" />
                     )}
                   </button>
                 </div>
                 
                 {/* Photo ID for easier identification */}
-                <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-xs text-white p-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="absolute bottom-0 left-0 right-0 bg-black/30 backdrop-blur-sm text-xs text-white/90 p-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   ID: {photo.id.slice(-6)}
                 </div>
               </div>
             ))
           ) : (
-            <div className="col-span-full flex flex-col items-center justify-center py-12 text-gray-400">
-              <AlertCircle className="h-12 w-12 mb-4" />
-              <p className="text-lg">No photos to moderate</p>
+            <div className="col-span-full flex flex-col items-center justify-center py-12 text-white/60 bg-black/20 backdrop-blur-md rounded-lg border border-white/10">
+              <AlertCircle className="h-12 w-12 mb-4 text-white/70" />
+              <p className="text-lg text-white/80">No photos to moderate</p>
             </div>
           )}
         </div>
