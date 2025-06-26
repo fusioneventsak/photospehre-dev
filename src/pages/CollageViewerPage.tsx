@@ -16,6 +16,7 @@ import {
 import { useCollageStore } from '../store/collageStore';
 import { ErrorBoundary } from 'react-error-boundary';
 import CollageScene from '../components/CollageScene';
+import RealtimeDebugPanel from '../components/debug/RealtimeDebugPanel';
 import PhotoUploader from '../components/collage/PhotoUploader';
 import RealtimeDebugPanel from '../components/debug/RealtimeDebugPanel';
 
@@ -45,7 +46,7 @@ const CollageViewerPage: React.FC = () => {
   const { 
     currentCollage, 
     loading, 
-    error,
+    error, 
     photos,
     isRealtimeConnected,
     fetchCollageByCode,
@@ -55,10 +56,11 @@ const CollageViewerPage: React.FC = () => {
   } = useCollageStore();
   
   // ADD THIS TEMPORARY DEBUG
-  console.log('🔍 VIEWER STORE STATE:', {
+  console.log('🔍 VIEWER RENDER:', {
     collageId: currentCollage?.id,
     connected: isRealtimeConnected,
-    photoCount: photos.length
+    photosCount: photos.length,
+    renderTime: new Date().toISOString()
   });
   
   // SAFETY: Ensure photos is always an array
@@ -368,16 +370,22 @@ const CollageViewerPage: React.FC = () => {
       )}
       
       {/* Debug Realtime Status - Only visible in development */}
-      <button 
-        onClick={debugSubscription}
-        className="fixed top-20 left-4 bg-red-600 text-white px-3 py-1 rounded text-sm z-50"
-      >
-        Debug Subscription
-      </button>
+      {import.meta.env.DEV && (
+        <div className="fixed top-20 left-4 z-50 flex flex-col space-y-2">
+          <button 
+            onClick={debugSubscription}
+            className="bg-red-600 text-white px-3 py-1 rounded text-sm"
+          >
+            Debug Subscription
+          </button>
+        </div>
+      )}
       
       {import.meta.env.DEV && (
         <div className="fixed bottom-4 right-4 z-20 w-64">
-          <RealtimeDebugPanel collageId={currentCollage?.id} />
+          <RealtimeDebugPanel 
+            collageId={currentCollage?.id} 
+          />
         </div>
       )}
 
