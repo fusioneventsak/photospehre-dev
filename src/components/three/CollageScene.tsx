@@ -641,9 +641,10 @@ const PhotoMesh: React.FC<{
 const PhotoRenderer: React.FC<{ 
   photosWithPositions: PhotoWithPosition[]; 
   settings: SceneSettings;
-}> = React.memo(({ photosWithPositions, settings }) => {  
-  // CRITICAL FIX: Always face camera in float mode, otherwise use photoRotation setting
-  const shouldFaceCamera = settings.animationPattern === 'float' || settings.photoRotation;
+}> = React.memo(({ photosWithPositions, settings }) => {
+  // CRITICAL FIX: Always face camera in float mode regardless of photoRotation setting
+  // For other patterns, respect the photoRotation setting
+  const shouldFaceCamera = settings.animationPattern === 'float' ? true : settings.photoRotation;
   
   return (
     <group>

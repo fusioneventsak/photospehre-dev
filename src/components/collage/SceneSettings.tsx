@@ -36,16 +36,32 @@ const SceneSettings: React.FC<{
             <label className="block text-sm text-gray-300 mb-2">
               Animation Pattern
               <span className="ml-2 text-xs text-gray-400">
-                {settings.animationEnabled ? 'Animated' : 'Static'}
+                {settings.animationPattern === 'float' ? 'Float' : 
+                 settings.animationPattern === 'wave' ? 'Wave' : 
+                 settings.animationPattern === 'spiral' ? 'Spiral' : 'Grid'}
               </span>
             </label>
             <select
               value={settings.animationPattern}
               onChange={(e) => {
                 // CRITICAL FIX: When changing pattern, always enable animation
-                onSettingsChange({ 
-                  animationPattern: e.target.value as 'float' | 'wave' | 'spiral' | 'grid',
+                const newPattern = e.target.value as 'float' | 'wave' | 'spiral' | 'grid';
+                
+                // Create a comprehensive update object
+                const updates: Partial<SceneSettings> = { 
+                  animationPattern: newPattern,
+                  // Always enable animation when switching patterns, especially for float
                   animationEnabled: true
+                };
+                
+                // Set higher animation speed for float pattern
+                if (newPattern === 'float') {
+                  updates.animationSpeed = Math.max(70, settings.animationSpeed);
+                }
+                
+                // Apply the updates
+                onSettingsChange({ 
+                  ...updates
                 });
               }}
               className="w-full bg-gray-800 border border-gray-700 rounded-md py-2 px-3 text-white"

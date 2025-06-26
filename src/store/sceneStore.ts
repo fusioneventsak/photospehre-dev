@@ -222,6 +222,16 @@ export const useSceneStore = create<SceneState>()((set, get) => {
       if (newPattern && updatedPatterns[newPattern]) {
         updatedPatterns[newPattern].enabled = true;
         
+        // CRITICAL FIX: Force animation enabled when switching to float pattern
+        if (newSettings.animationPattern === 'float') {
+          newSettings.animationEnabled = true;
+          
+          // Set higher animation speed for float pattern if it's too low
+          if (!newSettings.animationSpeed || newSettings.animationSpeed < 50) {
+            newSettings.animationSpeed = 70;
+          }
+        }
+        
         // CRITICAL FIX: Update the global photoCount based on the pattern-specific photoCount
         if (updatedPatterns[newPattern].photoCount !== undefined) {
           console.log(`📊 Setting photoCount to ${updatedPatterns[newPattern].photoCount} from ${newPattern} pattern`);
