@@ -13,6 +13,9 @@ export class WavePattern extends BasePattern {
     const spacing = this.settings.photoSize * (1 + (this.settings.patterns?.wave?.spacing || this.settings.photoSpacing || 0.15));
     const totalPhotos = Math.min(photoCount, 500);
     
+    // Apply animation speed directly to the wave motion
+    const speedFactor = this.settings.animationSpeed / 50;
+    
     // Calculate grid dimensions based on total photos
     const columns = Math.ceil(Math.sqrt(totalPhotos));
     const rows = Math.ceil(totalPhotos / columns);
@@ -37,9 +40,10 @@ export class WavePattern extends BasePattern {
       let y = this.settings.wallHeight;
       
       if (this.settings.animationEnabled) {
-        y += Math.sin(distanceFromCenter * frequency - wavePhase) * amplitude;
+        // Apply animation speed to the wave phase
+        y += Math.sin(distanceFromCenter * frequency - (wavePhase * speedFactor)) * amplitude;
         // Add some vertical offset based on distance
-        y += Math.sin(wavePhase * 0.5) * (distanceFromCenter * 0.1);
+        y += Math.sin((wavePhase * speedFactor) * 0.5) * (distanceFromCenter * 0.1);
       }
       
       positions.push([x, y, z]);

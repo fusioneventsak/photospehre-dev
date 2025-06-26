@@ -69,14 +69,14 @@ export class FloatPattern extends BasePattern {
     // Get base positions that adapt to floor size
     const basePositions = this.generateDynamicBasePositions(totalPhotos, floorSize);
     
-    // UPDATED: Animation parameters - extremely high float height for completely out-of-view teleport
-    const riseSpeed = 8; // Units per second rising speed 
+    // UPDATED: Animation parameters with speed from settings
+    const riseSpeed = 8 * (this.settings.animationSpeed / 50); // Scale with animation speed setting
     const maxHeight = this.settings.patterns?.float?.height || 300; // Height before recycling
     const startHeight = -40; // Start below the floor
     const cycleHeight = maxHeight - startHeight; // Total distance to travel (now 340 units!)
     
-    const speed = this.settings.animationSpeed / 100;
-    const animationTime = time * speed;
+    // Use raw time instead of scaled time - we apply speed to the rise speed directly
+    const animationTime = time;
     
     for (let i = 0; i < totalPhotos; i++) {
       // Get base position for current floor size
@@ -109,7 +109,7 @@ export class FloatPattern extends BasePattern {
       if (this.settings.animationEnabled) {
         // Gentle horizontal drift as photos rise - scale with floor size
         const driftStrength = Math.max(1.5, (this.settings.patterns?.float?.spread || 25) * 0.1); // Use spread setting
-        const driftSpeed = 0.3;
+        const driftSpeed = 0.3 * (this.settings.animationSpeed / 50); // Scale drift speed with animation speed
         x += Math.sin(animationTime * driftSpeed + i * 0.5) * driftStrength;
         z += Math.cos(animationTime * driftSpeed * 0.8 + i * 0.7) * driftStrength;
       }
