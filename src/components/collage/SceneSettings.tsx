@@ -1,7 +1,3 @@
-Here's the fixed version with all missing closing brackets and parentheses added:
-
-```typescript
-// src/components/collage/SceneSettings.tsx - COMPLETE: Improved photo spacing control
 import React from 'react';
 import { type SceneSettings } from '../../store/sceneStore';
 import { Grid, Palette, CameraIcon, ImageIcon, Square, Sun, Lightbulb, RotateCw, Move, Eye, Video, Clapperboard, Gamepad2 } from 'lucide-react';
@@ -43,11 +39,6 @@ const SceneSettings: React.FC<{
                  settings.animationPattern === 'wave' ? 'Wave' : 
                  settings.animationPattern === 'spiral' ? 'Spiral' : 'Grid'}
               </span>
-              <span className="ml-2 text-xs text-gray-400">
-                {settings.animationPattern === 'float' ? 'Float' : 
-                 settings.animationPattern === 'wave' ? 'Wave' : 
-                 settings.animationPattern === 'spiral' ? 'Spiral' : 'Grid'}
-              </span>
             </label>
             <select
               value={settings.animationPattern}
@@ -59,7 +50,7 @@ const SceneSettings: React.FC<{
                   grid: { speed: 30, photoCount: 50 },
                   float: { speed: 70, photoCount: 100 },
                   wave: { speed: 50, photoCount: 75 },
-                  spiral: { speed: 40, photoCount: 60 }  // Added missing spiral default
+                  spiral: { speed: 40, photoCount: 60 }
                 };
                 
                 const defaults = patternDefaults[newPattern];
@@ -304,7 +295,7 @@ const SceneSettings: React.FC<{
                 <label className="block text-sm text-gray-300 mb-2">
                   Photo Spacing
                   <span className="ml-2 text-xs text-gray-400">
-                    {settings.patterns.grid.spacing === 0 ? 'Solid Wall' : \`${(settings.patterns.grid.spacing * 200).toFixed(0)}% gaps`}
+                    {settings.patterns.grid.spacing === 0 ? 'Solid Wall' : `${(settings.patterns.grid.spacing * 200).toFixed(0)}% gaps`}
                   </span>
                 </label>
                 <input
@@ -825,4 +816,149 @@ const SceneSettings: React.FC<{
 
       {/* Lighting Settings */}
       <div>
-        <h4 className="flex items-center text-sm font-medium text-gray-200
+        <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
+          <Sun className="h-4 w-4 mr-2" />
+          Lighting
+        </h4>
+        
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm text-gray-300 mb-2">
+              Ambient Light
+              <span className="ml-2 text-xs text-gray-400">{(settings.ambientLightIntensity * 100).toFixed(0)}%</span>
+            </label>
+            <input
+              type="range"
+              min="0"
+              max="2"
+              step="0.1"
+              value={settings.ambientLightIntensity}
+              onChange={(e) => onSettingsChange({ 
+                ambientLightIntensity: parseFloat(e.target.value) 
+              }, true)}
+              className="w-full bg-gray-800"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-300 mb-2">
+              Directional Light
+              <span className="ml-2 text-xs text-gray-400">{(settings.directionalLightIntensity * 100).toFixed(0)}%</span>
+            </label>
+            <input
+              type="range"
+              min="0"
+              max="3"
+              step="0.1"
+              value={settings.directionalLightIntensity}
+              onChange={(e) => onSettingsChange({ 
+                directionalLightIntensity: parseFloat(e.target.value) 
+              }, true)}
+              className="w-full bg-gray-800"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-300 mb-2">
+              Light Color
+            </label>
+            <input
+              type="color"
+              value={settings.lightColor}
+              onChange={(e) => onSettingsChange({ 
+                lightColor: e.target.value 
+              }, true)}
+              className="w-full h-8 rounded cursor-pointer bg-gray-800"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Environment Settings */}
+      <div>
+        <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
+          <Palette className="h-4 w-4 mr-2" />
+          Environment
+        </h4>
+        
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm text-gray-300 mb-2">
+              Background Color
+            </label>
+            <input
+              type="color"
+              value={settings.backgroundColor}
+              onChange={(e) => onSettingsChange({ 
+                backgroundColor: e.target.value 
+              }, true)}
+              className="w-full h-8 rounded cursor-pointer bg-gray-800"
+            />
+          </div>
+
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              checked={settings.fogEnabled}
+              onChange={(e) => onSettingsChange({ 
+                fogEnabled: e.target.checked 
+              })}
+              className="mr-2 bg-gray-800 border-gray-700"
+            />
+            <label className="text-sm text-gray-300">
+              Enable Fog
+            </label>
+          </div>
+
+          {settings.fogEnabled && (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">
+                  Fog Density
+                  <span className="ml-2 text-xs text-gray-400">{(settings.fogDensity * 1000).toFixed(1)}</span>
+                </label>
+                <input
+                  type="range"
+                  min="0"
+                  max="0.1"
+                  step="0.001"
+                  value={settings.fogDensity}
+                  onChange={(e) => onSettingsChange({ 
+                    fogDensity: parseFloat(e.target.value) 
+                  }, true)}
+                  className="w-full bg-gray-800"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">
+                  Fog Color
+                </label>
+                <input
+                  type="color"
+                  value={settings.fogColor}
+                  onChange={(e) => onSettingsChange({ 
+                    fogColor: e.target.value 
+                  }, true)}
+                  className="w-full h-8 rounded cursor-pointer bg-gray-800"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Reset Button */}
+      <div className="pt-4 border-t border-gray-700">
+        <button
+          onClick={onReset}
+          className="w-full px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors"
+        >
+          Reset to Defaults
+        </button>
+      </div>
+    </div>
+  );
+};
+
+export default SceneSettings;
