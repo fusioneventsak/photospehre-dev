@@ -1,5 +1,5 @@
 // src/pages/PhotoboothPage.tsx - FIXED: Mobile zoom prevention & larger capture button
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowRight, Camera, SwitchCamera, Download, Send, X, RefreshCw, Type, ArrowLeft, Settings, Video, Edit, Check, Move, ZoomIn, ZoomOut } from 'lucide-react';
 import { useCollageStore, Photo } from '../store/collageStore';
@@ -30,6 +30,9 @@ const PhotoboothPage: React.FC = () => {
   const [cameraState, setCameraState] = useState<CameraState>('idle');
   const [recordingResolution, setRecordingResolution] = useState({ width: 1920, height: 1080 });
   
+  // Track initialization attempts to prevent multiple simultaneous initializations
+  const isInitializingRef = useRef(false);
+  
   const [isEditingText, setIsEditingText] = useState(false);
   const [editedText, setEditedText] = useState('');
   const [textPosition, setTextPosition] = useState({ x: 50, y: 50 }); // Percentage values (center by default)
@@ -49,6 +52,9 @@ const PhotoboothPage: React.FC = () => {
 
   const cleanupCamera = useCallback(() => {
     console.log('🧹 Cleaning up camera...');
+    
+    // Clear initialization flag
+    isInitializingRef.current = false;
     
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => {
@@ -103,7 +109,32 @@ const PhotoboothPage: React.FC = () => {
     return null;
   }, []);
 
+  // FIXED: Wait for video element to be available
+  const waitForVideoElement = useCallback(async (maxWaitMs: number = 5000): Promise<HTMLVideoElement | null> => {
+    const startTime = Date.now();
+    
+    console.log('⏳ Waiting for video element to be available...');
+    while (Date.now() - startTime < maxWaitMs) {
+      if (videoRef.current) {
+        console.log('✅ Video element is available');
+        return videoRef.current;
+      }
+      
+      console.log('⏳ Waiting for video element...');
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    
+    console.error('❌ Video element not available after waiting');
+    return null;
+  }, []);
+
   const startCamera = useCallback(async (deviceId?: string) => {
+    // Prevent multiple simultaneous initializations
+    if (isInitializingRef.current) {
+      console.log('🔄 Camera initialization already in progress, skipping...');
+      return;
+    }
+
     // Prevent multiple simultaneous initializations
     if (isInitializingRef.current) {
       console.log('🔄 Camera initialization already in progress, skipping...');
@@ -112,12 +143,19 @@ const PhotoboothPage: React.FC = () => {
 
     console.log('🎥 Starting camera initialization with device:', deviceId);
     isInitializingRef.current = true;
+    isInitializingRef.current = true;
     setCameraState('starting');
     setError(null);
 
     try {
       // Clean up any existing camera first
       cleanupCamera();
+
+      // FIXED: Wait for video element to be available before proceeding
+      const videoElement = await waitForVideoElement();
+      if (!videoElement) {
+        throw new Error('Video element not available - component may not be fully mounted');
+      }
 
       // FIXED: Wait for video element to be available before proceeding
       const videoElement = await waitForVideoElement();
@@ -159,7 +197,7 @@ const PhotoboothPage: React.FC = () => {
       
       console.log('🔧 Using constraints:', constraints);
       
-      // Get user media
+      // Get user media with the specified constraints
       const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
       console.log('✅ Got media stream:', mediaStream.active);
       
@@ -189,16 +227,6 @@ const PhotoboothPage: React.FC = () => {
         // Clean up stream if video element disappeared
         mediaStream.getTracks().forEach(track => track.stop());
         throw new Error('Video element became unavailable during setup');
-      }
-      
-      // Set up video element
-      videoRef.current.srcObject = mediaStream;
-      
-      // Setup event listeners
-      const video = videoRef.current;
-      
-      const handleLoadedMetadata = () => {
-        console.log('📹 Video metadata loaded, playing...');
         if (!video) return;
         
         video.play().then(() => {
@@ -263,6 +291,7 @@ const PhotoboothPage: React.FC = () => {
         // Try fallback constraints
         try {
           console.log('🔄 Trying fallback constraints...');
+          console.log('🔄 Trying fallback constraints...');
           const fallbackStream = await navigator.mediaDevices.getUserMedia({ 
             video: { facingMode: "user" }, 
             audio: false 
@@ -282,6 +311,15 @@ const PhotoboothPage: React.FC = () => {
             fallbackStream.getTracks().forEach(track => track.stop());
             throw new Error('Video element not available for fallback');
           }
+            setCameraState('active');
+            setError(null);
+            console.log('✅ Fallback camera working');
+            return;
+          } else {
+            // Clean up fallback stream if no video element
+            fallbackStream.getTracks().forEach(track => track.stop());
+            throw new Error('Video element not available for fallback');
+          }
         } catch (fallbackError) {
           console.error('❌ Fallback also failed:', fallbackError);
           errorMessage = 'Camera not compatible with this device.';
@@ -291,6 +329,8 @@ const PhotoboothPage: React.FC = () => {
       }
       
       setError(errorMessage);
+    } finally {
+      isInitializingRef.current = false;
     } finally {
       isInitializingRef.current = false;
     }
@@ -551,6 +591,63 @@ const PhotoboothPage: React.FC = () => {
       } else {
         throw new Error('Failed to upload photo');
       }
+      
+      // Set up video element
+      videoRef.current.srcObject = mediaStream;
+      
+      // Setup event listeners
+      const video = videoRef.current;
+      
+      const handleLoadedMetadata = () => {
+        console.log('📹 Video metadata loaded, playing...');
+        if (!video) return;
+        
+        video.play().then(() => {
+          streamRef.current = mediaStream;
+          setCameraState('active');
+          console.log('✅ Camera active and streaming');
+        }).catch(playErr => {
+          console.error('❌ Failed to play video:', playErr);
+          setCameraState('error');
+          setError('Failed to start video playback');
+          // Clean up stream on play error
+          mediaStream.getTracks().forEach(track => track.stop());
+        });
+      };
+      
+      const handleError = (event: Event) => {
+        console.error('❌ Video element error:', event);
+        setCameraState('error');
+        setError('Video playback error');
+        // Clean up stream on video error
+        mediaStream.getTracks().forEach(track => track.stop());
+      };
+      
+      video.addEventListener('loadedmetadata', handleLoadedMetadata, { once: true });
+      video.addEventListener('error', handleError, { once: true });
+      
+      // Timeout fallback
+      const timeoutId = setTimeout(() => {
+        if (cameraState === 'starting' && video) {
+          console.log('⏰ Camera start timeout, forcing play...');
+          video.play().catch(err => {
+            console.error('❌ Timeout play failed:', err);
+            setCameraState('error');
+            setError('Camera initialization timeout');
+            // Clean up stream on timeout
+            mediaStream.getTracks().forEach(track => track.stop());
+          });
+        }
+      }, 5000); // Increased timeout to 5 seconds
+      
+      // Clean up timeout when camera becomes active
+      const checkActive = setInterval(() => {
+        if (cameraState === 'active') {
+          clearTimeout(timeoutId);
+          clearInterval(checkActive);
+        }
+      }, 100);
+      
     } catch (err: any) {
       setError(err.message || 'Failed to upload photo');
     } finally {
@@ -696,13 +793,8 @@ const PhotoboothPage: React.FC = () => {
   // FIXED: Initialize camera with better timing
   useEffect(() => {
     if (currentCollage && !photo && cameraState === 'idle' && !isInitializingRef.current) {
-      console.log('🚀 Initializing camera...');
-      // Increased delay to ensure DOM is fully ready
-      const timer = setTimeout(() => {
-        startCamera(selectedDevice);
-      }, 800);
-      
-      return () => clearTimeout(timer);
+      console.log('🚀 Initializing camera automatically...');
+      startCamera(selectedDevice);
     }
   }, [photo, cameraState, startCamera, selectedDevice, currentCollage]);
 
@@ -730,10 +822,10 @@ const PhotoboothPage: React.FC = () => {
   // Handle visibility change
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (!document.hidden) {
+      if (!document.hidden && !isInitializingRef.current) {
         console.log('📱 Page visible, resuming camera...');
         if (!photo && cameraState === 'idle') {
-          setTimeout(() => startCamera(selectedDevice), 500);
+          startCamera(selectedDevice);
         }
       }
     };
