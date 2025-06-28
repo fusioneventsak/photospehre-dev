@@ -1,5 +1,5 @@
 // src/pages/CollageViewerPage.tsx - Clean version with transparent header
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Share2, Upload, Edit, Maximize2, ChevronLeft, Camera, X, Video } from 'lucide-react';
 import { useCollageStore } from '../store/collageStore';
