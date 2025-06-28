@@ -1,7 +1,7 @@
 // src/pages/PhotoboothPage.tsx - FIXED: Mobile zoom prevention & larger capture button
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Camera, SwitchCamera, Download, Send, X, RefreshCw, Type, ArrowLeft, Settings, Video } from 'lucide-react';
+import { Camera, SwitchCamera, Download, Send, X, RefreshCw, Type, ArrowLeft, Settings, Video, Move, ZoomIn, ZoomOut } from 'lucide-react';
 import { useCollageStore } from '../store/collageStore';
 import MobileVideoRecorder from '../components/video/MobileVideoRecorder';
 
@@ -27,12 +27,22 @@ const PhotoboothPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [showVideoRecorder, setShowVideoRecorder] = useState(false);
+  const [isEditingText, setIsEditingText] = useState(false);
+  const [textPosition, setTextPosition] = useState({ x: 50, y: 50 }); // Center by default (%)
+  const [textSize, setTextSize] = useState(24); // Font size in pixels
+  const [textColor, setTextColor] = useState('#ffffff'); // White text
+  const [textShadow, setTextShadow] = useState(true); // Text shadow enabled by default
   const [cameraState, setCameraState] = useState<CameraState>('idle');
   const [recordingResolution, setRecordingResolution] = useState({ width: 1920, height: 1080 });
   
   const [showError, setShowError] = useState(false);
   const { currentCollage, fetchCollageByCode, uploadPhoto, setupRealtimeSubscription, cleanupRealtimeSubscription, loading, error: storeError, photos } = useCollageStore();
 
+  // Ref for the text overlay div
+  const textOverlayRef = useRef<HTMLDivElement>(null);
+  // Ref for the photo container to calculate relative positions
+  const photoContainerRef = useRef<HTMLDivElement>(null);
+  
   // SAFETY: Ensure photos is always an array
   const safePhotos = Array.isArray(photos) ? photos : [];
 
@@ -311,6 +321,9 @@ const PhotoboothPage: React.FC = () => {
   const capturePhoto = useCallback(() => {
     if (!videoRef.current || !canvasRef.current || cameraState !== 'active') return;
 
+    // Reset text editing state when capturing a new photo
+    setIsEditingText(false);
+    
     const video = videoRef.current;
     const canvas = canvasRef.current;
     const context = canvas.getContext('2d');
@@ -353,7 +366,7 @@ const PhotoboothPage: React.FC = () => {
     // Add text overlay if provided with dynamic sizing
     if (text.trim()) {
       // Dynamic font size calculation - starts large and gets smaller with longer text
-      const baseSize = Math.min(canvasWidth, canvasHeight) * 0.12; // Larger base size
+      const baseSize = Math.min(canvasWidth, canvasHeight) * 0.10; // Slightly smaller base size
       const dynamicSize = Math.max(baseSize * 0.4, baseSize - (text.length * 1.5)); // Dynamic scaling
       const fontSize = dynamicSize;
       
@@ -416,8 +429,11 @@ const PhotoboothPage: React.FC = () => {
     setPhoto(dataUrl);
     
     // Stop camera after taking photo to free up resources
+    // Also reset text position and size for editing
+    setTextPosition({ x: 50, y: 50 });
+    setTextSize(24);
     cleanupCamera();
-  }, [text, cameraState, cleanupCamera]);
+  }, [text, cameraState, cleanupCamera, textPosition]);
 
   const uploadToCollage = useCallback(async () => {
     if (!photo || !currentCollage) return;
@@ -425,6 +441,9 @@ const PhotoboothPage: React.FC = () => {
     setUploading(true);
     setError(null);
 
+    // Disable text editing during upload
+    setIsEditingText(false);
+    
     try {
       const response = await fetch(photo);
       const blob = await response.blob();
@@ -454,12 +473,14 @@ const PhotoboothPage: React.FC = () => {
     } finally {
       setUploading(false);
     }
-  }, [photo, currentCollage, uploadPhoto, startCamera, selectedDevice]);
+  }, [photo, currentCollage, uploadPhoto, startCamera, selectedDevice, isEditingText]);
 
   const downloadPhoto = useCallback(() => {
     if (!photo) return;
     const link = document.createElement('a');
     link.href = photo;
+    // Add timestamp to filename
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     link.download = 'photobooth.jpg';
     link.click();
   }, [photo]);
@@ -467,6 +488,8 @@ const PhotoboothPage: React.FC = () => {
   const retakePhoto = useCallback(() => {
     setPhoto(null);
     setText('');
+    // Reset text editing state
+    setIsEditingText(false);
     
     // Restart camera immediately
     setTimeout(() => {
@@ -475,6 +498,12 @@ const PhotoboothPage: React.FC = () => {
     }, 100);
   }, [startCamera, selectedDevice]);
 
+  // Toggle text editing mode
+  const toggleTextEditing = useCallback(() => {
+    setIsEditingText(prev => !prev);
+    if (!isEditingText) setText(text || 'Edit this text');
+  }, [isEditingText, text]);
+  
   // FIXED: Load collage on mount with normalized (uppercase) code
   useEffect(() => {
     if (normalizedCode) {
@@ -522,6 +551,62 @@ const PhotoboothPage: React.FC = () => {
     }
   }, [photo, cameraState, startCamera, selectedDevice, currentCollage]);
 
+  // Handle text dragging
+  const handleDragStart = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    if (!textOverlayRef.current || !photoContainerRef.current) return;
+    
+    e.preventDefault();
+    
+    const container = photoContainerRef.current.getBoundingClientRect();
+    
+    const moveHandler = (moveEvent: MouseEvent | TouchEvent) => {
+      const clientX = 'touches' in moveEvent 
+        ? moveEvent.touches[0].clientX 
+        : moveEvent.clientX;
+      const clientY = 'touches' in moveEvent 
+        ? moveEvent.touches[0].clientY 
+        : moveEvent.clientY;
+      
+      // Calculate position as percentage of container
+      const x = Math.max(0, Math.min(100, ((clientX - container.left) / container.width) * 100));
+      const y = Math.max(0, Math.min(100, ((clientY - container.top) / container.height) * 100));
+      
+      setTextPosition({ x, y });
+    };
+    
+    const endHandler = () => {
+      document.removeEventListener('mousemove', moveHandler);
+      document.removeEventListener('touchmove', moveHandler);
+      document.removeEventListener('mouseup', endHandler);
+      document.removeEventListener('touchend', endHandler);
+    };
+    
+    document.addEventListener('mousemove', moveHandler);
+    document.addEventListener('touchmove', moveHandler);
+    document.addEventListener('mouseup', endHandler);
+    document.addEventListener('touchend', endHandler);
+  }, []);
+  
+  // Increase text size
+  const increaseTextSize = useCallback(() => {
+    setTextSize(prev => Math.min(prev + 4, 72)); // Max size 72px
+  }, []);
+  
+  // Decrease text size
+  const decreaseTextSize = useCallback(() => {
+    setTextSize(prev => Math.max(prev - 4, 12)); // Min size 12px
+  }, []);
+  
+  // Toggle text shadow
+  const toggleTextShadow = useCallback(() => {
+    setTextShadow(prev => !prev);
+  }, []);
+  
+  // Change text color
+  const changeTextColor = useCallback((color: string) => {
+    setTextColor(color);
+  }, []);
+  
   // Add a retry mechanism for camera initialization failures
   useEffect(() => {
     if (cameraState === 'error' && currentCollage) {
@@ -685,13 +770,79 @@ const PhotoboothPage: React.FC = () => {
           <div className="flex-1 flex justify-center">
             <div className="bg-gray-900 rounded-lg overflow-hidden w-full max-w-xs sm:max-w-sm lg:max-w-md">
               {photo ? (
-                /* Photo Preview - 9:16 aspect ratio */
-                <div className="relative aspect-[9/16]">
+                /* Photo Preview with text editing - 9:16 aspect ratio */
+                <div ref={photoContainerRef} className="relative aspect-[9/16]">
                   <img 
                     src={photo} 
                     alt="Captured photo" 
                     className="w-full h-full object-cover"
                   />
+                  
+                  {/* Editable Text Overlay */}
+                  {isEditingText && (
+                    <div 
+                      ref={textOverlayRef}
+                      className="absolute cursor-move"
+                      style={{
+                        left: `${textPosition.x}%`,
+                        top: `${textPosition.y}%`,
+                        transform: 'translate(-50%, -50%)',
+                        maxWidth: '80%',
+                        touchAction: 'none', // Prevents scrolling while dragging on mobile
+                      }}
+                      onMouseDown={handleDragStart}
+                      onTouchStart={handleDragStart}
+                    >
+                      <textarea
+                        value={text}
+                        onChange={(e) => setText(e.target.value)}
+                        className="bg-transparent border-none outline-none resize-none text-center w-full"
+                        style={{
+                          fontSize: `${textSize}px`,
+                          color: textColor,
+                          textShadow: textShadow ? '2px 2px 4px rgba(0,0,0,0.8), -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000' : 'none',
+                          caretColor: 'white',
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        onTouchStart={(e) => e.stopPropagation()}
+                        placeholder="Enter text here"
+                        rows={2}
+                      />
+                    </div>
+                  )}
+                  
+                  {/* Text Editing Controls */}
+                  {isEditingText && (
+                    <div className="absolute top-3 left-3 right-3 bg-black/70 backdrop-blur-sm rounded-lg p-2 flex flex-wrap gap-2 items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={decreaseTextSize}
+                          className="p-1.5 bg-gray-700 hover:bg-gray-600 text-white rounded transition-colors"
+                          title="Decrease text size"
+                        >
+                          <ZoomOut className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={increaseTextSize}
+                          className="p-1.5 bg-gray-700 hover:bg-gray-600 text-white rounded transition-colors"
+                          title="Increase text size"
+                        >
+                          <ZoomIn className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={toggleTextShadow}
+                          className={`p-1.5 ${textShadow ? 'bg-purple-600' : 'bg-gray-700'} hover:bg-gray-600 text-white rounded transition-colors`}
+                          title="Toggle text shadow"
+                        >
+                          <span className="text-xs font-bold">T</span>
+                        </button>
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        <div className="text-xs text-white">Drag to move</div>
+                        <Move className="w-3 h-3 text-gray-400" />
+                      </div>
+                    </div>
+                  )}
                   
                   {/* Photo Controls Overlay */}
                   <div className="absolute bottom-3 left-3 right-3">
@@ -705,13 +856,24 @@ const PhotoboothPage: React.FC = () => {
                       </button>
                       
                       <button
+                        onClick={toggleTextEditing}
+                        className={`px-3 py-2 ${isEditingText ? 'bg-purple-600' : 'bg-gray-700 hover:bg-gray-600'} text-white rounded-lg transition-colors flex items-center space-x-2 text-sm`}
+                      >
+                        <Type className="w-4 h-4" />
+                        <span>{isEditingText ? 'Done' : 'Add Text'}</span>
+                      </button>
+                      
+                      {!isEditingText && (
+                      <button
                         onClick={downloadPhoto}
                         className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center space-x-2 text-sm"
                       >
                         <Download className="w-4 h-4" />
                         <span>Download</span>
                       </button>
+                      )}
                       
+                      {!isEditingText && (
                       <button
                         onClick={uploadToCollage}
                         disabled={uploading}
@@ -729,6 +891,7 @@ const PhotoboothPage: React.FC = () => {
                           </>
                         )}
                       </button>
+                      )}
                     </div>
                   </div>
                   
@@ -736,7 +899,7 @@ const PhotoboothPage: React.FC = () => {
                   {photo && (
                     <button
                       onClick={() => setShowVideoRecorder(!showVideoRecorder)}
-                      className="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors flex items-center space-x-2 text-sm"
+                      className="absolute top-3 right-3 px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors flex items-center space-x-2 text-sm"
                     >
                       <Video className="w-4 h-4" />
                       <span>Record Video</span>
@@ -899,9 +1062,10 @@ const PhotoboothPage: React.FC = () => {
               <div className="space-y-2 text-sm text-gray-300">
                 <p>1. Allow camera access when prompted</p>
                 <p>2. If camera doesn't start, tap "Start Camera"</p>
-                <p>3. Add text in the field above the capture button</p>
+                <p>3. Add text before or after taking a photo</p>
                 <p>4. Tap the large white button to take a photo</p>
-                <p>5. Review and upload to the collage</p>
+                <p>5. Edit text position and size if needed</p>
+                <p>6. Review and upload to the collage</p>
               </div>
             </div>
 
@@ -911,9 +1075,9 @@ const PhotoboothPage: React.FC = () => {
               <div className="space-y-2 text-sm text-purple-200">
                 <p>• Hold your device steady for clearer photos</p>
                 <p>• If camera doesn't start, try refreshing the page</p>
-                <p>• Make sure you have good lighting</p>
-                <p>• Text gets larger with shorter messages</p>
-                <p>• Text appears centered and easy to read</p>
+                <p>• You can add text before or after taking a photo</p>
+                <p>• Drag text to position it anywhere on the photo</p>
+                <p>• Use the controls to resize and style your text</p>
                 <p>• Photos appear in the collage automatically</p>
               </div>
             </div>
