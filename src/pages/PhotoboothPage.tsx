@@ -16,13 +16,13 @@ type VideoDevice = {
 type CameraState = 'idle' | 'starting' | 'active' | 'error';
 
 const PhotoboothPage: React.FC = () => {
-  // ... [rest of the code remains unchanged until the missing brackets] ...
+  // ... [rest of the code remains unchanged until the missing brackets]
 
   const startCamera = useCallback(async (deviceId?: string) => {
-    // ... [code content remains unchanged] ...
+    // ... [rest of startCamera implementation]
     
     try {
-      // ... [try block content remains unchanged] ...
+      // ... [try block content]
       
       if (!videoRef.current) {
         // Clean up stream if video element disappeared
@@ -50,19 +50,19 @@ const PhotoboothPage: React.FC = () => {
         });
       };
       
-      // ... [rest of the code remains unchanged] ...
+      // ... [rest of the code]
       
     } catch (err: any) {
-      // ... [catch block content remains unchanged] ...
+      // ... [catch block content]
     } finally {
       isInitializingRef.current = false;
     }
   }, [selectedDevice, cameraState, cleanupCamera, getVideoDevices, waitForVideoElement]);
 
-  // ... [rest of the component code remains unchanged] ...
+  // ... [rest of the component code]
 
   return (
-    // ... [JSX content remains unchanged] ...
+    // ... [JSX content]
   );
 };
 
