@@ -335,7 +335,7 @@ const PhotoboothPage: React.FC = () => {
     const newId = Date.now().toString();
     const newElement = {
       id: newId,
-      text: 'Your text here',
+      text: '',
       position: { x: 50, y: 50 },
       size: 32,
       color: '#ffffff',
@@ -654,9 +654,27 @@ const PhotoboothPage: React.FC = () => {
           touchAction: 'none',
           zIndex: selectedTextId === element.id ? 20 : 10,
         }}
-        onMouseDown={(e) => handleTextInteractionStart(e, element.id)}
-        onTouchStart={(e) => handleTextInteractionStart(e, element.id)}
+        onMouseDown={(e) => {
+          // Only handle drag if not editing - allow click to edit
+          if (!isEditingText) {
+            handleTextInteractionStart(e, element.id);
+          }
+        }}
+        onTouchStart={(e) => {
+          // Only handle drag if not editing - allow tap to edit
+          if (!isEditingText) {
+            handleTextInteractionStart(e, element.id);
+          }
+        }}
+        onClick={() => {
+          // Single click/tap to select and edit
+          setSelectedTextId(element.id);
+          if (!isEditingText) {
+            setIsEditingText(true);
+          }
+        }}
         onDoubleClick={() => {
+          // Double click also works for editing
           setSelectedTextId(element.id);
           setIsEditingText(true);
         }}
@@ -687,7 +705,7 @@ const PhotoboothPage: React.FC = () => {
               lineHeight: '1.2',
             }}
             autoFocus
-            placeholder="Enter text"
+            placeholder="Type something..."
             rows={3}
             onKeyDown={(e) => {
               if (e.key === 'Escape') {
@@ -715,9 +733,13 @@ const PhotoboothPage: React.FC = () => {
               userSelect: 'none',
               lineHeight: '1.2',
               wordWrap: 'break-word',
+              minHeight: element.text ? 'auto' : '40px', // Show minimum height when empty
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: element.style.align === 'left' ? 'flex-start' : element.style.align === 'right' ? 'flex-end' : 'center',
             }}
           >
-            {element.text}
+            {element.text || (selectedTextId === element.id ? 'Type something...' : '')}
           </div>
         )}
         
@@ -958,23 +980,15 @@ const PhotoboothPage: React.FC = () => {
                     </button>
                     
                     {selectedTextId && (
-                      <>
-                        <button
-                          onClick={() => setShowTextStylePanel(!showTextStylePanel)}
-                          className="w-12 h-12 bg-black/60 backdrop-blur-sm hover:bg-black/80 text-white rounded-full flex items-center justify-center border border-white/20 transition-all"
-                          title="Text Style"
-                        >
-                          <Palette className="w-6 h-6" />
-                        </button>
-                        
-                        <button
-                          onClick={() => setIsEditingText(!isEditingText)}
-                          className="w-12 h-12 bg-black/60 backdrop-blur-sm hover:bg-black/80 text-white rounded-full flex items-center justify-center border border-white/20 transition-all"
-                          title="Edit Text"
-                        >
-                          <Type className="w-6 h-6" />
-                        </button>
-                      </>
+                      <button
+                        onClick={() => setShowTextStylePanel(!showTextStylePanel)}
+                        className={`w-12 h-12 backdrop-blur-sm text-white rounded-full flex items-center justify-center border border-white/20 transition-all ${
+                          showTextStylePanel ? 'bg-white/80 text-black' : 'bg-black/60 hover:bg-black/80'
+                        }`}
+                        title="Text Style"
+                      >
+                        <Palette className="w-6 h-6" />
+                      </button>
                     )}
                     
                     {/* Delete All Text Button */}
@@ -1164,8 +1178,8 @@ const PhotoboothPage: React.FC = () => {
               <h3 className="text-base lg:text-lg font-semibold text-white mb-3 lg:mb-4">Text Editing</h3>
               <div className="space-y-2 text-sm text-gray-300">
                 <p>• Tap the <Type className="w-4 h-4 inline mx-1" /> icon to add text</p>
+                <p>• Tap on text to edit content</p>
                 <p>• Drag text to move it around</p>
-                <p>• Double-tap text to edit content</p>
                 <p>• Use two fingers to resize and rotate (mobile)</p>
                 <p>• Drag corner handle to resize (desktop)</p>
                 <p>• Tap <Palette className="w-4 h-4 inline mx-1" /> to change style and color</p>
