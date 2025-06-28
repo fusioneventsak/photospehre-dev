@@ -567,15 +567,29 @@ const PhotoboothPage: React.FC = () => {
       lines.forEach((line, index) => {
         const lineY = startY + index * lineHeight;
         
-        // Draw outline/shadow if enabled
+        // Draw outline/shadow if enabled - Enhanced 3D effect
         if (element.style.outline) {
+          // Multiple shadow layers for 3D depth
           context.shadowColor = 'rgba(0,0,0,0.9)';
+          context.shadowBlur = 12;
+          context.shadowOffsetX = 4;
+          context.shadowOffsetY = 4;
+          
+          // Thick black outline
+          context.strokeStyle = 'black';
+          context.lineWidth = fontSize * 0.12;
+          context.strokeText(line, 0, lineY);
+          
+          // Additional inner outline for more definition
+          context.strokeStyle = 'rgba(0,0,0,0.8)';
+          context.lineWidth = fontSize * 0.06;
+          context.strokeText(line, 0, lineY);
+        } else {
+          // Enhanced shadow for non-outlined text
+          context.shadowColor = 'rgba(0,0,0,0.8)';
           context.shadowBlur = 8;
           context.shadowOffsetX = 3;
           context.shadowOffsetY = 3;
-          context.strokeStyle = 'black';
-          context.lineWidth = fontSize * 0.08;
-          context.strokeText(line, 0, lineY);
         }
         
         // Draw main text
@@ -719,7 +733,9 @@ const PhotoboothPage: React.FC = () => {
                 : 'transparent',
               padding: `${element.style.padding}px`,
               borderRadius: element.style.padding > 0 ? '8px' : '0',
-              textShadow: element.style.outline ? '2px 2px 4px rgba(0,0,0,0.8), -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000' : 'none',
+              textShadow: element.style.outline ? 
+                '3px 3px 0px rgba(0,0,0,0.8), -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, 4px 4px 8px rgba(0,0,0,0.6)' : 
+                '2px 2px 4px rgba(0,0,0,0.8), 1px 1px 2px rgba(0,0,0,0.9), 0px 0px 8px rgba(0,0,0,0.5)',
               caretColor: 'white',
               minWidth: '100px',
               maxWidth: '280px', // Constrain to viewport width
@@ -751,7 +767,9 @@ const PhotoboothPage: React.FC = () => {
                 : 'transparent',
               padding: `${element.style.padding}px`,
               borderRadius: element.style.padding > 0 ? '8px' : '0',
-              textShadow: element.style.outline ? '2px 2px 4px rgba(0,0,0,0.8), -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000' : 'none',
+              textShadow: element.style.outline ? 
+                '3px 3px 0px rgba(0,0,0,0.8), -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, 4px 4px 8px rgba(0,0,0,0.6)' : 
+                '2px 2px 4px rgba(0,0,0,0.8), 1px 1px 2px rgba(0,0,0,0.9), 0px 0px 8px rgba(0,0,0,0.5)',
               whiteSpace: 'pre-wrap', // Allow line breaks
               maxWidth: '280px', // Constrain to viewport width
               overflow: 'hidden',
