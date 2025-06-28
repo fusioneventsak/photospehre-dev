@@ -968,6 +968,49 @@ const PhotoboothPage: React.FC = () => {
                   
                   {renderTextElements()}
                   
+                  {/* TEXT STYLING PANEL - INSIDE PHOTO CONTAINER */}
+                  {showTextStylePanel && selectedTextId && (
+                    <div className="absolute bottom-4 left-4 right-4 bg-red-500 p-4 rounded-lg z-30">
+                      <div className="text-white text-center font-bold mb-4">🎨 STYLING PANEL 🎨</div>
+                      
+                      {/* Size Control */}
+                      <div className="mb-4">
+                        <div className="text-white text-sm mb-2">Size: {textElements.find(el => el.id === selectedTextId)?.size || 32}px</div>
+                        <input
+                          type="range"
+                          min="16"
+                          max="72"
+                          value={textElements.find(el => el.id === selectedTextId)?.size || 32}
+                          onChange={(e) => updateTextElement(selectedTextId, { size: parseInt(e.target.value) })}
+                          className="w-full"
+                        />
+                      </div>
+                      
+                      {/* Colors */}
+                      <div className="mb-4">
+                        <div className="text-white text-sm mb-2">Colors</div>
+                        <div className="flex space-x-2">
+                          {colorPresets.slice(0, 5).map((color) => (
+                            <button
+                              key={color}
+                              onClick={() => updateTextElement(selectedTextId, { color })}
+                              className="w-8 h-8 rounded-full border-2 border-white"
+                              style={{ backgroundColor: color }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                      
+                      {/* Close */}
+                      <button
+                        onClick={() => setShowTextStylePanel(false)}
+                        className="w-full py-2 bg-white text-black rounded font-bold"
+                      >
+                        CLOSE PANEL
+                      </button>
+                    </div>
+                  )}
+                  
                   {/* Instagram Story-like UI Controls - Top Right */}
                   <div className="absolute top-4 right-4 flex flex-col space-y-3 z-20">
                     <button
