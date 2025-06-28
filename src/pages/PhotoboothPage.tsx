@@ -669,8 +669,13 @@ const PhotoboothPage: React.FC = () => {
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
+          console.log('Text clicked, setting selectedTextId to:', element.id);
           // Single click/tap to select and edit
           setSelectedTextId(element.id);
+          // Close style panel when selecting different text
+          if (selectedTextId !== element.id) {
+            setShowTextStylePanel(false);
+          }
           if (!isEditingText) {
             setIsEditingText(true);
           }
@@ -987,7 +992,11 @@ const PhotoboothPage: React.FC = () => {
                           e.preventDefault();
                           e.stopPropagation();
                           console.log('Palette clicked, selectedTextId:', selectedTextId, 'showTextStylePanel:', showTextStylePanel);
-                          setShowTextStylePanel(true);
+                          // Force state update with callback
+                          setShowTextStylePanel(prev => {
+                            console.log('Setting showTextStylePanel from', prev, 'to true');
+                            return true;
+                          });
                         }}
                         className={`w-12 h-12 backdrop-blur-sm text-white rounded-full flex items-center justify-center border border-white/20 transition-all ${
                           showTextStylePanel ? 'bg-white/80 text-black' : 'bg-black/60 hover:bg-black/80'
