@@ -1,7 +1,7 @@
 // src/pages/PhotoboothPage.tsx - FIXED: Mobile zoom prevention & larger capture button
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Camera, SwitchCamera, Download, Send, X, RefreshCw, Type, ArrowLeft, Settings, Video, Move } from 'lucide-react';
+import { Camera, SwitchCamera, Download, Send, X, RefreshCw, Type, ArrowLeft, Settings, Video } from 'lucide-react';
 import { useCollageStore, Photo } from '../store/collageStore';
 import MobileVideoRecorder from '../components/video/MobileVideoRecorder';
 
@@ -12,31 +12,18 @@ type VideoDevice = {
 
 type CameraState = 'idle' | 'starting' | 'active' | 'error';
 
-interface TextOverlay {
-  text: string;
-  position: { x: number; y: number };
-  isDragging: boolean;
-}
-
 const PhotoboothPage: React.FC = () => {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const photoContainerRef = useRef<HTMLDivElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const isInitializingRef = useRef(false);
   
   const [devices, setDevices] = useState<VideoDevice[]>([]);
   const [selectedDevice, setSelectedDevice] = useState<string>('');
   const [photo, setPhoto] = useState<string | null>(null);
-  const [prePhotoText, setPrePhotoText] = useState('');
-  const [textOverlay, setTextOverlay] = useState<TextOverlay>({
-    text: '',
-    position: { x: 50, y: 50 }, // Center position (percentage)
-    isDragging: false
-  });
-  const [showTextInput, setShowTextInput] = useState(false);
+  const [text, setText] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [showVideoRecorder, setShowVideoRecorder] = useState(false);
@@ -107,78 +94,6 @@ const PhotoboothPage: React.FC = () => {
     console.error('❌ Video element not available after waiting');
     return null;
   }, []);
-
-  // Handle text overlay dragging
-  const handleDragStart = (e: React.MouseEvent | React.TouchEvent) => {
-    e.preventDefault();
-    setTextOverlay(prev => ({ ...prev, isDragging: true }));
-  };
-
-  const handleDragMove = useCallback((e: React.MouseEvent | React.TouchEvent) => {
-    if (!textOverlay.isDragging || !photoContainerRef.current) return;
-    
-    const container = photoContainerRef.current;
-    const rect = container.getBoundingClientRect();
-    
-    // Get client coordinates based on event type
-    let clientX: number, clientY: number;
-    
-    if ('touches' in e) {
-      // Touch event
-      clientX = e.touches[0].clientX;
-      clientY = e.touches[0].clientY;
-    } else {
-      // Mouse event
-      clientX = e.clientX;
-      clientY = e.clientY;
-    }
-    
-    // Calculate position as percentage of container dimensions
-    const x = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
-    const y = Math.max(0, Math.min(100, ((clientY - rect.top) / rect.height) * 100));
-    
-    setTextOverlay(prev => ({
-      ...prev,
-      position: { x, y }
-    }));
-  }, [textOverlay.isDragging]);
-
-  const handleDragEnd = () => {
-    setTextOverlay(prev => ({ ...prev, isDragging: false }));
-  };
-
-  // Set up event listeners for drag operations
-  useEffect(() => {
-    if (photo) {
-      const handleMouseMove = (e: MouseEvent) => {
-        handleDragMove(e as unknown as React.MouseEvent);
-      };
-      
-      const handleTouchMove = (e: TouchEvent) => {
-        handleDragMove(e as unknown as React.TouchEvent);
-      };
-      
-      const handleMouseUp = () => {
-        handleDragEnd();
-      };
-      
-      const handleTouchEnd = () => {
-        handleDragEnd();
-      };
-      
-      window.addEventListener('mousemove', handleMouseMove);
-      window.addEventListener('mouseup', handleMouseUp);
-      window.addEventListener('touchmove', handleTouchMove, { passive: false });
-      window.addEventListener('touchend', handleTouchEnd);
-      
-      return () => {
-        window.removeEventListener('mousemove', handleMouseMove);
-        window.removeEventListener('mouseup', handleMouseUp);
-        window.removeEventListener('touchmove', handleTouchMove);
-        window.removeEventListener('touchend', handleTouchEnd);
-      };
-    }
-  }, [photo, handleDragMove]);
 
   const startCamera = useCallback(async (deviceId?: string) => {
     // Prevent multiple simultaneous initializations
@@ -393,69 +308,6 @@ const PhotoboothPage: React.FC = () => {
     }
   }, [selectedDevice, photo, cameraState, startCamera]);
 
-  // Apply text to canvas before uploading
-  const applyTextToCanvas = () => {
-    if (!photo || !canvasRef.current) return photo;
-    
-    const canvas = canvasRef.current;
-    const context = canvas.getContext('2d');
-    if (!context) return photo;
-    
-    // Load the photo onto the canvas
-    const img = new Image();
-    img.src = photo;
-    
-    img.onload = () => {
-      // Set canvas dimensions to match the image
-      canvas.width = img.width;
-      canvas.height = img.height;
-      
-      // Draw the image
-      context.drawImage(img, 0, 0);
-      
-      // Add text if it exists
-      if (textOverlay.text.trim()) {
-        // Calculate position based on percentages
-        const x = (textOverlay.position.x / 100) * canvas.width;
-        const y = (textOverlay.position.y / 100) * canvas.height;
-        
-        // Calculate font size based on canvas dimensions
-        const fontSize = Math.max(canvas.width * 0.05, 24); // Minimum 24px
-        
-        // Style the text
-        context.font = `bold ${fontSize}px Arial`;
-        context.textAlign = 'center';
-        context.textBaseline = 'middle';
-        
-        // Add shadow for better readability
-        context.shadowColor = 'rgba(0,0,0,0.8)';
-        context.shadowBlur = 8;
-        context.shadowOffsetX = 2;
-        context.shadowOffsetY = 2;
-        
-        // Draw text outline
-        context.strokeStyle = 'black';
-        context.lineWidth = fontSize * 0.08;
-        context.strokeText(textOverlay.text, x, y);
-        
-        // Draw text fill
-        context.fillStyle = 'white';
-        context.fillText(textOverlay.text, x, y);
-        
-        // Reset shadow
-        context.shadowColor = 'transparent';
-        context.shadowBlur = 0;
-        context.shadowOffsetX = 0;
-        context.shadowOffsetY = 0;
-      }
-      
-      // Update the photo with the new canvas content
-      setPhoto(canvas.toDataURL('image/jpeg', 1.0));
-    };
-    
-    return photo;
-  };
-
   const capturePhoto = useCallback(() => {
     if (!videoRef.current || !canvasRef.current || cameraState !== 'active') return;
 
@@ -499,10 +351,10 @@ const PhotoboothPage: React.FC = () => {
     );
 
     // Add text overlay if provided with dynamic sizing
-    if (prePhotoText.trim()) {
+    if (text.trim()) {
       // Dynamic font size calculation - starts large and gets smaller with longer text
       const baseSize = Math.min(canvasWidth, canvasHeight) * 0.12; // Larger base size
-      const dynamicSize = Math.max(baseSize * 0.4, baseSize - (prePhotoText.length * 1.5)); // Dynamic scaling
+      const dynamicSize = Math.max(baseSize * 0.4, baseSize - (text.length * 1.5)); // Dynamic scaling
       const fontSize = dynamicSize;
       
       context.font = `bold ${fontSize}px Arial`;
@@ -522,7 +374,7 @@ const PhotoboothPage: React.FC = () => {
       
       // Split text into lines if too long
       const maxWidth = canvasWidth * 0.85; // Slightly more padding
-      const words = prePhotoText.split(' ');
+      const words = text.split(' ');
       const lines: string[] = [];
       let currentLine = words[0] || '';
 
@@ -563,30 +415,15 @@ const PhotoboothPage: React.FC = () => {
     const dataUrl = canvas.toDataURL('image/jpeg', 1.0);
     setPhoto(dataUrl);
     
-    // Initialize text overlay with pre-photo text if it exists
-    if (prePhotoText.trim()) {
-      setTextOverlay({
-        text: prePhotoText,
-        position: { x: 50, y: 50 }, // Center position
-        isDragging: false
-      });
-    }
-    
     // Stop camera after taking photo to free up resources
     cleanupCamera();
-  }, [prePhotoText, cameraState, cleanupCamera]);
+  }, [text, cameraState, cleanupCamera]);
 
   const uploadToCollage = useCallback(async () => {
     if (!photo || !currentCollage) return;
 
     setUploading(true);
     setError(null);
-
-    // Apply text overlay to the photo before uploading
-    applyTextToCanvas();
-    
-    // Small delay to ensure canvas has updated
-    await new Promise(resolve => setTimeout(resolve, 100));
 
     try {
       const response = await fetch(photo);
@@ -597,12 +434,7 @@ const PhotoboothPage: React.FC = () => {
       if (result) {        
         // Reset state
         setPhoto(null);
-        setPrePhotoText('');
-        setTextOverlay({
-          text: '',
-          position: { x: 50, y: 50 },
-          isDragging: false
-        });
+        setText('');
         
         // Show success message
         setError('Photo uploaded successfully! Your photo will appear in the collage automatically.');
@@ -622,33 +454,19 @@ const PhotoboothPage: React.FC = () => {
     } finally {
       setUploading(false);
     }
-  }, [photo, currentCollage, uploadPhoto, startCamera, selectedDevice, applyTextToCanvas]);
+  }, [photo, currentCollage, uploadPhoto, startCamera, selectedDevice]);
 
   const downloadPhoto = useCallback(() => {
     if (!photo) return;
-    
-    // Apply text overlay to the photo before downloading
-    applyTextToCanvas();
-    
-    // Small delay to ensure canvas has updated
-    setTimeout(() => {
-      if (!photo) return;
-      const link = document.createElement('a');
-      link.href = photo;
-      link.download = 'photobooth.jpg';
-      link.click();
-    }, 100);
-  }, [photo, applyTextToCanvas]);
+    const link = document.createElement('a');
+    link.href = photo;
+    link.download = 'photobooth.jpg';
+    link.click();
+  }, [photo]);
 
   const retakePhoto = useCallback(() => {
     setPhoto(null);
-    setPrePhotoText('');
-    setTextOverlay({
-      text: '',
-      position: { x: 50, y: 50 },
-      isDragging: false
-    });
-    setShowTextInput(false);
+    setText('');
     
     // Restart camera immediately
     setTimeout(() => {
@@ -656,33 +474,6 @@ const PhotoboothPage: React.FC = () => {
       startCamera(selectedDevice);
     }, 100);
   }, [startCamera, selectedDevice]);
-
-  // Toggle text input modal
-  const toggleTextInput = () => {
-    setShowTextInput(!showTextInput);
-  };
-
-  // Update text overlay
-  const updateTextOverlay = (newText: string) => {
-    setTextOverlay(prev => ({
-      ...prev,
-      text: newText
-    }));
-  };
-
-  // Reset text position to center
-  const centerTextPosition = () => {
-    setTextOverlay(prev => ({
-      ...prev,
-      position: { x: 50, y: 50 }
-    }));
-  };
-
-  // Apply text to photo
-  const applyText = () => {
-    applyTextToCanvas();
-    setShowTextInput(false);
-  };
 
   // FIXED: Load collage on mount with normalized (uppercase) code
   useEffect(() => {
@@ -884,58 +675,22 @@ const PhotoboothPage: React.FC = () => {
             <div className="bg-gray-900 rounded-lg overflow-hidden w-full max-w-xs sm:max-w-sm lg:max-w-md">
               {photo ? (
                 /* Photo Preview - 9:16 aspect ratio */
-                <div 
-                  ref={photoContainerRef}
-                  className="relative aspect-[9/16]"
-                  onTouchStart={(e) => e.stopPropagation()}
-                  onTouchMove={(e) => e.stopPropagation()}
-                >
+                <div className="relative aspect-[9/16]">
                   <img 
                     src={photo} 
                     alt="Captured photo" 
                     className="w-full h-full object-cover"
                   />
                   
-                  {/* Draggable Text Overlay */}
-                  {textOverlay.text && (
-                    <div 
-                      className={`absolute transform -translate-x-1/2 -translate-y-1/2 cursor-move ${textOverlay.isDragging ? 'z-20' : 'z-10'}`}
-                      style={{
-                        left: `${textOverlay.position.x}%`,
-                        top: `${textOverlay.position.y}%`,
-                        textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
-                        fontSize: `${Math.max(1.2, 2.5 - (textOverlay.text.length / 20))}rem`,
-                        fontWeight: 'bold',
-                        color: 'white',
-                        maxWidth: '80%',
-                        textAlign: 'center',
-                        userSelect: 'none',
-                        WebkitUserSelect: 'none'
-                      }}
-                      onMouseDown={handleDragStart}
-                      onTouchStart={handleDragStart}
-                    >
-                      {textOverlay.text}
-                    </div>
-                  )}
-                  
                   {/* Photo Controls Overlay */}
                   <div className="absolute bottom-3 left-3 right-3">
-                    <div className="flex justify-center space-x-2 flex-wrap gap-2">
+                    <div className="flex justify-center space-x-2">
                       <button
                         onClick={retakePhoto}
                         className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors flex items-center space-x-2 text-sm"
                       >
                         <RefreshCw className="w-4 h-4" />
                         <span>Retake</span>
-                      </button>
-                      
-                      <button
-                        onClick={toggleTextInput}
-                        className="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors flex items-center space-x-2 text-sm"
-                      >
-                        <Type className="w-4 h-4" />
-                        <span>{textOverlay.text ? 'Edit Text' : 'Add Text'}</span>
                       </button>
                       
                       <button
@@ -965,6 +720,17 @@ const PhotoboothPage: React.FC = () => {
                       </button>
                     </div>
                   </div>
+                  
+                  {/* Video Recording */}
+                  {photo && (
+                    <button
+                      onClick={() => setShowVideoRecorder(!showVideoRecorder)}
+                      className="absolute top-3 right-3 px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors flex items-center space-x-2 text-sm"
+                    >
+                      <Video className="w-4 h-4" />
+                      <span>Record Video</span>
+                    </button>
+                  )}
                 </div>
               ) : (
                 /* Camera View - 9:16 aspect ratio */
@@ -1021,17 +787,17 @@ const PhotoboothPage: React.FC = () => {
                   )}
                   
                   {/* Text Overlay Preview */}
-                  {prePhotoText.trim() && cameraState === 'active' && (
+                  {text.trim() && cameraState === 'active' && (
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none px-4">
                       <div 
                         className="text-white font-bold text-center px-4 py-3 bg-black/60 backdrop-blur-sm rounded-xl max-w-[90%] border border-white/20"
                         style={{ 
-                          fontSize: `${Math.max(1.5, 4 - (prePhotoText.length / 20))}rem`,
+                          fontSize: `${Math.max(1.5, 4 - (text.length / 20))}rem`,
                           textShadow: '3px 3px 6px rgba(0,0,0,0.9), 0 0 20px rgba(0,0,0,0.5)',
                           lineHeight: '1.2'
                         }}
                       >
-                        {prePhotoText}
+                        {text}
                       </div>
                     </div>
                   )}
@@ -1039,8 +805,8 @@ const PhotoboothPage: React.FC = () => {
                   {/* FIXED: Text Input Field - Positioned above capture button */}
                   <div className="absolute bottom-28 sm:bottom-24 lg:bottom-20 left-2 right-2 px-2">
                     <textarea
-                      value={prePhotoText}
-                      onChange={(e) => setPrePhotoText(e.target.value)}
+                      value={text}
+                      onChange={(e) => setText(e.target.value)}
                       placeholder="ADD TEXT BEFORE TAKING PICTURE:"
                       className="w-full h-10 sm:h-12 bg-black/70 backdrop-blur-sm border border-white/30 rounded-lg px-3 py-2 text-white placeholder-gray-300 resize-none focus:outline-none focus:border-purple-400 focus:bg-black/80 transition-all"
                       style={{ fontSize: '16px' }} // CRITICAL: Prevents iOS zoom
@@ -1048,11 +814,11 @@ const PhotoboothPage: React.FC = () => {
                     />
                     <div className="flex justify-between items-center mt-1 px-1">
                       <span className="text-xs text-gray-300">
-                        {prePhotoText.length}/100
+                        {text.length}/100
                       </span>
-                      {prePhotoText && (
+                      {text && (
                         <button
-                          onClick={() => setPrePhotoText('')}
+                          onClick={() => setText('')}
                           className="text-xs text-red-300 hover:text-red-200 transition-colors px-2 py-1"
                         >
                           Clear
@@ -1164,81 +930,6 @@ const PhotoboothPage: React.FC = () => {
           </div>
         </div>
       </div>
-      
-      {/* Text Input Modal */}
-      {showTextInput && photo && (
-        <div className="fixed inset-0 z-30 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-gray-900 rounded-xl shadow-2xl w-full max-w-md">
-            <div className="p-4 border-b border-gray-700 flex justify-between items-center">
-              <h3 className="text-lg font-semibold text-white">Add Text to Photo</h3>
-              <button
-                onClick={() => setShowTextInput(false)}
-                className="text-gray-400 hover:text-white p-1 rounded-full"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            
-            <div className="p-4 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Text
-                </label>
-                <textarea
-                  value={textOverlay.text}
-                  onChange={(e) => updateTextOverlay(e.target.value)}
-                  placeholder="Enter text to add to your photo"
-                  className="w-full h-20 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white placeholder-gray-400 resize-none focus:outline-none focus:border-purple-400"
-                  style={{ fontSize: '16px' }} // Prevents iOS zoom
-                  maxLength={100}
-                />
-                <div className="flex justify-between text-xs text-gray-400 mt-1">
-                  <span>{textOverlay.text.length}/100 characters</span>
-                  {textOverlay.text && (
-                    <button
-                      onClick={() => updateTextOverlay('')}
-                      className="text-red-400 hover:text-red-300"
-                    >
-                      Clear
-                    </button>
-                  )}
-                </div>
-              </div>
-              
-              <div className="bg-gray-800 p-3 rounded-lg">
-                <div className="flex items-center text-sm text-gray-300 mb-2">
-                  <Move className="w-4 h-4 mr-2 text-purple-400" />
-                  <span>Position</span>
-                </div>
-                <p className="text-xs text-gray-400 mb-3">
-                  Drag the text on the photo to position it, or use the button below to center it.
-                </p>
-                <button
-                  onClick={centerTextPosition}
-                  className="w-full px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm"
-                >
-                  Center Text
-                </button>
-              </div>
-            </div>
-            
-            <div className="p-4 border-t border-gray-700 flex justify-end space-x-3">
-              <button
-                onClick={() => setShowTextInput(false)}
-                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={applyText}
-                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg"
-              >
-                Apply Text
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
       
       {/* Video Recorder */}
       {showVideoRecorder && (
