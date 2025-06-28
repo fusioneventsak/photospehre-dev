@@ -793,7 +793,7 @@ const PhotoboothPage: React.FC = () => {
                     <textarea
                       value={text}
                       onChange={(e) => setText(e.target.value)}
-                      placeholder="Add text to your photo..."
+                      placeholder="ADD TEXT BEFORE TAKING PICTURE:"
                       className="w-full h-10 sm:h-12 bg-black/70 backdrop-blur-sm border border-white/30 rounded-lg px-3 py-2 text-white placeholder-gray-300 resize-none focus:outline-none focus:border-purple-400 focus:bg-black/80 transition-all"
                       style={{ fontSize: '16px' }} // CRITICAL: Prevents iOS zoom
                       maxLength={100}
