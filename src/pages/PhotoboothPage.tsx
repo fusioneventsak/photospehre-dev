@@ -1158,14 +1158,6 @@ const PhotoboothPage: React.FC = () => {
           </div>
 
           <div className="w-full lg:w-72 space-y-4 lg:space-y-6">
-            {/* DEBUG: Show panel state in sidebar */}
-            <div className="bg-yellow-500 p-4 rounded-lg">
-              <h3 className="text-black font-bold">DEBUG INFO</h3>
-              <p className="text-black">Selected ID: {selectedTextId || 'NONE'}</p>
-              <p className="text-black">Show Panel: {showTextStylePanel ? 'TRUE' : 'FALSE'}</p>
-              <p className="text-black">Should Render: {(showTextStylePanel && selectedTextId) ? 'YES' : 'NO'}</p>
-              <p className="text-black">Text Elements: {textElements.length}</p>
-            </div>
             {devices.length > 1 && (
               <div className="bg-gray-900 rounded-lg p-4 lg:p-6">
                 <div className="flex items-center space-x-2 mb-3 lg:mb-4">
