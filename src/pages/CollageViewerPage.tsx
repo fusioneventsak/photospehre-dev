@@ -50,7 +50,6 @@ const CollageViewerPage: React.FC = () => {
   const [showUploader, setShowUploader] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(true);
   const [showVideoRecorder, setShowVideoRecorder] = useState(false);
-  const [showVideoRecorder, setShowVideoRecorder] = useState(false);
   const [recordingResolution, setRecordingResolution] = useState({ width: 1920, height: 1080 });
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const navigate = useNavigate();
