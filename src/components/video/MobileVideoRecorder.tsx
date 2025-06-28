@@ -151,7 +151,7 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
       };
       
       // Start recording with 100ms timeslices for more frequent ondataavailable events
-      recorder.start(100);
+      recorder.start(50); // Reduced to 50ms for more frequent chunks and better quality
       mediaRecorderRef.current = recorder;
       
       // Start timer
@@ -302,6 +302,9 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
             <div>
               <label className="text-white text-xs mb-1 block">Duration</label>
               <div className="flex space-x-2">
+                <div className="text-xs text-white/70 px-2 py-1 bg-gray-800 rounded">
+                  {duration === 30 ? 'Better Quality' : 'Standard Quality'}
+                </div>
                 <button
                   onClick={() => setDuration(30)}
                   className={`px-3 py-1 rounded text-xs ${

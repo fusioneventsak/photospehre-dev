@@ -263,10 +263,10 @@ const CollageViewerPage: React.FC = () => {
                   {/* Video Recording Button */}
                   <button
                     onClick={() => setShowVideoRecorder(!showVideoRecorder)}
-                    className="inline-flex items-center space-x-2 px-3 py-2 bg-white/15 hover:bg-white/25 text-white/90 text-sm rounded-lg transition-colors backdrop-blur-md border border-white/20"
+                    className="inline-flex items-center space-x-2 px-3 py-2 bg-green-600/80 hover:bg-green-700/80 text-white/90 text-sm rounded-lg transition-colors backdrop-blur-md border border-white/20"
                   >
-                    <Video className="w-4 h-4" />
-                    <span className="hidden sm:inline">Record</span>
+                    <Download className="w-4 h-4" />
+                    <span className="hidden sm:inline">Download</span>
                   </button>
 
                   {/* Share */}
