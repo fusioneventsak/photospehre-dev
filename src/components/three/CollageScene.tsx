@@ -946,12 +946,7 @@ const CollageScene = forwardRef<HTMLCanvasElement, CollageSceneProps>(({ photos,
           state.gl.shadowMap.autoUpdate = true;
           // Use a fixed pixel ratio of 1 for recording to ensure consistent quality
           // For 4K, we need a higher pixel ratio
-          const pixelRatio = width > 1920 ? 2 : 1.5; // Increased for better quality
-          state.gl.setPixelRatio(pixelRatio);
-          
-          // Enable better quality rendering
-          state.gl.gammaFactor = 2.2;
-          state.gl.outputEncoding = THREE.sRGBEncoding;
+          state.gl.setPixelRatio(width > 1920 ? 2 : 1);
         }}
         performance={{ min: 0.8 }}
         linear={true}
