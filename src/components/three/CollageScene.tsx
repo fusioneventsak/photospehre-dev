@@ -7,7 +7,6 @@ import { type SceneSettings } from '../../store/sceneStore';
 import { PatternFactory } from './patterns/PatternFactory';
 import { addCacheBustToUrl } from '../../lib/supabase';
 import { CameraAnimationController } from './CameraAnimationController';
-import { useEffect as useLayoutEffect } from 'react';
 
 type Photo = {
   id: string;
@@ -654,9 +653,9 @@ const PhotoMesh: React.FC<{
   pattern: string;
   shouldFaceCamera: boolean;
   brightness: number;
-}> = React.memo(({ photo, size, emptySlotColor, pattern, shouldFaceCamera, brightness }) => {
+}> = React.memo(({ photo, size, emptySlotColor, pattern, shouldFaceCamera, brightness }) => { 
   const meshRef = useRef<THREE.Mesh>(null);
-  const { camera } = useThree();
+  const { camera, gl } = useThree();
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
@@ -680,12 +679,19 @@ const PhotoMesh: React.FC<{
     const loader = new THREE.TextureLoader();
     setIsLoading(true);
     setHasError(false);
-
+    
     const handleLoad = (loadedTexture: THREE.Texture) => {
+      // Enable mipmaps for better texture quality at different distances
+      loadedTexture.generateMipmaps = true;
       loadedTexture.minFilter = THREE.LinearFilter;
       loadedTexture.magFilter = THREE.LinearFilter;
       loadedTexture.format = THREE.RGBAFormat;
-      loadedTexture.generateMipmaps = false;
+      
+      // Apply anisotropic filtering for better quality at oblique angles
+      if (gl && gl.capabilities.getMaxAnisotropy) {
+        loadedTexture.anisotropy = gl.capabilities.getMaxAnisotropy();
+      }
+      
       setTexture(loadedTexture);
       setIsLoading(false);
     };
@@ -766,6 +772,10 @@ const PhotoMesh: React.FC<{
       
       // Apply brightness by modifying the material color - only for photos with textures
       brightnessMaterial.color.setScalar(brightness || 1.0);
+      
+      // Enable high quality rendering for textures
+      brightnessMaterial.toneMapped = false;
+      brightnessMaterial.premultipliedAlpha = true;
       
       return brightnessMaterial;
     } else {
