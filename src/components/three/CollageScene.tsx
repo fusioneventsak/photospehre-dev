@@ -379,23 +379,17 @@ const AnimationController: React.FC<{
 }> = ({ settings, photos, onPositionsUpdate }) => {
   const slotManagerRef = useRef(new SlotManager(settings.photoCount || 100));
   const lastPhotoCount = useRef(settings.photoCount || 100);
-  const lastPositionsRef = useRef<PhotoWithPosition[]>([]);
-  
-  const currentPhotoIds = useMemo(() => 
-    (photos || []).map(p => p.id).sort().join(','), 
-    [photos]
-  );
-  
-  const lastPhotoIds = useRef(currentPhotoIds);
+  const lastPositionsRef = useRef<PhotoWithPosition[]>([]);  
   const animationFrameRef = useRef<number>();
   
+  // OPTIMIZED: Removed photo ID tracking and slot assignment from updatePositions
   const updatePositions = useCallback((time: number = 0) => {
     try {
       const safePhotos = Array.isArray(photos) ? photos.filter(p => p && p.id) : [];
       const safeSettings = settings || {};
 
-      // Get STABLE slot assignments - only new photos get new slots
-      const slotAssignments = slotManagerRef.current.assignSlots(safePhotos);
+      // Use existing slot assignments instead of recalculating every frame
+      const slotAssignments = new Map(slotManagerRef.current.slotAssignments);
       
       // Generate pattern positions with error handling
       let patternState;
@@ -472,34 +466,23 @@ const AnimationController: React.FC<{
     }
   }, [photos, settings, onPositionsUpdate]);
 
-  // CRITICAL FIX: Only update immediately for photo count changes, not photo additions
+  // OPTIMIZED: Combined effects for photo count and photo list changes
   useEffect(() => {
-    const photoCountChanged = (settings.photoCount || 100) !== lastPhotoCount.current;
-    
-    if (photoCountChanged) {
-      console.log('📊 PHOTO COUNT CHANGED: Force update');
+    // Update slot count when photo count changes
+    if ((settings.photoCount || 100) !== lastPhotoCount.current) {
+      console.log('📊 PHOTO COUNT CHANGED: Updating slot count');
       slotManagerRef.current.updateSlotCount(settings.photoCount || 100);
       lastPhotoCount.current = settings.photoCount || 100;
-      updatePositions(0);
     }
-  }, [settings.photoCount, updatePositions]);
-
-  // ENHANCED: Handle photo changes without immediate position updates (prevents jumping)
-  useEffect(() => {
-    if (currentPhotoIds !== lastPhotoIds.current) {
-      console.log('📷 PHOTOS CHANGED: New upload detected - using gradual update');
-      console.log('📷 Old IDs:', lastPhotoIds.current);
-      console.log('📷 New IDs:', currentPhotoIds);
-      
-      // CRITICAL FIX: Don't force immediate position update
-      // Let the natural animation frame handle the change gradually
-      lastPhotoIds.current = currentPhotoIds;
-      
-      // Update slot assignments immediately but don't force position recalculation
-      const safePhotos = Array.isArray(photos) ? photos.filter(p => p && p.id) : [];
-      slotManagerRef.current.assignSlots(safePhotos);
-    }
-  }, [currentPhotoIds, photos]);
+    
+    // Update slot assignments when photos change
+    console.log('📷 Updating slot assignments for', photos.length, 'photos');
+    const safePhotos = Array.isArray(photos) ? photos.filter(p => p && p.id) : [];
+    slotManagerRef.current.assignSlots(safePhotos);
+    
+    // Force an immediate position update after slot assignments change
+    updatePositions(0);
+  }, [photos, settings.photoCount, updatePositions]);
 
   // Regular animation updates
   useFrame((state) => {
