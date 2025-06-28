@@ -1,7 +1,7 @@
 // src/pages/PhotoboothPage.tsx - FIXED: Mobile zoom prevention & larger capture button
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowRight, Camera, SwitchCamera, Download, Send, X, RefreshCw, Type, ArrowLeft, Settings, Video, Edit, Check } from 'lucide-react';
+import { ArrowRight, Camera, SwitchCamera, Download, Send, X, RefreshCw, Type, ArrowLeft, Settings, Video, Edit, Check, Move, ZoomIn, ZoomOut } from 'lucide-react';
 import { useCollageStore, Photo } from '../store/collageStore';
 import MobileVideoRecorder from '../components/video/MobileVideoRecorder';
 
@@ -32,6 +32,11 @@ const PhotoboothPage: React.FC = () => {
   
   const [isEditingText, setIsEditingText] = useState(false);
   const [editedText, setEditedText] = useState('');
+  const [textPosition, setTextPosition] = useState({ x: 50, y: 50 }); // Percentage values (center by default)
+  const [textSize, setTextSize] = useState(100); // Percentage of base size (100% = normal)
+  const [isDraggingText, setIsDraggingText] = useState(false);
+  const textContainerRef = useRef<HTMLDivElement>(null);
+  const photoContainerRef = useRef<HTMLDivElement>(null);
   
   const [showError, setShowError] = useState(false);
   const { currentCollage, fetchCollageByCode, uploadPhoto, setupRealtimeSubscription, cleanupRealtimeSubscription, loading, error: storeError, photos } = useCollageStore();
@@ -423,7 +428,7 @@ const PhotoboothPage: React.FC = () => {
   }, [text, cameraState, cleanupCamera]);
 
   const applyTextToPhoto = useCallback(() => {
-    if (!photo || !canvasRef.current) return;
+    if (!photo || !canvasRef.current || !editedText.trim()) return;
     
     const canvas = canvasRef.current;
     const context = canvas.getContext('2d');
@@ -432,6 +437,7 @@ const PhotoboothPage: React.FC = () => {
     // Load the current photo onto the canvas
     const img = new Image();
     img.onload = () => {
+      // Set canvas dimensions to match the image
       // Clear canvas and draw the image
       context.clearRect(0, 0, canvas.width, canvas.height);
       canvas.width = img.width;
@@ -439,15 +445,16 @@ const PhotoboothPage: React.FC = () => {
       context.drawImage(img, 0, 0, canvas.width, canvas.height);
       
       // Add text overlay if provided with dynamic sizing
-      if (editedText.trim()) {
+      if (editedText.trim()) {  
         // Dynamic font size calculation - starts large and gets smaller with longer text
         const baseSize = Math.min(canvas.width, canvas.height) * 0.12; // Larger base size
-        const dynamicSize = Math.max(baseSize * 0.4, baseSize - (editedText.length * 1.5)); // Dynamic scaling
+        // Apply the user's size adjustment (textSize is a percentage)
+        const dynamicSize = Math.max(baseSize * 0.4, baseSize - (editedText.length * 1.5)) * (textSize / 100); // Dynamic scaling with user size
         const fontSize = dynamicSize;
         
         context.font = `bold ${fontSize}px Arial`;
-        context.textAlign = 'center';
-        context.textBaseline = 'middle';
+        context.textAlign = 'center'; 
+        context.textBaseline = 'middle'; 
         
         // Enhanced shadow for better readability
         context.shadowColor = 'rgba(0,0,0,0.9)';
@@ -463,6 +470,7 @@ const PhotoboothPage: React.FC = () => {
         // Split text into lines if too long
         const maxWidth = canvas.width * 0.85; // Slightly more padding
         const words = editedText.split(' ');
+        
         const lines: string[] = [];
         let currentLine = words[0] || '';
 
@@ -479,13 +487,16 @@ const PhotoboothPage: React.FC = () => {
         if (currentLine) lines.push(currentLine);
 
         // Draw each line with improved spacing
+        // Calculate position based on the user's dragged position (textPosition is in percentages)
         const lineHeight = fontSize * 1.1;
         const totalHeight = lines.length * lineHeight;
-        const startY = (canvas.height - totalHeight) / 2 + fontSize / 2;
+        const textX = (canvas.width * textPosition.x) / 100;
+        const textY = (canvas.height * textPosition.y) / 100;
+        const startY = textY - (totalHeight / 2) + fontSize / 2;
 
         lines.forEach((line, index) => {
           const textY = startY + index * lineHeight;
-          const textX = canvas.width / 2;
+          // Use the x position from the user's dragging
           
           // Draw outline first
           context.strokeText(line, textX, textY);
@@ -503,6 +514,7 @@ const PhotoboothPage: React.FC = () => {
       // Update the photo with the new text
       const dataUrl = canvas.toDataURL('image/jpeg', 1.0);
       setPhoto(dataUrl);
+      // Reset editing state but keep text position and size for future edits
       setIsEditingText(false);
     };
     
@@ -558,6 +570,8 @@ const PhotoboothPage: React.FC = () => {
     setPhoto(null);
     setText('');
     setEditedText('');
+    setTextPosition({ x: 50, y: 50 }); // Reset text position to center
+    setTextSize(100); // Reset text size to default
     setIsEditingText(false);
     
     // Restart camera immediately
@@ -566,6 +580,84 @@ const PhotoboothPage: React.FC = () => {
       startCamera(selectedDevice);
     }, 100);
   }, [startCamera, selectedDevice]);
+
+  // Handle text dragging
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (!photoContainerRef.current || !textContainerRef.current) return;
+    setIsDraggingText(true);
+    
+    // Prevent default behavior to avoid text selection during drag
+    e.preventDefault();
+  }, []);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (!photoContainerRef.current || !textContainerRef.current) return;
+    setIsDraggingText(true);
+    
+    // Prevent default behavior to avoid scrolling during drag
+    e.preventDefault();
+  }, []);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!isDraggingText || !photoContainerRef.current) return;
+    
+    const photoRect = photoContainerRef.current.getBoundingClientRect();
+    
+    // Calculate position as percentage of container dimensions
+    const x = ((e.clientX - photoRect.left) / photoRect.width) * 100;
+    const y = ((e.clientY - photoRect.top) / photoRect.height) * 100;
+    
+    // Clamp values to stay within the photo (with some padding)
+    const clampedX = Math.max(10, Math.min(90, x));
+    const clampedY = Math.max(10, Math.min(90, y));
+    
+    setTextPosition({ x: clampedX, y: clampedY });
+  }, [isDraggingText]);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!isDraggingText || !photoContainerRef.current || e.touches.length === 0) return;
+    
+    const touch = e.touches[0];
+    const photoRect = photoContainerRef.current.getBoundingClientRect();
+    
+    // Calculate position as percentage of container dimensions
+    const x = ((touch.clientX - photoRect.left) / photoRect.width) * 100;
+    const y = ((touch.clientY - photoRect.top) / photoRect.height) * 100;
+    
+    // Clamp values to stay within the photo (with some padding)
+    const clampedX = Math.max(10, Math.min(90, x));
+    const clampedY = Math.max(10, Math.min(90, y));
+    
+    setTextPosition({ x: clampedX, y: clampedY });
+    
+    // Prevent default to avoid scrolling
+    e.preventDefault();
+  }, [isDraggingText]);
+
+  const handleMouseUp = useCallback(() => {
+    setIsDraggingText(false);
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    setIsDraggingText(false);
+  }, []);
+
+  // Add and remove event listeners for drag operations
+  useEffect(() => {
+    if (isEditingText) {
+      document.addEventListener('mousemove', handleMouseMove as any);
+      document.addEventListener('mouseup', handleMouseUp);
+      document.addEventListener('touchmove', handleTouchMove as any, { passive: false });
+      document.addEventListener('touchend', handleTouchEnd);
+    }
+    
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove as any);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('touchmove', handleTouchMove as any);
+      document.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [isEditingText, handleMouseMove, handleMouseUp, handleTouchMove, handleTouchEnd]);
 
   // FIXED: Load collage on mount with normalized (uppercase) code
   useEffect(() => {
@@ -767,7 +859,7 @@ const PhotoboothPage: React.FC = () => {
             <div className="bg-gray-900 rounded-lg overflow-hidden w-full max-w-xs sm:max-w-sm lg:max-w-md">
               {photo ? (
                 /* Photo Preview - 9:16 aspect ratio */
-                <div className="relative aspect-[9/16]">
+                <div ref={photoContainerRef} className="relative aspect-[9/16]">
                   <img 
                     src={photo} 
                     alt="Captured photo"
@@ -776,7 +868,7 @@ const PhotoboothPage: React.FC = () => {
                   
                   {/* Photo Controls Overlay */}
                   {isEditingText ? (
-                    <div className="absolute inset-0 bg-black/70 flex flex-col p-4">
+                    <div className="absolute inset-0 bg-black/70 flex flex-col p-4 overflow-hidden">
                       <h3 className="text-white text-lg font-bold mb-4">Add Text to Photo</h3>
                       <textarea
                         value={editedText}
@@ -786,6 +878,7 @@ const PhotoboothPage: React.FC = () => {
                         style={{ fontSize: '16px' }}
                         maxLength={100}
                       />
+                      
                       <div className="flex justify-between items-center">
                         <span className="text-xs text-gray-300">
                           {editedText.length}/100
@@ -807,6 +900,62 @@ const PhotoboothPage: React.FC = () => {
                           </button>
                         </div>
                       </div>
+                      
+                      {/* Text preview with drag handle */}
+                      {editedText.trim() && (
+                        <div className="mt-4 relative">
+                          <div className="text-white text-sm mb-2 flex items-center">
+                            <Move className="w-4 h-4 mr-1" /> Drag text to position • 
+                            <span className="mx-1">Size:</span>
+                            <button 
+                              onClick={() => setTextSize(Math.max(50, textSize - 10))}
+                              className="p-1 bg-gray-700 rounded-full mx-1"
+                              title="Decrease size"
+                            >
+                              <ZoomOut className="w-3 h-3" />
+                            </button>
+                            <span className="mx-1">{textSize}%</span>
+                            <button 
+                              onClick={() => setTextSize(Math.min(200, textSize + 10))}
+                              className="p-1 bg-gray-700 rounded-full mx-1"
+                              title="Increase size"
+                            >
+                              <ZoomIn className="w-3 h-3" />
+                            </button>
+                          </div>
+                          
+                          {/* Draggable text preview */}
+                          <div 
+                            ref={textContainerRef}
+                            className={`absolute cursor-move ${isDraggingText ? 'opacity-70' : 'opacity-100'}`}
+                            style={{
+                              left: `${textPosition.x}%`,
+                              top: `${textPosition.y}%`,
+                              transform: 'translate(-50%, -50%)',
+                              maxWidth: '90%',
+                              touchAction: 'none'
+                            }}
+                            onMouseDown={handleMouseDown}
+                            onTouchStart={handleTouchStart}
+                          >
+                            <div 
+                              className="text-white font-bold text-center px-4 py-3 bg-black/60 backdrop-blur-sm rounded-xl border border-white/20"
+                              style={{ 
+                                fontSize: `${Math.max(1, 2.5 * (textSize / 100))}rem`,
+                                textShadow: '3px 3px 6px rgba(0,0,0,0.9), 0 0 20px rgba(0,0,0,0.5)',
+                                lineHeight: '1.2',
+                                whiteSpace: 'pre-wrap',
+                                wordBreak: 'break-word'
+                              }}
+                            >
+                              {editedText}
+                            </div>
+                            <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-purple-600 text-white text-xs px-2 py-1 rounded-full flex items-center">
+                              <Move className="w-3 h-3 mr-1" /> Drag
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div className="absolute bottom-3 left-3 right-3">
@@ -1028,9 +1177,10 @@ const PhotoboothPage: React.FC = () => {
                 <p>1. Allow camera access when prompted</p>
                 <p>2. If camera doesn't start, tap "Start Camera"</p>
                 <p>3. Add text in the field above the capture button (optional)</p>
-                <p>4. Tap the large white button to take a photo</p>
-                <p>5. Add or edit text on your photo (optional)</p>
-                <p>6. Review and upload to the collage</p>
+                <p>4. Tap the large white button to take a photo</p> 
+                <p>5. Add or edit text on your photo (optional)</p> 
+                <p>6. Drag text to position it and resize as needed</p>
+                <p>7. Review and upload to the collage</p>
               </div>
             </div>
 
@@ -1041,8 +1191,8 @@ const PhotoboothPage: React.FC = () => {
                 <p>• Hold your device steady for clearer photos</p>
                 <p>• You can add text before or after taking a photo</p>
                 <p>• Make sure you have good lighting</p>
-                <p>• Text gets larger with shorter messages</p>
-                <p>• Edit text after taking the photo for perfect placement</p>
+                <p>• Drag text to position it anywhere on the photo</p>
+                <p>• Use the size controls to make text larger or smaller</p>
                 <p>• Photos appear in the collage automatically</p>
               </div>
             </div>
