@@ -1,29 +1,3 @@
-/* Instagram Stories-style slider */
-.slider::-webkit-slider-thumb {
-  appearance: none;
-  height: 20px;
-  width: 20px;
-  border-radius: 50%;
-  background: #ffffff;
-  cursor: pointer;
-  border: 2px solid #000;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-}
-
-.slider::-moz-range-thumb {
-  height: 20px;
-  width: 20px;
-  border-radius: 50%;
-  background: #ffffff;
-  cursor: pointer;
-  border: 2px solid #000;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-}
-
-.safe-area-pb {
-  padding-bottom: env(safe-area-inset-bottom);
-}
-
 // src/pages/PhotoboothPage.tsx - COMPLETE with Instagram Story-like text editing
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
