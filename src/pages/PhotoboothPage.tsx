@@ -28,6 +28,7 @@ const PhotoboothPage: React.FC = () => {
   const [uploading, setUploading] = useState(false);
   const [showVideoRecorder, setShowVideoRecorder] = useState(false);
   const [cameraState, setCameraState] = useState<CameraState>('idle');
+  const [recordingResolution, setRecordingResolution] = useState({ width: 1920, height: 1080 });
   
   const [showError, setShowError] = useState(false);
   const { currentCollage, fetchCollageByCode, uploadPhoto, setupRealtimeSubscription, cleanupRealtimeSubscription, loading, error: storeError, photos } = useCollageStore();
@@ -730,6 +731,17 @@ const PhotoboothPage: React.FC = () => {
                       </button>
                     </div>
                   </div>
+                  
+                  {/* Video Recording */}
+                  {photo && (
+                    <button
+                      onClick={() => setShowVideoRecorder(!showVideoRecorder)}
+                      className="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors flex items-center space-x-2 text-sm"
+                    >
+                      <Video className="w-4 h-4" />
+                      <span>Record Video</span>
+                    </button>
+                  )}
                 </div>
               ) : (
                 /* Camera View - 9:16 aspect ratio */
@@ -936,6 +948,7 @@ const PhotoboothPage: React.FC = () => {
           <MobileVideoRecorder 
             canvasRef={canvasRef} 
             onClose={() => setShowVideoRecorder(false)}
+            onResolutionChange={(width, height) => setRecordingResolution({ width, height })}
           />
         </div>
       )}
