@@ -7,6 +7,7 @@ import { type SceneSettings } from '../../store/sceneStore';
 import { PatternFactory } from './patterns/PatternFactory';
 import { addCacheBustToUrl } from '../../lib/supabase';
 import { CameraAnimationController } from './CameraAnimationController';
+import { useEffect as useLayoutEffect } from 'react';
 
 type Photo = {
   id: string;
@@ -905,6 +906,8 @@ const CollageScene = forwardRef<HTMLCanvasElement, CollageSceneProps>(({ photos,
     <div style={backgroundStyle} className="w-full h-full">
       <Canvas 
         ref={canvasRef}
+        width={1920}
+        height={1080}
         shadows={safeSettings.shadowsEnabled}
         camera={{ 
           position: [0, 0, 20], 
@@ -927,7 +930,8 @@ const CollageScene = forwardRef<HTMLCanvasElement, CollageSceneProps>(({ photos,
           state.gl.shadowMap.enabled = true;
           state.gl.shadowMap.type = THREE.PCFSoftShadowMap;
           state.gl.shadowMap.autoUpdate = true;
-          state.gl.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+          // Use a fixed pixel ratio of 1 for recording to ensure consistent quality
+          state.gl.setPixelRatio(1);
         }}
         performance={{ min: 0.8 }}
         linear={true}
