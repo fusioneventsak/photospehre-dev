@@ -512,7 +512,10 @@ const PhotoboothPage: React.FC = () => {
   }, [textElements, initialScale, updateTextElement]);
 
   const capturePhoto = useCallback(() => {
-    if (!videoRef.current || !canvasRef.current || cameraState !== 'active') return;
+    if (!videoRef.current || !canvasRef.current || cameraState !== 'active') {
+      console.log('❌ Cannot capture: missing refs or camera not active');
+      return;
+    }
 
     setIsEditingText(false);
     
@@ -520,9 +523,22 @@ const PhotoboothPage: React.FC = () => {
     const canvas = canvasRef.current;
     const context = canvas.getContext('2d');
 
-    if (!context) return;
+    if (!context) {
+      console.log('❌ Cannot get canvas context');
+      return;
+    }
 
-    console.log('📸 Capturing photo with text elements:', textElements.length);
+    console.log('📸 Starting photo capture...');
+    console.log('🎨 Text elements to render:', textElements.length);
+    textElements.forEach((element, index) => {
+      console.log(`📝 Element ${index}:`, {
+        text: element.text,
+        position: element.position,
+        size: element.size,
+        color: element.color,
+        style: element.style.name
+      });
+    });
 
     const targetAspectRatio = 9 / 16;
     const videoAspectRatio = video.videoWidth / video.videoHeight;
@@ -543,33 +559,45 @@ const PhotoboothPage: React.FC = () => {
 
     const canvasWidth = 540;
     const canvasHeight = 960;
+    
+    console.log('🖼️ Setting canvas size:', canvasWidth, 'x', canvasHeight);
     canvas.width = canvasWidth;
     canvas.height = canvasHeight;
 
-    // Clear canvas and draw video frame
+    // Clear canvas completely
     context.clearRect(0, 0, canvasWidth, canvasHeight);
+    console.log('🧹 Canvas cleared');
+    
+    // Draw video frame
     context.drawImage(
       video,
       sourceX, sourceY, sourceWidth, sourceHeight,
       0, 0, canvasWidth, canvasHeight
     );
+    console.log('📹 Video frame drawn to canvas');
 
-    console.log('🎨 Drawing', textElements.length, 'text elements on canvas');
-
-    // Render text elements on canvas with enhanced 3D effects
-    textElements.forEach(element => {
-      if (!element.text) return; // Skip empty text elements
+    // Render text elements with detailed logging
+    console.log('🎨 Starting text rendering...');
+    textElements.forEach((element, index) => {
+      if (!element.text || element.text.trim() === '') {
+        console.log(`⏭️ Skipping empty text element ${index}`);
+        return;
+      }
+      
+      console.log(`✏️ Rendering text element ${index}: "${element.text}"`);
       
       const x = (element.position.x / 100) * canvasWidth;
       const y = (element.position.y / 100) * canvasHeight;
-      const fontSize = element.size * element.scale;
+      const fontSize = element.size * (element.scale || 1);
+      
+      console.log(`📍 Position: (${x}, ${y}), Font size: ${fontSize}px`);
       
       context.save();
       context.translate(x, y);
-      context.rotate((element.rotation * Math.PI) / 180);
+      context.rotate((element.rotation || 0) * Math.PI / 180);
       
-      context.font = `bold ${fontSize}px ${element.style.fontFamily}`;
-      context.textAlign = element.style.align;
+      context.font = `bold ${fontSize}px ${element.style.fontFamily || 'Arial'}`;
+      context.textAlign = element.style.align || 'center';
       context.textBaseline = 'middle';
       
       // Handle text with line breaks
@@ -577,13 +605,16 @@ const PhotoboothPage: React.FC = () => {
       const lineHeight = fontSize * 1.2;
       const startY = -(lines.length - 1) * lineHeight / 2;
       
-      // Handle background for each line if needed
-      if (element.style.backgroundColor !== 'transparent' && element.style.padding > 0) {
+      console.log(`📄 Text has ${lines.length} lines`);
+      
+      // Draw background if needed
+      if (element.style.backgroundColor && element.style.backgroundColor !== 'transparent' && element.style.padding > 0) {
+        console.log(`🎨 Drawing background: ${element.style.backgroundColor}`);
         const padding = element.style.padding;
-        context.fillStyle = `${element.style.backgroundColor}${Math.round(element.style.backgroundOpacity * 255).toString(16).padStart(2, '0')}`;
+        context.fillStyle = element.style.backgroundColor;
         
-        lines.forEach((line, index) => {
-          const lineY = startY + index * lineHeight;
+        lines.forEach((line, lineIndex) => {
+          const lineY = startY + lineIndex * lineHeight;
           const metrics = context.measureText(line);
           let bgX = -metrics.width/2 - padding;
           if (element.style.align === 'left') bgX = -padding;
@@ -598,23 +629,23 @@ const PhotoboothPage: React.FC = () => {
         });
       }
       
-      lines.forEach((line, index) => {
-        const lineY = startY + index * lineHeight;
+      // Draw each line of text
+      lines.forEach((line, lineIndex) => {
+        const lineY = startY + lineIndex * lineHeight;
+        console.log(`✍️ Drawing line ${lineIndex}: "${line}" at y=${lineY}`);
         
-        // Enhanced 3D shadow and outline effects
+        // Draw outline/shadow
         if (element.style.outline) {
-          // Multiple shadow layers for 3D depth
+          console.log('🖌️ Drawing outline');
           context.shadowColor = 'rgba(0,0,0,0.9)';
           context.shadowBlur = 12;
           context.shadowOffsetX = 4;
           context.shadowOffsetY = 4;
           
-          // Thick black outline
           context.strokeStyle = 'black';
           context.lineWidth = fontSize * 0.12;
           context.strokeText(line, 0, lineY);
           
-          // Additional inner outline for more definition
           context.shadowColor = 'rgba(0,0,0,0.8)';
           context.shadowBlur = 6;
           context.shadowOffsetX = 2;
@@ -623,7 +654,7 @@ const PhotoboothPage: React.FC = () => {
           context.lineWidth = fontSize * 0.06;
           context.strokeText(line, 0, lineY);
         } else {
-          // Enhanced shadow for non-outlined text
+          console.log('🌫️ Drawing shadow');
           context.shadowColor = 'rgba(0,0,0,0.8)';
           context.shadowBlur = 8;
           context.shadowOffsetX = 3;
@@ -631,10 +662,11 @@ const PhotoboothPage: React.FC = () => {
         }
         
         // Draw main text
+        console.log(`🎨 Drawing text with color: ${element.color}`);
         context.fillStyle = element.color;
         context.fillText(line, 0, lineY);
         
-        // Reset shadow for next line
+        // Reset shadow
         context.shadowColor = 'transparent';
         context.shadowBlur = 0;
         context.shadowOffsetX = 0;
@@ -642,15 +674,21 @@ const PhotoboothPage: React.FC = () => {
       });
       
       context.restore();
+      console.log(`✅ Finished rendering element ${index}`);
     });
 
+    console.log('🎨 Text rendering complete');
+    
+    // Convert to image
     const dataUrl = canvas.toDataURL('image/jpeg', 1.0);
+    console.log('📸 Canvas converted to data URL, length:', dataUrl.length);
+    
     setPhoto(dataUrl);
     setTextPosition({ x: 50, y: 50 });
     setTextSize(24);
     cleanupCamera();
     
-    console.log('✅ Photo captured with text elements rendered to canvas');
+    console.log('✅ Photo capture complete with', textElements.length, 'text elements');
   }, [textElements, cameraState, cleanupCamera]);
 
   const uploadToCollage = useCallback(async () => {
