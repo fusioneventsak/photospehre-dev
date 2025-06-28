@@ -1158,50 +1158,6 @@ const PhotoboothPage: React.FC = () => {
           </div>
 
           <div className="w-full lg:w-72 space-y-4 lg:space-y-6">
-            {/* TEXT STYLING PANEL - INLINE APPROACH */}
-            {showTextStylePanel && selectedTextId && (
-              <div className="bg-red-500 p-6 rounded-lg">
-                <h3 className="text-white text-lg font-bold mb-4">🎨 Text Styling Panel</h3>
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-white text-sm font-medium mb-2 block">Size</label>
-                    <input
-                      type="range"
-                      min="16"
-                      max="72"
-                      value={textElements.find(el => el.id === selectedTextId)?.size || 32}
-                      onChange={(e) => updateTextElement(selectedTextId, { size: parseInt(e.target.value) })}
-                      className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer"
-                    />
-                    <span className="text-white text-sm">
-                      {textElements.find(el => el.id === selectedTextId)?.size || 32}px
-                    </span>
-                  </div>
-                  
-                  <div>
-                    <label className="text-white text-sm font-medium mb-2 block">Color</label>
-                    <div className="grid grid-cols-5 gap-2">
-                      {colorPresets.map((color) => (
-                        <button
-                          key={color}
-                          onClick={() => updateTextElement(selectedTextId, { color })}
-                          className="w-8 h-8 rounded-full border-2 border-white"
-                          style={{ backgroundColor: color }}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                  
-                  <button
-                    onClick={() => setShowTextStylePanel(false)}
-                    className="w-full py-2 bg-white text-black rounded-lg font-semibold"
-                  >
-                    Close Panel
-                  </button>
-                </div>
-              </div>
-            )}
-
             {/* DEBUG: Show panel state in sidebar */}
             <div className="bg-yellow-500 p-4 rounded-lg">
               <h3 className="text-black font-bold">DEBUG INFO</h3>
