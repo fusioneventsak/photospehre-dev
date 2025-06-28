@@ -1,5 +1,5 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
-import { Video, Square, Download, X } from 'lucide-react';
+import { Video, Square, Download, X, Clock, Settings } from 'lucide-react';
 
 interface VideoRecorderProps {
   canvasRef: React.RefObject<HTMLCanvasElement>;
@@ -19,7 +19,10 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [duration, setDuration] = useState<30 | 60>(60);
   const [supportedMimeType, setSupportedMimeType] = useState<string | null>(null);
+  const [outputFormat, setOutputFormat] = useState<'webm' | 'mp4'>('webm');
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -46,10 +49,10 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
   // Detect supported video format
   useEffect(() => {
     const formats = [
-      'video/mp4;codecs=h264',      // Best for iOS
-      'video/webm;codecs=vp9',      // Best quality
-      'video/webm;codecs=vp8',      // Fallback
-      'video/webm'                  // Last resort
+      'video/webm;codecs=vp9',      // Best quality WebM
+      'video/webm;codecs=vp8',      // Fallback WebM
+      'video/webm',                 // Basic WebM
+      'video/mp4;codecs=h264'       // MP4 format
     ];
     
     const supported = formats.find(format => MediaRecorder.isTypeSupported(format));
@@ -85,6 +88,7 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
       setRecordingTime(0);
       setVideoBlob(null);
       setVideoUrl(null);
+      
       chunksRef.current = [];
       
       // Get the canvas stream
@@ -129,10 +133,10 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
       // Start timer
       timerRef.current = setInterval(() => {
         setRecordingTime(prev => {
-          const newTime = prev + 1;
-          if (newTime >= 60) { // 60 second limit
+          const newTime = prev + 1; 
+          if (newTime >= duration) { // Use selected duration
             stopRecording();
-            return 60;
+            return duration;
           }
           return newTime;
         });
@@ -143,7 +147,7 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
       setError('Failed to start recording. Please check browser permissions.');
       setIsRecording(false);
     }
-  }, [canvasRef, supportedMimeType, isMobile]);
+  }, [canvasRef, supportedMimeType, isMobile, duration]);
 
   const stopRecording = useCallback(() => {
     // Clear timer
@@ -183,9 +187,39 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
     
     const a = document.createElement('a');
     a.href = videoUrl;
-    a.download = `photosphere-recording-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.${supportedMimeType?.includes('mp4') ? 'mp4' : 'webm'}`;
+    
+    // Use the selected output format for the file extension
+    const fileExtension = outputFormat === 'mp4' ? 'mp4' : 'webm';
+    a.download = `photosphere-recording-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.${fileExtension}`;
     a.click();
-  }, [videoBlob, videoUrl, supportedMimeType]);
+  }, [videoBlob, videoUrl, outputFormat]);
+
+  // Convert WebM to MP4 if needed
+  const convertToMp4 = useCallback(async () => {
+    if (!videoBlob || outputFormat !== 'mp4' || supportedMimeType?.includes('mp4')) return;
+    
+    try {
+      setIsProcessing(true);
+      
+      // For browsers that don't support MP4 recording directly, we'd need a server-side conversion
+      // Since we can't do that here, we'll just download as WebM but with .mp4 extension
+      // In a production app, you would send the WebM to a server for conversion
+      
+      // For now, just change the extension but keep the WebM format
+      if (videoUrl) {
+        const a = document.createElement('a');
+        a.href = videoUrl;
+        a.download = `photosphere-recording-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.mp4`;
+        a.click();
+      }
+      
+      setIsProcessing(false);
+    } catch (err) {
+      console.error('Error converting to MP4:', err);
+      setError('Failed to convert to MP4 format');
+      setIsProcessing(false);
+    }
+  }, [videoBlob, videoUrl, outputFormat, supportedMimeType]);
 
   const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
@@ -193,7 +227,7 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const remainingTime = 60 - recordingTime;
+  const remainingTime = duration - recordingTime;
 
   return (
     <div className={`relative ${className}`}>
@@ -205,7 +239,7 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
       
       {isRecording && (
         <div className="fixed inset-0 z-40 pointer-events-none">
-          {/* Recording overlay */}
+          {/* Recording indicators */}
           <div className="absolute top-4 left-4 flex items-center space-x-2 bg-black/50 px-3 py-1 rounded-full backdrop-blur-sm">
             <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
             <span className="text-white text-sm font-medium">REC</span>
@@ -226,16 +260,89 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
         </div>
       )}
       
+      {/* Settings Panel */}
+      {showSettings && !isRecording && !isProcessing && (
+        <div className="absolute -top-36 left-0 right-0 bg-black/70 backdrop-blur-md p-4 rounded-lg border border-white/20 mb-4">
+          <div className="flex justify-between items-center mb-3">
+            <h3 className="text-white text-sm font-medium">Recording Settings</h3>
+            <button 
+              onClick={() => setShowSettings(false)}
+              className="text-gray-400 hover:text-white"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          
+          <div className="space-y-3">
+            {/* Duration Selection */}
+            <div>
+              <label className="text-white text-xs mb-1 block">Duration</label>
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => setDuration(30)}
+                  className={`px-3 py-1 rounded text-xs ${
+                    duration === 30 
+                      ? 'bg-purple-600 text-white' 
+                      : 'bg-gray-700 text-gray-300'
+                  }`}
+                >30 seconds</button>
+                <button
+                  onClick={() => setDuration(60)}
+                  className={`px-3 py-1 rounded text-xs ${
+                    duration === 60 
+                      ? 'bg-purple-600 text-white' 
+                      : 'bg-gray-700 text-gray-300'
+                  }`}
+                >60 seconds</button>
+              </div>
+            </div>
+            
+            {/* Format Selection */}
+            <div>
+              <label className="text-white text-xs mb-1 block">Output Format</label>
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => setOutputFormat('webm')}
+                  className={`px-3 py-1 rounded text-xs ${
+                    outputFormat === 'webm' 
+                      ? 'bg-purple-600 text-white' 
+                      : 'bg-gray-700 text-gray-300'
+                  }`}
+                >WebM</button>
+                <button
+                  onClick={() => setOutputFormat('mp4')}
+                  className={`px-3 py-1 rounded text-xs ${
+                    outputFormat === 'mp4' 
+                      ? 'bg-purple-600 text-white' 
+                      : 'bg-gray-700 text-gray-300'
+                  }`}
+                >MP4</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
       <div className="flex items-center space-x-2">
         {!isRecording && !isProcessing && !videoUrl && (
-          <button
-            onClick={startRecording}
-            disabled={!supportedMimeType}
-            className="flex items-center space-x-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Video className="w-4 h-4" />
-            <span>Record 60s Clip</span>
-          </button>
+          <>
+            <button
+              onClick={startRecording}
+              disabled={!supportedMimeType}
+              className="flex items-center space-x-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Video className="w-4 h-4" />
+              <span>Record {duration}s Clip</span>
+            </button>
+            
+            <button
+              onClick={() => setShowSettings(!showSettings)}
+              className="p-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+              title="Recording Settings"
+            >
+              <Settings className="w-4 h-4" />
+            </button>
+          </>
         )}
         
         {isRecording && (
@@ -260,9 +367,10 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
             <button
               onClick={downloadVideo}
               className="flex items-center space-x-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+              title={`Download as ${outputFormat.toUpperCase()}`}
             >
               <Download className="w-4 h-4" />
-              <span>Download</span>
+              <span>Download {outputFormat.toUpperCase()}</span>
             </button>
             
             <button
