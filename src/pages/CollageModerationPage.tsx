@@ -50,6 +50,7 @@ const CollageModerationPage: React.FC = () => {
   const [showDebugPanel, setShowDebugPanel] = useState(false);
   const [showVideoRecorder, setShowVideoRecorder] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [recordingResolution, setRecordingResolution] = useState({ width: 1920, height: 1080 });
 
   // DEBUG: Log photos changes in moderation
   useEffect(() => {
@@ -421,6 +422,7 @@ const CollageModerationPage: React.FC = () => {
           <MobileVideoRecorder 
             canvasRef={canvasRef} 
             onClose={() => setShowVideoRecorder(false)}
+            onResolutionChange={(width, height) => setRecordingResolution({ width, height })}
           />
         </div>
       )}
