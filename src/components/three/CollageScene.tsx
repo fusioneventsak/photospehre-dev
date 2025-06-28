@@ -687,8 +687,6 @@ const PhotoMesh: React.FC<{
     const handleLoad = (loadedTexture: THREE.Texture) => {
       // Enable mipmaps for better texture quality at different distances
       loadedTexture.generateMipmaps = true;
-      // Enable mipmaps for better texture quality at different distances
-      loadedTexture.generateMipmaps = true;
       loadedTexture.minFilter = THREE.LinearFilter;
       loadedTexture.magFilter = THREE.LinearFilter;
       loadedTexture.format = THREE.RGBAFormat;
@@ -697,12 +695,7 @@ const PhotoMesh: React.FC<{
       if (gl && gl.capabilities.getMaxAnisotropy) {
         loadedTexture.anisotropy = gl.capabilities.getMaxAnisotropy();
       }
-      
-      // Apply anisotropic filtering for better quality at oblique angles
-      if (gl && gl.capabilities.getMaxAnisotropy) {
-        loadedTexture.anisotropy = gl.capabilities.getMaxAnisotropy();
-      }
-      
+
       setTexture(loadedTexture);
       setIsLoading(false);
     };
@@ -787,11 +780,7 @@ const PhotoMesh: React.FC<{
       // Enable high quality rendering for textures
       brightnessMaterial.toneMapped = false;
       brightnessMaterial.premultipliedAlpha = true;
-      
-      // Enable high quality rendering for textures
-      brightnessMaterial.toneMapped = false;
-      brightnessMaterial.premultipliedAlpha = true;
-      
+
       return brightnessMaterial;
     } else {
       // FIXED: Empty slot material using EXACT emptySlotColor setting
@@ -895,11 +884,7 @@ const PhotoDebugger: React.FC<{ photos: Photo[] }> = ({ photos }) => {
 const CollageScene = forwardRef<HTMLCanvasElement, CollageSceneProps>(({ photos, settings, width = 1920, height = 1080, onSettingsChange }, ref) => {
   const [photosWithPositions, setPhotosWithPositions] = useState<PhotoWithPosition[]>([]);
   const internalCanvasRef = useRef<HTMLCanvasElement>(null);
-  
-  // Combine the forwarded ref with our internal ref
-  const canvasRef = (ref || internalCanvasRef) as React.RefObject<HTMLCanvasElement>;
-  const internalCanvasRef = useRef<HTMLCanvasElement>(null);
-  
+
   // Combine the forwarded ref with our internal ref
   const canvasRef = (ref || internalCanvasRef) as React.RefObject<HTMLCanvasElement>;
 
@@ -937,9 +922,6 @@ const CollageScene = forwardRef<HTMLCanvasElement, CollageSceneProps>(({ photos,
         ref={canvasRef}
         width={width}
         height={height}
-        ref={canvasRef}
-        width={width}
-        height={height}
         shadows={safeSettings.shadowsEnabled}
         camera={{ 
           position: [0, 0, 20], 
@@ -963,8 +945,6 @@ const CollageScene = forwardRef<HTMLCanvasElement, CollageSceneProps>(({ photos,
           state.gl.shadowMap.type = THREE.PCFSoftShadowMap;
           state.gl.shadowMap.autoUpdate = true;
           // Use a fixed pixel ratio of 1 for recording to ensure consistent quality
-          // For 4K, we need a higher pixel ratio
-          state.gl.setPixelRatio(width > 1920 ? 2 : 1);
           // For 4K, we need a higher pixel ratio
           state.gl.setPixelRatio(width > 1920 ? 2 : 1);
         }}
@@ -998,7 +978,4 @@ const CollageScene = forwardRef<HTMLCanvasElement, CollageSceneProps>(({ photos,
 });
 
 CollageScene.displayName = 'CollageScene';
-
-CollageScene.displayName = 'CollageScene';
-
 export default CollageScene;

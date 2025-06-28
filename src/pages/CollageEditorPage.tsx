@@ -12,7 +12,6 @@ import PhotoUploader from '../components/collage/PhotoUploader';
 import CollagePhotos from '../components/collage/CollagePhotos';
 import RealtimeDebugPanel from '../components/debug/RealtimeDebugPanel';
 import MobileVideoRecorder from '../components/video/MobileVideoRecorder';
-import MobileVideoRecorder from '../components/video/MobileVideoRecorder';
 
 type Tab = 'settings' | 'photos';
 
@@ -59,12 +58,10 @@ const CollageEditorPage: React.FC = () => {
   
   const [activeTab, setActiveTab] = useState<Tab>('settings');
   const [showVideoRecorder, setShowVideoRecorder] = useState(false);
-  const [showVideoRecorder, setShowVideoRecorder] = useState(false);
   const [saving, setSaving] = useState(false);
   const saveTimeoutRef = useRef<NodeJS.Timeout>();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [recordingResolution, setRecordingResolution] = useState({ width: 1920, height: 1080 });
-  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // SAFETY: Ensure photos is always an array
   const safePhotos = Array.isArray(photos) ? photos : [];
@@ -399,7 +396,6 @@ const CollageEditorPage: React.FC = () => {
               >
                 <CollageScene
                   ref={canvasRef}
-                  ref={canvasRef}
                   photos={safePhotos}
                   settings={settings}
                   width={recordingResolution.width}
@@ -416,16 +412,6 @@ const CollageEditorPage: React.FC = () => {
       {import.meta.env.DEV && (
         <div className="fixed bottom-4 right-4 z-20 w-64">
           <RealtimeDebugPanel collageId={currentCollage?.id} />
-        </div>
-      )}
-      
-      {/* Video Recorder */}
-      {showVideoRecorder && (
-        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50 bg-black/50 backdrop-blur-md p-4 rounded-lg border border-white/20">
-          <MobileVideoRecorder 
-            canvasRef={canvasRef} 
-            onClose={() => setShowVideoRecorder(false)}
-          />
         </div>
       )}
       
