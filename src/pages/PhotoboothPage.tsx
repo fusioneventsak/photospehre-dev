@@ -666,7 +666,9 @@ const PhotoboothPage: React.FC = () => {
             handleTextInteractionStart(e, element.id);
           }
         }}
-        onClick={() => {
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
           // Single click/tap to select and edit
           setSelectedTextId(element.id);
           if (!isEditingText) {
@@ -981,9 +983,11 @@ const PhotoboothPage: React.FC = () => {
                     
                     {selectedTextId && (
                       <button
-                        onClick={() => {
-                          console.log('Palette clicked, current showTextStylePanel:', showTextStylePanel);
-                          setShowTextStylePanel(!showTextStylePanel);
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          console.log('Palette clicked, selectedTextId:', selectedTextId, 'showTextStylePanel:', showTextStylePanel);
+                          setShowTextStylePanel(true);
                         }}
                         className={`w-12 h-12 backdrop-blur-sm text-white rounded-full flex items-center justify-center border border-white/20 transition-all ${
                           showTextStylePanel ? 'bg-white/80 text-black' : 'bg-black/60 hover:bg-black/80'
