@@ -1,4 +1,123 @@
-// src/pages/PhotoboothPage.tsx - COMPLETE with Instagram Story-like text editing
+// Function to render text elements onto a canvas
+  const renderTextToCanvas = useCallback((canvas: HTMLCanvasElement, imageData: string) => {
+    return new Promise<string>((resolve) => {
+      const context = canvas.getContext('2d');
+      if (!context) {
+        resolve(imageData);
+        return;
+      }
+
+      const img = new Image();
+      img.onload = () => {
+        const canvasWidth = 540;
+        const canvasHeight = 960;
+        canvas.width = canvasWidth;
+        canvas.height = canvasHeight;
+
+        // Clear and draw the original image
+        context.clearRect(0, 0, canvasWidth, canvasHeight);
+        context.drawImage(img, 0, 0, canvasWidth, canvasHeight);
+
+        console.log('🎨 Rendering', textElements.length, 'text elements to final image');
+
+        // Render all text elements
+        textElements.forEach((element, index) => {
+          if (!element.text || element.text.trim() === '') {
+            return;
+          }
+
+          console.log(`✏️ Rendering text element ${index}: "${element.text}"`);
+
+          const x = (element.position.x / 100) * canvasWidth;
+          const y = (element.position.y / 100) * canvasHeight;
+          const fontSize = element.size * (element.scale || 1);
+
+          context.save();
+          context.translate(x, y);
+          context.rotate((element.rotation || 0) * Math.PI / 180);
+
+          context.font = `bold ${fontSize}px ${element.style.fontFamily || 'Arial'}`;
+          context.textAlign = element.style.align || 'center';
+          context.textBaseline = 'middle';
+
+          const lines = element.text.split('\n');
+          const lineHeight = fontSize * 1.2;
+          const startY = -(lines.length - 1) * lineHeight / 2;
+
+          // Draw background if needed
+          if (element.style.backgroundColor && element.style.backgroundColor !== 'transparent' && element.style.padding > 0) {
+            const padding = element.style.padding;
+            const opacity = element.style.backgroundOpacity || 0.7;
+            context.fillStyle = `${element.style.backgroundColor}${Math.round(opacity * 255).toString(16).padStart(2, '0')}`;
+
+            lines.forEach((line, lineIndex) => {
+              const lineY = startY + lineIndex * lineHeight;
+              const metrics = context.measureText(line);
+              let bgX = -metrics.width/2 - padding;
+              if (element.style.align === 'left') bgX = -padding;
+              if (element.style.align === 'right') bgX = -metrics.width - padding;
+
+              context.fillRect(
+                bgX,
+                lineY - fontSize/2 - padding,
+                metrics.width + padding*2,
+                fontSize + padding*2
+              );
+            });
+          }
+
+          // Draw each line
+          lines.forEach((line, lineIndex) => {
+            const lineY = startY + lineIndex * lineHeight;
+
+            // Enhanced 3D shadow and outline effects
+            if (element.style.outline) {
+              context.shadowColor = 'rgba(0,0,0,0.9)';
+              context.shadowBlur = 12;
+              context.shadowOffsetX = 4;
+              context.shadowOffsetY = 4;
+
+              context.strokeStyle = 'black';
+              context.lineWidth = fontSize * 0.12;
+              context.strokeText(line, 0, lineY);
+
+              context.shadowColor = 'rgba(0,0,0,0.8)';
+              context.shadowBlur = 6;
+              context.shadowOffsetX = 2;
+              context.shadowOffsetY = 2;
+              context.strokeStyle = 'rgba(0,0,0,0.8)';
+              context.lineWidth = fontSize * 0.06;
+              context.strokeText(line, 0, lineY);
+            } else {
+              context.shadowColor = 'rgba(0,0,0,0.8)';
+              context.shadowBlur = 8;
+              context.shadowOffsetX = 3;
+              context.shadowOffsetY = 3;
+            }
+
+            // Draw main text
+            context.fillStyle = element.color;
+            context.fillText(line, 0, lineY);
+
+            // Reset shadow
+            context.shadowColor = 'transparent';
+            context.shadowBlur = 0;
+            context.shadowOffsetX = 0;
+            context.shadowOffsetY = 0;
+          });
+
+          context.restore();
+        });
+
+        // Return the final image with text
+        const finalImageData = canvas.toDataURL('image/jpeg', 1.0);
+        console.log('✅ Text rendered to final image');
+        resolve(finalImageData);
+      };
+
+      img.src = imageData;
+    });
+  }, [textElements]);// src/pages/PhotoboothPage.tsx - COMPLETE with Instagram Story-like text editing
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Camera, SwitchCamera, Download, Send, X, RefreshCw, Type, ArrowLeft, Settings, Video, Palette, AlignCenter, AlignLeft, AlignRight, Move, ZoomIn, ZoomOut } from 'lucide-react';
@@ -529,16 +648,8 @@ const PhotoboothPage: React.FC = () => {
     }
 
     console.log('📸 Starting photo capture...');
-    console.log('🎨 Text elements to render:', textElements.length);
-    textElements.forEach((element, index) => {
-      console.log(`📝 Element ${index}:`, {
-        text: element.text,
-        position: element.position,
-        size: element.size,
-        color: element.color,
-        style: element.style.name
-      });
-    });
+    console.log('🎨 Text elements available:', textElements.length);
+    console.log('🎨 Current textElements state:', textElements);
 
     const targetAspectRatio = 9 / 16;
     const videoAspectRatio = video.videoWidth / video.videoHeight;
@@ -576,119 +687,22 @@ const PhotoboothPage: React.FC = () => {
     );
     console.log('📹 Video frame drawn to canvas');
 
-    // Render text elements with detailed logging
-    console.log('🎨 Starting text rendering...');
-    textElements.forEach((element, index) => {
-      if (!element.text || element.text.trim() === '') {
-        console.log(`⏭️ Skipping empty text element ${index}`);
-        return;
-      }
-      
-      console.log(`✏️ Rendering text element ${index}: "${element.text}"`);
-      
-      const x = (element.position.x / 100) * canvasWidth;
-      const y = (element.position.y / 100) * canvasHeight;
-      const fontSize = element.size * (element.scale || 1);
-      
-      console.log(`📍 Position: (${x}, ${y}), Font size: ${fontSize}px`);
-      
-      context.save();
-      context.translate(x, y);
-      context.rotate((element.rotation || 0) * Math.PI / 180);
-      
-      context.font = `bold ${fontSize}px ${element.style.fontFamily || 'Arial'}`;
-      context.textAlign = element.style.align || 'center';
-      context.textBaseline = 'middle';
-      
-      // Handle text with line breaks
-      const lines = element.text.split('\n');
-      const lineHeight = fontSize * 1.2;
-      const startY = -(lines.length - 1) * lineHeight / 2;
-      
-      console.log(`📄 Text has ${lines.length} lines`);
-      
-      // Draw background if needed
-      if (element.style.backgroundColor && element.style.backgroundColor !== 'transparent' && element.style.padding > 0) {
-        console.log(`🎨 Drawing background: ${element.style.backgroundColor}`);
-        const padding = element.style.padding;
-        context.fillStyle = element.style.backgroundColor;
-        
-        lines.forEach((line, lineIndex) => {
-          const lineY = startY + lineIndex * lineHeight;
-          const metrics = context.measureText(line);
-          let bgX = -metrics.width/2 - padding;
-          if (element.style.align === 'left') bgX = -padding;
-          if (element.style.align === 'right') bgX = -metrics.width - padding;
-          
-          context.fillRect(
-            bgX,
-            lineY - fontSize/2 - padding,
-            metrics.width + padding*2,
-            fontSize + padding*2
-          );
-        });
-      }
-      
-      // Draw each line of text
-      lines.forEach((line, lineIndex) => {
-        const lineY = startY + lineIndex * lineHeight;
-        console.log(`✍️ Drawing line ${lineIndex}: "${line}" at y=${lineY}`);
-        
-        // Draw outline/shadow
-        if (element.style.outline) {
-          console.log('🖌️ Drawing outline');
-          context.shadowColor = 'rgba(0,0,0,0.9)';
-          context.shadowBlur = 12;
-          context.shadowOffsetX = 4;
-          context.shadowOffsetY = 4;
-          
-          context.strokeStyle = 'black';
-          context.lineWidth = fontSize * 0.12;
-          context.strokeText(line, 0, lineY);
-          
-          context.shadowColor = 'rgba(0,0,0,0.8)';
-          context.shadowBlur = 6;
-          context.shadowOffsetX = 2;
-          context.shadowOffsetY = 2;
-          context.strokeStyle = 'rgba(0,0,0,0.8)';
-          context.lineWidth = fontSize * 0.06;
-          context.strokeText(line, 0, lineY);
-        } else {
-          console.log('🌫️ Drawing shadow');
-          context.shadowColor = 'rgba(0,0,0,0.8)';
-          context.shadowBlur = 8;
-          context.shadowOffsetX = 3;
-          context.shadowOffsetY = 3;
-        }
-        
-        // Draw main text
-        console.log(`🎨 Drawing text with color: ${element.color}`);
-        context.fillStyle = element.color;
-        context.fillText(line, 0, lineY);
-        
-        // Reset shadow
-        context.shadowColor = 'transparent';
-        context.shadowBlur = 0;
-        context.shadowOffsetX = 0;
-        context.shadowOffsetY = 0;
-      });
-      
-      context.restore();
-      console.log(`✅ Finished rendering element ${index}`);
-    });
+    // Since textElements might not be captured in closure, let's capture current state
+    const currentTextElements = textElements;
+    console.log('📝 Using current text elements:', currentTextElements.length);
 
-    console.log('🎨 Text rendering complete');
-    
-    // Convert to image
+    // Create photo with text elements stored for later rendering
     const dataUrl = canvas.toDataURL('image/jpeg', 1.0);
-    console.log('📸 Canvas converted to data URL, length:', dataUrl.length);
+    console.log('📸 Basic canvas converted to data URL');
     
     setPhoto(dataUrl);
+    // Keep text elements for post-capture editing - DON'T reset them
+    // setTextElements([]); // Remove this line to keep text elements
     setTextPosition({ x: 50, y: 50 });
     setTextSize(24);
     cleanupCamera();
     
-    console.log('✅ Photo capture complete with', textElements.length, 'text elements');
+    console.log('✅ Photo capture complete, text elements preserved for editing');
   }, [textElements, cameraState, cleanupCamera]);
 
   const uploadToCollage = useCallback(async () => {
@@ -729,14 +743,25 @@ const PhotoboothPage: React.FC = () => {
     }
   }, [photo, currentCollage, uploadPhoto, startCamera, selectedDevice]);
 
-  const downloadPhoto = useCallback(() => {
+  const downloadPhoto = useCallback(async () => {
     if (!photo) return;
+
+    let finalPhoto = photo;
+    
+    // Render text to the photo before downloading
+    if (textElements.length > 0 && canvasRef.current) {
+      console.log('🎨 Rendering text to photo before download...');
+      finalPhoto = await renderTextToCanvas(canvasRef.current, photo);
+    }
+
     const link = document.createElement('a');
-    link.href = photo;
+    link.href = finalPhoto;
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    link.download = 'photobooth.jpg';
+    link.download = `photobooth-${timestamp}.jpg`;
     link.click();
-  }, [photo]);
+    
+    console.log('💾 Photo downloaded with text elements');
+  }, [photo, textElements, renderTextToCanvas]);
 
   const retakePhoto = useCallback(() => {
     setPhoto(null);
