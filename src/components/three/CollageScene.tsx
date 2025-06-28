@@ -374,12 +374,13 @@ const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
 // CRITICAL FIX: Animation Controller with stable updates
 const AnimationController: React.FC<{
   settings: SceneSettings;
-  photos: Photo[];
+  photos: Photo[]; 
   onPositionsUpdate: (photos: PhotoWithPosition[]) => void;
 }> = ({ settings, photos, onPositionsUpdate }) => {
   const slotManagerRef = useRef(new SlotManager(settings.photoCount || 100));
   const lastPhotoCount = useRef(settings.photoCount || 100);
   const lastPositionsRef = useRef<PhotoWithPosition[]>([]);  
+  const lastPhotoIdsRef = useRef<Set<string>>(new Set());
   const animationFrameRef = useRef<number>();
   
   // OPTIMIZED: Removed photo ID tracking and slot assignment from updatePositions
@@ -388,8 +389,8 @@ const AnimationController: React.FC<{
       const safePhotos = Array.isArray(photos) ? photos.filter(p => p && p.id) : [];
       const safeSettings = settings || {};
 
-      // Use existing slot assignments instead of recalculating every frame
-      const slotAssignments = new Map(slotManagerRef.current.slotAssignments);
+      // Get current slot assignments
+      const slotAssignments = slotManagerRef.current.slotAssignments;
       
       // Generate pattern positions with error handling
       let patternState;
@@ -467,21 +468,44 @@ const AnimationController: React.FC<{
   }, [photos, settings, onPositionsUpdate]);
 
   // OPTIMIZED: Combined effects for photo count and photo list changes
-  useEffect(() => {
-    // Update slot count when photo count changes
-    if ((settings.photoCount || 100) !== lastPhotoCount.current) {
-      console.log('📊 PHOTO COUNT CHANGED: Updating slot count');
+  useEffect(() => {    
+    // Check if photo count changed
+    const photoCount = settings.photoCount || 100;
+    if (photoCount !== lastPhotoCount.current) {
+      console.log('📊 PHOTO COUNT CHANGED: Updating slot count from', lastPhotoCount.current, 'to', photoCount);
       slotManagerRef.current.updateSlotCount(settings.photoCount || 100);
       lastPhotoCount.current = settings.photoCount || 100;
     }
     
-    // Update slot assignments when photos change
-    console.log('📷 Updating slot assignments for', photos.length, 'photos');
+    // Check if photos array changed
     const safePhotos = Array.isArray(photos) ? photos.filter(p => p && p.id) : [];
-    slotManagerRef.current.assignSlots(safePhotos);
+    const currentPhotoIds = new Set(safePhotos.map(p => p.id));
+    
+    // Compare current photos with last known photos
+    let photosChanged = false;
+    if (currentPhotoIds.size !== lastPhotoIdsRef.current.size) {
+      photosChanged = true;
+    } else {
+      // Check if any photos were added or removed
+      for (const id of currentPhotoIds) {
+        if (!lastPhotoIdsRef.current.has(id)) {
+          photosChanged = true;
+          break;
+        }
+      }
+    }
+    
+    if (photosChanged) {
+      console.log('📷 PHOTOS CHANGED: Updating slot assignments for', safePhotos.length, 'photos');
+      slotManagerRef.current.assignSlots(safePhotos);
+      lastPhotoIdsRef.current = currentPhotoIds;
+    }
     
     // Force an immediate position update after slot assignments change
-    updatePositions(0);
+    if (photosChanged || photoCount !== lastPhotoCount.current) {
+      console.log('🔄 Forcing position update due to changes');
+      updatePositions(0);
+    }
   }, [photos, settings.photoCount, updatePositions]);
 
   // Regular animation updates
@@ -494,6 +518,7 @@ const AnimationController: React.FC<{
 
   // Cleanup animation frame on unmount
   useEffect(() => {
+    console.log('🧹 AnimationController cleanup');
     return () => {
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
@@ -853,7 +878,7 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
   const [photosWithPositions, setPhotosWithPositions] = useState<PhotoWithPosition[]>([]);
 
   const safePhotos = Array.isArray(photos) ? photos : [];
-  const safeSettings = { ...settings };
+  const safeSettings = settings || {};
 
   // Background style for gradient backgrounds
   const backgroundStyle = useMemo(() => {
@@ -876,8 +901,7 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
   console.log('🎬 COLLAGE SCENE RENDER:', {
     photoCount: safePhotos.length,
     settingsPhotoCount: safeSettings.photoCount,
-    positionsCount: photosWithPositions.length,
-    emptySlotColor: safeSettings.emptySlotColor
+    positionsCount: photosWithPositions.length
   });
 
   return (
@@ -917,7 +941,7 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
         <Floor settings={safeSettings} />
         <Grid settings={safeSettings} />
         
-        <AnimationController
+        <AnimationController 
           settings={safeSettings}
           photos={safePhotos}
           onPositionsUpdate={setPhotosWithPositions}
