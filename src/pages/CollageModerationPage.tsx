@@ -1,5 +1,5 @@
 // src/pages/CollageModerationPage.tsx - ENHANCED VERSION WITH BETTER DELETION
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ChevronLeft, Shield, RefreshCw, Trash2, Eye, AlertCircle, Video } from 'lucide-react';
 import { useCollageStore } from '../store/collageStore';
