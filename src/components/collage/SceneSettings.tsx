@@ -1,7 +1,7 @@
 // src/components/collage/SceneSettings.tsx - COMPLETE: Improved photo spacing control
 import React from 'react';
 import { type SceneSettings } from '../../store/sceneStore';
-import { Grid, Palette, CameraIcon, ImageIcon, Square, Sun, Lightbulb, RotateCw, Move, Eye } from 'lucide-react';
+import { Grid, Palette, CameraIcon, ImageIcon, Square, Sun, Lightbulb, RotateCw, Move, Eye, Camera } from 'lucide-react';
 
 const SceneSettings: React.FC<{
   settings: SceneSettings;
@@ -528,6 +528,141 @@ const SceneSettings: React.FC<{
           </div>
         </div>
       )}
+
+      {/* Camera Animation Controls */}
+      <div>
+        <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
+          <Camera className="h-4 w-4 mr-2" />
+          Camera Animation
+        </h4>
+        
+        <div className="space-y-4">
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              checked={settings.cameraAnimation.enabled}
+              onChange={(e) => onSettingsChange({ 
+                cameraAnimation: { ...settings.cameraAnimation, enabled: e.target.checked }
+              })}
+              className="mr-2 bg-gray-800 border-gray-700"
+            />
+            <label className="text-sm text-gray-300">Enable Camera Animation</label>
+          </div>
+
+          {settings.cameraAnimation.enabled && (
+            <>
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">Animation Type</label>
+                <select
+                  value={settings.cameraAnimation.type}
+                  onChange={(e) => onSettingsChange({ 
+                    cameraAnimation: { ...settings.cameraAnimation, type: e.target.value as any }
+                  })}
+                  className="w-full bg-gray-800 border border-gray-700 rounded-md py-2 px-3 text-white"
+                >
+                  <option value="none">None</option>
+                  <option value="figure8">Figure-8 (Recommended for Float)</option>
+                  <option value="centerRotate">Center Focus</option>
+                  <option value="orbit">Orbit</option>
+                  <option value="wave">Wave</option>
+                  <option value="spiral">Spiral</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">
+                  Speed: {settings.cameraAnimation.speed.toFixed(1)}x
+                </label>
+                <input
+                  type="range"
+                  min="0.1"
+                  max="2.0"
+                  step="0.1"
+                  value={settings.cameraAnimation.speed}
+                  onChange={(e) => onSettingsChange({ 
+                    cameraAnimation: { ...settings.cameraAnimation, speed: parseFloat(e.target.value) }
+                  })}
+                  className="w-full bg-gray-800"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">
+                  Radius: {settings.cameraAnimation.radius.toFixed(0)} units
+                </label>
+                <input
+                  type="range"
+                  min="10"
+                  max="60"
+                  step="1"
+                  value={settings.cameraAnimation.radius}
+                  onChange={(e) => onSettingsChange({ 
+                    cameraAnimation: { ...settings.cameraAnimation, radius: parseFloat(e.target.value) }
+                  })}
+                  className="w-full bg-gray-800"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">
+                  Height: {settings.cameraAnimation.height.toFixed(0)} units
+                </label>
+                <input
+                  type="range"
+                  min="0"
+                  max="30"
+                  step="1"
+                  value={settings.cameraAnimation.height}
+                  onChange={(e) => onSettingsChange({ 
+                    cameraAnimation: { ...settings.cameraAnimation, height: parseFloat(e.target.value) }
+                  })}
+                  className="w-full bg-gray-800"
+                />
+              </div>
+
+              {(settings.cameraAnimation.type === 'wave' || 
+                settings.cameraAnimation.type === 'figure8' || 
+                settings.cameraAnimation.type === 'spiral') && (
+                <>
+                  <div>
+                    <label className="block text-sm text-gray-300 mb-2">
+                      Amplitude: {settings.cameraAnimation.amplitude.toFixed(0)} units
+                    </label>
+                    <input
+                      type="range"
+                      min="1"
+                      max="20"
+                      step="1"
+                      value={settings.cameraAnimation.amplitude}
+                      onChange={(e) => onSettingsChange({ 
+                        cameraAnimation: { ...settings.cameraAnimation, amplitude: parseFloat(e.target.value) }
+                      })}
+                      className="w-full bg-gray-800"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm text-gray-300 mb-2">
+                      Frequency: {settings.cameraAnimation.frequency.toFixed(1)}
+                    </label>
+                    <input
+                      type="range"
+                      min="0.1"
+                      max="1.0"
+                      step="0.1"
+                      value={settings.cameraAnimation.frequency}
+                      onChange={(e) => onSettingsChange({ 
+                        cameraAnimation: { ...settings.cameraAnimation, frequency: parseFloat(e.target.value) }
+                      })}
+                      className="w-full bg-gray-800"
+                    />
+                  </div>
+                </>
+              )}
+            </>
+          )}
+        </div>
+      </div>
 
       {/* Photo Rotation */}
       <div>

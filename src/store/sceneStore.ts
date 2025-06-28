@@ -34,6 +34,15 @@ export type SceneSettings = {
       photoCount?: number;
     };
   };
+  cameraAnimation: {
+    enabled: boolean;
+    type: 'none' | 'orbit' | 'figure8' | 'centerRotate' | 'wave' | 'spiral';
+    speed: number;
+    radius: number;
+    height: number;
+    amplitude: number;
+    frequency: number;
+  };
   animationSpeed: number;
   animationEnabled: boolean;
   photoCount: number;
@@ -94,6 +103,15 @@ const defaultSettings: SceneSettings = {
   cameraRotationSpeed: 0.2,
   cameraHeight: 10,
   cameraEnabled: true,
+  cameraAnimation: {
+    enabled: false,
+    type: 'none',
+    speed: 0.3,
+    radius: 30,
+    height: 15,
+    amplitude: 8,
+    frequency: 0.5
+  },
   spotlightCount: 4,
   spotlightHeight: 30,
   spotlightDistance: 40,

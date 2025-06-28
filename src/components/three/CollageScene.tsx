@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import { type SceneSettings } from '../../store/sceneStore';
 import { PatternFactory } from './patterns/PatternFactory';
 import { addCacheBustToUrl } from '../../lib/supabase';
+import { CameraAnimationController } from './CameraAnimationController';
 
 type Photo = {
   id: string;
@@ -928,6 +929,7 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
       >
         <BackgroundRenderer settings={safeSettings} />
         <CameraController settings={safeSettings} />
+        <CameraAnimationController config={safeSettings.cameraAnimation} />
         <SceneLighting settings={safeSettings} />
         <Floor settings={safeSettings} />
         <Grid settings={safeSettings} />
