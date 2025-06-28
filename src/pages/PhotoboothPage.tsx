@@ -527,6 +527,8 @@ const PhotoboothPage: React.FC = () => {
 
     // Render text elements on canvas
     textElements.forEach(element => {
+      if (!element.text) return; // Skip empty text elements
+      
       const x = (element.position.x / 100) * canvasWidth;
       const y = (element.position.y / 100) * canvasHeight;
       const fontSize = element.size * element.scale;
@@ -540,30 +542,46 @@ const PhotoboothPage: React.FC = () => {
       context.textAlign = element.style.align;
       context.textBaseline = 'middle';
       
-      if (element.style.backgroundColor !== 'transparent') {
-        context.fillStyle = `${element.style.backgroundColor}${Math.round(element.style.backgroundOpacity * 255).toString(16).padStart(2, '0')}`;
-        const metrics = context.measureText(element.text);
+      // Handle background
+      if (element.style.backgroundColor !== 'transparent' && element.style.padding > 0) {
+        const lines = element.text.split('\n');
+        const lineHeight = fontSize * 1.2;
+        const maxWidth = Math.max(...lines.map(line => context.measureText(line).width));
+        const totalHeight = lines.length * lineHeight;
         const padding = element.style.padding;
+        
+        context.fillStyle = `${element.style.backgroundColor}${Math.round(element.style.backgroundOpacity * 255).toString(16).padStart(2, '0')}`;
         context.fillRect(
-          -metrics.width/2 - padding, 
-          -fontSize/2 - padding, 
-          metrics.width + padding*2, 
-          fontSize + padding*2
+          -maxWidth/2 - padding, 
+          -totalHeight/2 - padding, 
+          maxWidth + padding*2, 
+          totalHeight + padding*2
         );
       }
       
-      if (element.style.outline) {
-        context.shadowColor = 'rgba(0,0,0,0.9)';
-        context.shadowBlur = 8;
-        context.shadowOffsetX = 3;
-        context.shadowOffsetY = 3;
-        context.strokeStyle = 'black';
-        context.lineWidth = fontSize * 0.08;
-        context.strokeText(element.text, 0, 0);
-      }
+      // Handle text with line breaks
+      const lines = element.text.split('\n');
+      const lineHeight = fontSize * 1.2;
+      const startY = -(lines.length - 1) * lineHeight / 2;
       
-      context.fillStyle = element.color;
-      context.fillText(element.text, 0, 0);
+      lines.forEach((line, index) => {
+        const lineY = startY + index * lineHeight;
+        
+        // Draw outline/shadow if enabled
+        if (element.style.outline) {
+          context.shadowColor = 'rgba(0,0,0,0.9)';
+          context.shadowBlur = 8;
+          context.shadowOffsetX = 3;
+          context.shadowOffsetY = 3;
+          context.strokeStyle = 'black';
+          context.lineWidth = fontSize * 0.08;
+          context.strokeText(line, 0, lineY);
+        }
+        
+        // Draw main text
+        context.fillStyle = element.color;
+        context.fillText(line, 0, lineY);
+      });
       
       context.restore();
     });
@@ -968,11 +986,11 @@ const PhotoboothPage: React.FC = () => {
                   
                   {renderTextElements()}
                   
-                  {/* VERTICAL TEXT SETTINGS - LEFT SIDE (Instagram Stories Style) */}
-                  {showTextStylePanel && selectedTextId && (
-                    <div className="absolute left-4 top-1/2 transform -translate-y-1/2 flex flex-col space-y-4 z-30">
+                  {/* VERTICAL TEXT SETTINGS - LEFT SIDE (Show when text is selected) */}
+                  {selectedTextId && (
+                    <div className="absolute left-4 top-1/2 transform -translate-y-1/2 flex flex-col space-y-4" style={{ zIndex: 50 }}>
                       {/* Color Picker Icon */}
-                      <div className="relative group">
+                      <div className="relative">
                         <button
                           onClick={() => {
                             // Cycle through colors
@@ -983,14 +1001,20 @@ const PhotoboothPage: React.FC = () => {
                           }}
                           className="w-12 h-12 rounded-full border-2 border-white/80 backdrop-blur-sm flex items-center justify-center shadow-lg transition-transform hover:scale-110"
                           style={{ 
-                            backgroundColor: textElements.find(el => el.id === selectedTextId)?.color || '#ffffff'
+                            backgroundColor: textElements.find(el => el.id === selectedTextId)?.color || '#ffffff',
+                            zIndex: 51
                           }}
                         >
                           <Palette className="w-6 h-6 text-black" />
                         </button>
                         
                         {/* Color Palette Popup */}
-                        <div className="absolute left-14 top-0 bg-black/80 backdrop-blur-md rounded-lg p-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto">
+                        <div 
+                          className="absolute left-14 top-0 bg-black/90 backdrop-blur-md rounded-lg p-3 opacity-0 hover:opacity-100 transition-opacity"
+                          style={{ zIndex: 52 }}
+                          onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                          onMouseLeave={(e) => e.currentTarget.style.opacity = '0'}
+                        >
                           <div className="grid grid-cols-2 gap-2">
                             {colorPresets.map((color) => (
                               <button
@@ -1000,7 +1024,7 @@ const PhotoboothPage: React.FC = () => {
                                   updateTextElement(selectedTextId, { color });
                                 }}
                                 className="w-8 h-8 rounded-full border border-white/40 hover:border-white transition-colors"
-                                style={{ backgroundColor: color }}
+                                style={{ backgroundColor: color, zIndex: 53 }}
                               />
                             ))}
                           </div>
@@ -1008,15 +1032,21 @@ const PhotoboothPage: React.FC = () => {
                       </div>
                       
                       {/* Text Size Icon with Slider */}
-                      <div className="relative group">
+                      <div className="relative">
                         <button
                           className="w-12 h-12 bg-black/60 backdrop-blur-sm rounded-full border-2 border-white/80 flex items-center justify-center shadow-lg transition-transform hover:scale-110"
+                          style={{ zIndex: 51 }}
                         >
                           <Type className="w-6 h-6 text-white" />
                         </button>
                         
                         {/* Size Slider Popup */}
-                        <div className="absolute left-14 top-0 bg-black/80 backdrop-blur-md rounded-lg p-3 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto">
+                        <div 
+                          className="absolute left-14 top-0 bg-black/90 backdrop-blur-md rounded-lg p-3 opacity-0 hover:opacity-100 transition-opacity"
+                          style={{ zIndex: 52 }}
+                          onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                          onMouseLeave={(e) => e.currentTarget.style.opacity = '0'}
+                        >
                           <div className="flex items-center space-x-3 w-32">
                             <button
                               onClick={(e) => {
@@ -1027,6 +1057,7 @@ const PhotoboothPage: React.FC = () => {
                                 }
                               }}
                               className="w-6 h-6 bg-white/20 hover:bg-white/40 text-white rounded-full flex items-center justify-center text-xs font-bold"
+                              style={{ zIndex: 53 }}
                             >
                               -
                             </button>
@@ -1040,6 +1071,7 @@ const PhotoboothPage: React.FC = () => {
                                 updateTextElement(selectedTextId, { size: parseInt(e.target.value) });
                               }}
                               className="flex-1 h-2 bg-white/20 rounded-full appearance-none cursor-pointer"
+                              style={{ zIndex: 53 }}
                             />
                             <button
                               onClick={(e) => {
@@ -1050,6 +1082,7 @@ const PhotoboothPage: React.FC = () => {
                                 }
                               }}
                               className="w-6 h-6 bg-white/20 hover:bg-white/40 text-white rounded-full flex items-center justify-center text-xs font-bold"
+                              style={{ zIndex: 53 }}
                             >
                               +
                             </button>
@@ -1061,7 +1094,7 @@ const PhotoboothPage: React.FC = () => {
                       </div>
                       
                       {/* Background/Style Icon */}
-                      <div className="relative group">
+                      <div className="relative">
                         <button
                           onClick={() => {
                             // Cycle through background styles
@@ -1071,12 +1104,18 @@ const PhotoboothPage: React.FC = () => {
                             updateTextElement(selectedTextId, { style: textStylePresets[nextStyleIndex] });
                           }}
                           className="w-12 h-12 bg-black/60 backdrop-blur-sm rounded-full border-2 border-white/80 flex items-center justify-center shadow-lg transition-transform hover:scale-110"
+                          style={{ zIndex: 51 }}
                         >
                           <Settings className="w-6 h-6 text-white" />
                         </button>
                         
                         {/* Background Style Popup */}
-                        <div className="absolute left-14 top-0 bg-black/80 backdrop-blur-md rounded-lg p-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto">
+                        <div 
+                          className="absolute left-14 top-0 bg-black/90 backdrop-blur-md rounded-lg p-2 opacity-0 hover:opacity-100 transition-opacity"
+                          style={{ zIndex: 52 }}
+                          onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                          onMouseLeave={(e) => e.currentTarget.style.opacity = '0'}
+                        >
                           <div className="space-y-2">
                             {textStylePresets.map((preset) => {
                               const selectedElement = textElements.find(el => el.id === selectedTextId);
@@ -1093,6 +1132,7 @@ const PhotoboothPage: React.FC = () => {
                                       ? 'bg-white text-black' 
                                       : 'bg-white/20 text-white hover:bg-white/40'
                                   }`}
+                                  style={{ zIndex: 53 }}
                                 >
                                   {preset.name}
                                 </button>
@@ -1101,14 +1141,6 @@ const PhotoboothPage: React.FC = () => {
                           </div>
                         </div>
                       </div>
-                      
-                      {/* Close Settings */}
-                      <button
-                        onClick={() => setShowTextStylePanel(false)}
-                        className="w-12 h-12 bg-red-500/80 backdrop-blur-sm rounded-full border-2 border-white/80 flex items-center justify-center shadow-lg transition-transform hover:scale-110"
-                      >
-                        <X className="w-6 h-6 text-white" />
-                      </button>
                     </div>
                   )}
                   
@@ -1130,26 +1162,7 @@ const PhotoboothPage: React.FC = () => {
                       <Download className="w-6 h-6" />
                     </button>
                     
-                    {selectedTextId && (
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          console.log('Palette clicked, selectedTextId:', selectedTextId, 'showTextStylePanel:', showTextStylePanel);
-                          // Force state update with callback
-                          setShowTextStylePanel(prev => {
-                            console.log('Setting showTextStylePanel from', prev, 'to true');
-                            return true;
-                          });
-                        }}
-                        className={`w-12 h-12 backdrop-blur-sm text-white rounded-full flex items-center justify-center border border-white/20 transition-all ${
-                          showTextStylePanel ? 'bg-white/80 text-black' : 'bg-black/60 hover:bg-black/80'
-                        }`}
-                        title="Text Style"
-                      >
-                        <Palette className="w-6 h-6" />
-                      </button>
-                    )}
+                    {/* Remove the palette button - text settings show automatically */}
                     
                     {/* Delete All Text Button */}
                     {textElements.length > 0 && (
