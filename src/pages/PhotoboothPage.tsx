@@ -1,7 +1,7 @@
 // src/pages/PhotoboothPage.tsx - FIXED: Mobile zoom prevention & larger capture button
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Camera, SwitchCamera, Download, Send, X, RefreshCw, Type, ArrowLeft, Settings, Video } from 'lucide-react';
+import { ArrowRight, Camera, SwitchCamera, Download, Send, X, RefreshCw, Type, ArrowLeft, Settings, Video, Edit, Check } from 'lucide-react';
 import { useCollageStore, Photo } from '../store/collageStore';
 import MobileVideoRecorder from '../components/video/MobileVideoRecorder';
 
@@ -29,6 +29,9 @@ const PhotoboothPage: React.FC = () => {
   const [showVideoRecorder, setShowVideoRecorder] = useState(false);
   const [cameraState, setCameraState] = useState<CameraState>('idle');
   const [recordingResolution, setRecordingResolution] = useState({ width: 1920, height: 1080 });
+  
+  const [isEditingText, setIsEditingText] = useState(false);
+  const [editedText, setEditedText] = useState('');
   
   const [showError, setShowError] = useState(false);
   const { currentCollage, fetchCollageByCode, uploadPhoto, setupRealtimeSubscription, cleanupRealtimeSubscription, loading, error: storeError, photos } = useCollageStore();
@@ -419,6 +422,93 @@ const PhotoboothPage: React.FC = () => {
     cleanupCamera();
   }, [text, cameraState, cleanupCamera]);
 
+  const applyTextToPhoto = useCallback(() => {
+    if (!photo || !canvasRef.current) return;
+    
+    const canvas = canvasRef.current;
+    const context = canvas.getContext('2d');
+    if (!context) return;
+    
+    // Load the current photo onto the canvas
+    const img = new Image();
+    img.onload = () => {
+      // Clear canvas and draw the image
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      canvas.width = img.width;
+      canvas.height = img.height;
+      context.drawImage(img, 0, 0, canvas.width, canvas.height);
+      
+      // Add text overlay if provided with dynamic sizing
+      if (editedText.trim()) {
+        // Dynamic font size calculation - starts large and gets smaller with longer text
+        const baseSize = Math.min(canvas.width, canvas.height) * 0.12; // Larger base size
+        const dynamicSize = Math.max(baseSize * 0.4, baseSize - (editedText.length * 1.5)); // Dynamic scaling
+        const fontSize = dynamicSize;
+        
+        context.font = `bold ${fontSize}px Arial`;
+        context.textAlign = 'center';
+        context.textBaseline = 'middle';
+        
+        // Enhanced shadow for better readability
+        context.shadowColor = 'rgba(0,0,0,0.9)';
+        context.shadowBlur = 8;
+        context.shadowOffsetX = 3;
+        context.shadowOffsetY = 3;
+        
+        // White text with stronger black outline
+        context.strokeStyle = 'black';
+        context.lineWidth = fontSize * 0.08;
+        context.fillStyle = 'white';
+        
+        // Split text into lines if too long
+        const maxWidth = canvas.width * 0.85; // Slightly more padding
+        const words = editedText.split(' ');
+        const lines: string[] = [];
+        let currentLine = words[0] || '';
+
+        for (let i = 1; i < words.length; i++) {
+          const word = words[i];
+          const width = context.measureText(currentLine + ' ' + word).width;
+          if (width < maxWidth) {
+            currentLine += ' ' + word;
+          } else {
+            lines.push(currentLine);
+            currentLine = word;
+          }
+        }
+        if (currentLine) lines.push(currentLine);
+
+        // Draw each line with improved spacing
+        const lineHeight = fontSize * 1.1;
+        const totalHeight = lines.length * lineHeight;
+        const startY = (canvas.height - totalHeight) / 2 + fontSize / 2;
+
+        lines.forEach((line, index) => {
+          const textY = startY + index * lineHeight;
+          const textX = canvas.width / 2;
+          
+          // Draw outline first
+          context.strokeText(line, textX, textY);
+          // Then fill text
+          context.fillText(line, textX, textY);
+        });
+        
+        // Reset shadow
+        context.shadowColor = 'transparent';
+        context.shadowBlur = 0;
+        context.shadowOffsetX = 0;
+        context.shadowOffsetY = 0;
+      }
+      
+      // Update the photo with the new text
+      const dataUrl = canvas.toDataURL('image/jpeg', 1.0);
+      setPhoto(dataUrl);
+      setIsEditingText(false);
+    };
+    
+    img.src = photo;
+  }, [photo, editedText]);
+
   const uploadToCollage = useCallback(async () => {
     if (!photo || !currentCollage) return;
 
@@ -467,6 +557,8 @@ const PhotoboothPage: React.FC = () => {
   const retakePhoto = useCallback(() => {
     setPhoto(null);
     setText('');
+    setEditedText('');
+    setIsEditingText(false);
     
     // Restart camera immediately
     setTimeout(() => {
@@ -678,48 +770,91 @@ const PhotoboothPage: React.FC = () => {
                 <div className="relative aspect-[9/16]">
                   <img 
                     src={photo} 
-                    alt="Captured photo" 
+                    alt="Captured photo"
                     className="w-full h-full object-cover"
                   />
                   
                   {/* Photo Controls Overlay */}
-                  <div className="absolute bottom-3 left-3 right-3">
-                    <div className="flex justify-center space-x-2">
-                      <button
-                        onClick={retakePhoto}
-                        className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors flex items-center space-x-2 text-sm"
-                      >
-                        <RefreshCw className="w-4 h-4" />
-                        <span>Retake</span>
-                      </button>
-                      
-                      <button
-                        onClick={downloadPhoto}
-                        className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center space-x-2 text-sm"
-                      >
-                        <Download className="w-4 h-4" />
-                        <span>Download</span>
-                      </button>
-                      
-                      <button
-                        onClick={uploadToCollage}
-                        disabled={uploading}
-                        className="px-3 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-800 text-white rounded-lg transition-colors flex items-center space-x-2 text-sm"
-                      >
-                        {uploading ? (
-                          <>
-                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                            <span>Uploading...</span>
-                          </>
-                        ) : (
-                          <>
-                            <Send className="w-4 h-4" />
-                            <span>Upload</span>
-                          </>
-                        )}
-                      </button>
+                  {isEditingText ? (
+                    <div className="absolute inset-0 bg-black/70 flex flex-col p-4">
+                      <h3 className="text-white text-lg font-bold mb-4">Add Text to Photo</h3>
+                      <textarea
+                        value={editedText}
+                        onChange={(e) => setEditedText(e.target.value)}
+                        placeholder="Enter text to add to your photo..."
+                        className="w-full h-32 bg-black/70 backdrop-blur-sm border border-white/30 rounded-lg px-3 py-2 text-white placeholder-gray-300 resize-none focus:outline-none focus:border-purple-400 focus:bg-black/80 transition-all mb-4"
+                        style={{ fontSize: '16px' }}
+                        maxLength={100}
+                      />
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs text-gray-300">
+                          {editedText.length}/100
+                        </span>
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => setIsEditingText(false)}
+                            className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors flex items-center space-x-2 text-sm"
+                          >
+                            <X className="w-4 h-4" />
+                            <span>Cancel</span>
+                          </button>
+                          <button
+                            onClick={applyTextToPhoto}
+                            className="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors flex items-center space-x-2 text-sm"
+                          >
+                            <Check className="w-4 h-4" />
+                            <span>Apply Text</span>
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="absolute bottom-3 left-3 right-3">
+                      <div className="flex justify-center space-x-2">
+                        <button
+                          onClick={retakePhoto}
+                          className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors flex items-center space-x-2 text-sm"
+                        >
+                          <RefreshCw className="w-4 h-4" />
+                          <span>Retake</span>
+                        </button>
+                        
+                        <button
+                          onClick={() => setIsEditingText(true)}
+                          className="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors flex items-center space-x-2 text-sm"
+                        >
+                          <Edit className="w-4 h-4" />
+                          <span>Add Text</span>
+                        </button>
+                        
+                        <button
+                          onClick={downloadPhoto}
+                          className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center space-x-2 text-sm"
+                        >
+                          <Download className="w-4 h-4" />
+                          <span>Download</span>
+                        </button>
+                        
+                        <button
+                          onClick={uploadToCollage}
+                          disabled={uploading}
+                          className="px-3 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-800 text-white rounded-lg transition-colors flex items-center space-x-2 text-sm"
+                        >
+                          {uploading ? (
+                            <>
+                              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                              <span>Uploading...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Send className="w-4 h-4" />
+                              <span>Upload</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                   
                   {/* Video Recording */}
                   {photo && (
@@ -806,7 +941,11 @@ const PhotoboothPage: React.FC = () => {
                   <div className="absolute bottom-28 sm:bottom-24 lg:bottom-20 left-2 right-2 px-2">
                     <textarea
                       value={text}
-                      onChange={(e) => setText(e.target.value)}
+                      onChange={(e) => {
+                        setText(e.target.value);
+                        // Also update editedText so it's pre-filled when editing after capture
+                        setEditedText(e.target.value);
+                      }}
                       placeholder="ADD TEXT BEFORE TAKING PICTURE:"
                       className="w-full h-10 sm:h-12 bg-black/70 backdrop-blur-sm border border-white/30 rounded-lg px-3 py-2 text-white placeholder-gray-300 resize-none focus:outline-none focus:border-purple-400 focus:bg-black/80 transition-all"
                       style={{ fontSize: '16px' }} // CRITICAL: Prevents iOS zoom
@@ -888,9 +1027,10 @@ const PhotoboothPage: React.FC = () => {
               <div className="space-y-2 text-sm text-gray-300">
                 <p>1. Allow camera access when prompted</p>
                 <p>2. If camera doesn't start, tap "Start Camera"</p>
-                <p>3. Add text in the field above the capture button</p>
+                <p>3. Add text in the field above the capture button (optional)</p>
                 <p>4. Tap the large white button to take a photo</p>
-                <p>5. Review and upload to the collage</p>
+                <p>5. Add or edit text on your photo (optional)</p>
+                <p>6. Review and upload to the collage</p>
               </div>
             </div>
 
@@ -899,10 +1039,10 @@ const PhotoboothPage: React.FC = () => {
               <h3 className="text-base lg:text-lg font-semibold text-purple-300 mb-3">Tips</h3>
               <div className="space-y-2 text-sm text-purple-200">
                 <p>• Hold your device steady for clearer photos</p>
-                <p>• If camera doesn't start, try refreshing the page</p>
+                <p>• You can add text before or after taking a photo</p>
                 <p>• Make sure you have good lighting</p>
                 <p>• Text gets larger with shorter messages</p>
-                <p>• Text appears centered and easy to read</p>
+                <p>• Edit text after taking the photo for perfect placement</p>
                 <p>• Photos appear in the collage automatically</p>
               </div>
             </div>
