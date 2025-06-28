@@ -968,45 +968,146 @@ const PhotoboothPage: React.FC = () => {
                   
                   {renderTextElements()}
                   
-                  {/* TEXT STYLING PANEL - INSIDE PHOTO CONTAINER */}
+                  {/* VERTICAL TEXT SETTINGS - LEFT SIDE (Instagram Stories Style) */}
                   {showTextStylePanel && selectedTextId && (
-                    <div className="absolute bottom-4 left-4 right-4 bg-red-500 p-4 rounded-lg z-30">
-                      <div className="text-white text-center font-bold mb-4">🎨 STYLING PANEL 🎨</div>
-                      
-                      {/* Size Control */}
-                      <div className="mb-4">
-                        <div className="text-white text-sm mb-2">Size: {textElements.find(el => el.id === selectedTextId)?.size || 32}px</div>
-                        <input
-                          type="range"
-                          min="16"
-                          max="72"
-                          value={textElements.find(el => el.id === selectedTextId)?.size || 32}
-                          onChange={(e) => updateTextElement(selectedTextId, { size: parseInt(e.target.value) })}
-                          className="w-full"
-                        />
-                      </div>
-                      
-                      {/* Colors */}
-                      <div className="mb-4">
-                        <div className="text-white text-sm mb-2">Colors</div>
-                        <div className="flex space-x-2">
-                          {colorPresets.slice(0, 5).map((color) => (
-                            <button
-                              key={color}
-                              onClick={() => updateTextElement(selectedTextId, { color })}
-                              className="w-8 h-8 rounded-full border-2 border-white"
-                              style={{ backgroundColor: color }}
-                            />
-                          ))}
+                    <div className="absolute left-4 top-1/2 transform -translate-y-1/2 flex flex-col space-y-4 z-30">
+                      {/* Color Picker Icon */}
+                      <div className="relative group">
+                        <button
+                          onClick={() => {
+                            // Cycle through colors
+                            const currentElement = textElements.find(el => el.id === selectedTextId);
+                            const currentColorIndex = colorPresets.findIndex(c => c === currentElement?.color);
+                            const nextColorIndex = (currentColorIndex + 1) % colorPresets.length;
+                            updateTextElement(selectedTextId, { color: colorPresets[nextColorIndex] });
+                          }}
+                          className="w-12 h-12 rounded-full border-2 border-white/80 backdrop-blur-sm flex items-center justify-center shadow-lg transition-transform hover:scale-110"
+                          style={{ 
+                            backgroundColor: textElements.find(el => el.id === selectedTextId)?.color || '#ffffff'
+                          }}
+                        >
+                          <Palette className="w-6 h-6 text-black" />
+                        </button>
+                        
+                        {/* Color Palette Popup */}
+                        <div className="absolute left-14 top-0 bg-black/80 backdrop-blur-md rounded-lg p-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto">
+                          <div className="grid grid-cols-2 gap-2">
+                            {colorPresets.map((color) => (
+                              <button
+                                key={color}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  updateTextElement(selectedTextId, { color });
+                                }}
+                                className="w-8 h-8 rounded-full border border-white/40 hover:border-white transition-colors"
+                                style={{ backgroundColor: color }}
+                              />
+                            ))}
+                          </div>
                         </div>
                       </div>
                       
-                      {/* Close */}
+                      {/* Text Size Icon with Slider */}
+                      <div className="relative group">
+                        <button
+                          className="w-12 h-12 bg-black/60 backdrop-blur-sm rounded-full border-2 border-white/80 flex items-center justify-center shadow-lg transition-transform hover:scale-110"
+                        >
+                          <Type className="w-6 h-6 text-white" />
+                        </button>
+                        
+                        {/* Size Slider Popup */}
+                        <div className="absolute left-14 top-0 bg-black/80 backdrop-blur-md rounded-lg p-3 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto">
+                          <div className="flex items-center space-x-3 w-32">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const element = textElements.find(el => el.id === selectedTextId);
+                                if (element) {
+                                  updateTextElement(selectedTextId, { size: Math.max(16, element.size - 4) });
+                                }
+                              }}
+                              className="w-6 h-6 bg-white/20 hover:bg-white/40 text-white rounded-full flex items-center justify-center text-xs font-bold"
+                            >
+                              -
+                            </button>
+                            <input
+                              type="range"
+                              min="16"
+                              max="72"
+                              value={textElements.find(el => el.id === selectedTextId)?.size || 32}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                updateTextElement(selectedTextId, { size: parseInt(e.target.value) });
+                              }}
+                              className="flex-1 h-2 bg-white/20 rounded-full appearance-none cursor-pointer"
+                            />
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const element = textElements.find(el => el.id === selectedTextId);
+                                if (element) {
+                                  updateTextElement(selectedTextId, { size: Math.min(72, element.size + 4) });
+                                }
+                              }}
+                              className="w-6 h-6 bg-white/20 hover:bg-white/40 text-white rounded-full flex items-center justify-center text-xs font-bold"
+                            >
+                              +
+                            </button>
+                          </div>
+                          <div className="text-white text-xs text-center mt-1">
+                            {textElements.find(el => el.id === selectedTextId)?.size || 32}px
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Background/Style Icon */}
+                      <div className="relative group">
+                        <button
+                          onClick={() => {
+                            // Cycle through background styles
+                            const currentElement = textElements.find(el => el.id === selectedTextId);
+                            const currentStyleIndex = textStylePresets.findIndex(s => s.name === currentElement?.style.name);
+                            const nextStyleIndex = (currentStyleIndex + 1) % textStylePresets.length;
+                            updateTextElement(selectedTextId, { style: textStylePresets[nextStyleIndex] });
+                          }}
+                          className="w-12 h-12 bg-black/60 backdrop-blur-sm rounded-full border-2 border-white/80 flex items-center justify-center shadow-lg transition-transform hover:scale-110"
+                        >
+                          <Settings className="w-6 h-6 text-white" />
+                        </button>
+                        
+                        {/* Background Style Popup */}
+                        <div className="absolute left-14 top-0 bg-black/80 backdrop-blur-md rounded-lg p-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto">
+                          <div className="space-y-2">
+                            {textStylePresets.map((preset) => {
+                              const selectedElement = textElements.find(el => el.id === selectedTextId);
+                              const isSelected = selectedElement?.style.name === preset.name;
+                              return (
+                                <button
+                                  key={preset.name}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    updateTextElement(selectedTextId, { style: preset });
+                                  }}
+                                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
+                                    isSelected 
+                                      ? 'bg-white text-black' 
+                                      : 'bg-white/20 text-white hover:bg-white/40'
+                                  }`}
+                                >
+                                  {preset.name}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Close Settings */}
                       <button
                         onClick={() => setShowTextStylePanel(false)}
-                        className="w-full py-2 bg-white text-black rounded font-bold"
+                        className="w-12 h-12 bg-red-500/80 backdrop-blur-sm rounded-full border-2 border-white/80 flex items-center justify-center shadow-lg transition-transform hover:scale-110"
                       >
-                        CLOSE PANEL
+                        <X className="w-6 h-6 text-white" />
                       </button>
                     </div>
                   )}
