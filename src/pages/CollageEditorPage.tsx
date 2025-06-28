@@ -12,6 +12,7 @@ import PhotoUploader from '../components/collage/PhotoUploader';
 import CollagePhotos from '../components/collage/CollagePhotos';
 import RealtimeDebugPanel from '../components/debug/RealtimeDebugPanel';
 import MobileVideoRecorder from '../components/video/MobileVideoRecorder';
+import MobileVideoRecorder from '../components/video/MobileVideoRecorder';
 
 type Tab = 'settings' | 'photos';
 
@@ -58,8 +59,11 @@ const CollageEditorPage: React.FC = () => {
   
   const [activeTab, setActiveTab] = useState<Tab>('settings');
   const [showVideoRecorder, setShowVideoRecorder] = useState(false);
+  const [showVideoRecorder, setShowVideoRecorder] = useState(false);
   const [saving, setSaving] = useState(false);
   const saveTimeoutRef = useRef<NodeJS.Timeout>();
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [recordingResolution, setRecordingResolution] = useState({ width: 1920, height: 1080 });
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // SAFETY: Ensure photos is always an array
@@ -369,6 +373,13 @@ const CollageEditorPage: React.FC = () => {
                 >
                   View Live
                 </Link>
+                <button
+                  onClick={() => setShowVideoRecorder(!showVideoRecorder)}
+                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md text-sm transition-colors flex items-center space-x-2"
+                >
+                  <Video className="w-4 h-4" />
+                  <span>Record</span>
+                </button>
                 <Link
                   to={`/collage/${currentCollage.id}/moderation`}
                   className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded transition-colors text-sm"
@@ -388,8 +399,11 @@ const CollageEditorPage: React.FC = () => {
               >
                 <CollageScene
                   ref={canvasRef}
+                  ref={canvasRef}
                   photos={safePhotos}
                   settings={settings}
+                  width={recordingResolution.width}
+                  height={recordingResolution.height}
                   onSettingsChange={handleSettingsChange}
                 />
               </ErrorBoundary>
@@ -411,6 +425,17 @@ const CollageEditorPage: React.FC = () => {
           <MobileVideoRecorder 
             canvasRef={canvasRef} 
             onClose={() => setShowVideoRecorder(false)}
+          />
+        </div>
+      )}
+      
+      {/* Video Recorder */}
+      {showVideoRecorder && (
+        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50 bg-black/50 backdrop-blur-md p-4 rounded-lg border border-white/20">
+          <MobileVideoRecorder 
+            canvasRef={canvasRef} 
+            onClose={() => setShowVideoRecorder(false)}
+            onResolutionChange={(width, height) => setRecordingResolution({ width, height })}
           />
         </div>
       )}

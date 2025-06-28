@@ -1,16 +1,20 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
 import { Video, Square, Download, X, Clock, Settings } from 'lucide-react';
 
+type Resolution = '1080p' | '4k';
+
 interface VideoRecorderProps {
   canvasRef: React.RefObject<HTMLCanvasElement>;
   className?: string;
   onClose?: () => void;
+  onResolutionChange?: (width: number, height: number) => void;
 }
 
 const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({ 
   canvasRef, 
   className = '',
-  onClose
+  onClose,
+  onResolutionChange
 }) => {
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -21,6 +25,7 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
   const [isMobile, setIsMobile] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [duration, setDuration] = useState<30 | 60>(60);
+  const [resolution, setResolution] = useState<Resolution>('1080p');
   const [supportedMimeType, setSupportedMimeType] = useState<string | null>(null);
   const [outputFormat, setOutputFormat] = useState<'webm' | 'mp4'>('webm');
   
@@ -45,6 +50,15 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
       window.removeEventListener('resize', checkMobile);
     };
   }, []);
+  
+  // Update canvas resolution when resolution changes
+  useEffect(() => {
+    if (canvasRef.current && onResolutionChange) {
+      const width = resolution === '4k' ? 3840 : 1920;
+      const height = resolution === '4k' ? 2160 : 1080;
+      onResolutionChange(width, height);
+    }
+  }, [resolution, canvasRef, onResolutionChange]);
 
   // Detect supported video format
   useEffect(() => {
@@ -98,9 +112,19 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
       
       // Configure MediaRecorder with appropriate settings
       const options: MediaRecorderOptions = {
-        mimeType: supportedMimeType,
-        videoBitsPerSecond: isMobile ? 10000000 : 15000000 // 10Mbps for mobile, 15Mbps for desktop
+        mimeType: supportedMimeType
       };
+      
+      // Set bitrate based on resolution and device
+      if (resolution === '4k') {
+        // 4K bitrates: 30Mbps for desktop, 20Mbps for mobile
+        options.videoBitsPerSecond = isMobile ? 20000000 : 30000000;
+      } else {
+        // 1080p bitrates: 15Mbps for desktop, 10Mbps for mobile
+        options.videoBitsPerSecond = isMobile ? 10000000 : 15000000;
+      }
+      
+      console.log(`Recording at ${resolution} with bitrate: ${options.videoBitsPerSecond / 1000000}Mbps`);
       
       const recorder = new MediaRecorder(stream, options);
       
@@ -147,7 +171,7 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
       setError('Failed to start recording. Please check browser permissions.');
       setIsRecording(false);
     }
-  }, [canvasRef, supportedMimeType, isMobile, duration]);
+  }, [canvasRef, supportedMimeType, isMobile, duration, resolution]);
 
   const stopRecording = useCallback(() => {
     // Clear timer
@@ -264,7 +288,7 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
       {showSettings && !isRecording && !isProcessing && (
         <div className="absolute -top-36 left-0 right-0 bg-black/70 backdrop-blur-md p-4 rounded-lg border border-white/20 mb-4">
           <div className="flex justify-between items-center mb-3">
-            <h3 className="text-white text-sm font-medium">Recording Settings</h3>
+            <h3 className="text-white text-sm font-medium">Video Settings</h3>
             <button 
               onClick={() => setShowSettings(false)}
               className="text-gray-400 hover:text-white"
@@ -297,6 +321,29 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
               </div>
             </div>
             
+            {/* Resolution Selection */}
+            <div>
+              <label className="text-white text-xs mb-1 block">Resolution</label>
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => setResolution('1080p')}
+                  className={`px-3 py-1 rounded text-xs ${
+                    resolution === '1080p' 
+                      ? 'bg-purple-600 text-white' 
+                      : 'bg-gray-700 text-gray-300'
+                  }`}
+                >1080p</button>
+                <button
+                  onClick={() => setResolution('4k')}
+                  className={`px-3 py-1 rounded text-xs ${
+                    resolution === '4k' 
+                      ? 'bg-purple-600 text-white' 
+                      : 'bg-gray-700 text-gray-300'
+                  }`}
+                >4K</button>
+              </div>
+            </div>
+            
             {/* Format Selection */}
             <div>
               <label className="text-white text-xs mb-1 block">Output Format</label>
@@ -326,7 +373,7 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
       <div className="flex items-center space-x-2">
         {!isRecording && !isProcessing && !videoUrl && (
           <>
-            <div className="text-xs text-white/70 mr-2">1080p/60fps</div>
+            <div className="text-xs text-white/70 mr-2">{resolution === '4k' ? '4K' : '1080p'}/60fps</div>
             <button
               onClick={startRecording}
               disabled={!supportedMimeType}

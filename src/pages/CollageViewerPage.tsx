@@ -7,6 +7,7 @@ import { ErrorBoundary } from 'react-error-boundary';
 import CollageScene from '../components/three/CollageScene';
 import PhotoUploader from '../components/collage/PhotoUploader';
 import MobileVideoRecorder from '../components/video/MobileVideoRecorder';
+import MobileVideoRecorder from '../components/video/MobileVideoRecorder';
 
 // Error fallback component for 3D scene errors
 function SceneErrorFallback({ error, resetErrorBoundary }: { error: Error; resetErrorBoundary: () => void }) {
@@ -49,6 +50,9 @@ const CollageViewerPage: React.FC = () => {
   const [copied, setCopied] = useState(false);
   const [showUploader, setShowUploader] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(true);
+  const [showVideoRecorder, setShowVideoRecorder] = useState(false);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [recordingResolution, setRecordingResolution] = useState({ width: 1920, height: 1080 });
   const [showVideoRecorder, setShowVideoRecorder] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const navigate = useNavigate();
@@ -198,8 +202,11 @@ const CollageViewerPage: React.FC = () => {
       >
         <CollageScene
           ref={canvasRef}
+          ref={canvasRef}
           photos={safePhotos}
           settings={currentCollage.settings}
+          width={recordingResolution.width}
+          height={recordingResolution.height}
           onSettingsChange={(newSettings) => {
             console.log('🎛️ Settings changed from viewer:', newSettings);
           }}
@@ -255,6 +262,15 @@ const CollageViewerPage: React.FC = () => {
                   >
                     <Upload className="w-4 h-4" />
                     <span className="hidden sm:inline">Upload</span>
+                  </button>
+
+                  {/* Video Recording Button */}
+                  <button
+                    onClick={() => setShowVideoRecorder(!showVideoRecorder)}
+                    className="inline-flex items-center space-x-2 px-3 py-2 bg-white/15 hover:bg-white/25 text-white/90 text-sm rounded-lg transition-colors backdrop-blur-md border border-white/20"
+                  >
+                    <Video className="w-4 h-4" />
+                    <span className="hidden sm:inline">Record</span>
                   </button>
 
                   {/* Video Recording Button */}
@@ -350,6 +366,17 @@ const CollageViewerPage: React.FC = () => {
           <MobileVideoRecorder 
             canvasRef={canvasRef} 
             onClose={() => setShowVideoRecorder(false)}
+          />
+        </div>
+      )}
+
+      {/* Video Recorder */}
+      {showVideoRecorder && (
+        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-30 bg-black/50 backdrop-blur-md p-4 rounded-lg border border-white/20">
+          <MobileVideoRecorder 
+            canvasRef={canvasRef} 
+            onClose={() => setShowVideoRecorder(false)}
+            onResolutionChange={(width, height) => setRecordingResolution({ width, height })}
           />
         </div>
       )}

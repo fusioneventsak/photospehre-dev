@@ -18,6 +18,10 @@ type Photo = {
 type CollageSceneProps = {
   photos: Photo[];
   settings: SceneSettings;
+  width?: number;
+  height?: number;
+  width?: number;
+  height?: number;
   onSettingsChange?: (settings: Partial<SceneSettings>, debounce?: boolean) => void;
 };
 
@@ -683,9 +687,16 @@ const PhotoMesh: React.FC<{
     const handleLoad = (loadedTexture: THREE.Texture) => {
       // Enable mipmaps for better texture quality at different distances
       loadedTexture.generateMipmaps = true;
+      // Enable mipmaps for better texture quality at different distances
+      loadedTexture.generateMipmaps = true;
       loadedTexture.minFilter = THREE.LinearFilter;
       loadedTexture.magFilter = THREE.LinearFilter;
       loadedTexture.format = THREE.RGBAFormat;
+      
+      // Apply anisotropic filtering for better quality at oblique angles
+      if (gl && gl.capabilities.getMaxAnisotropy) {
+        loadedTexture.anisotropy = gl.capabilities.getMaxAnisotropy();
+      }
       
       // Apply anisotropic filtering for better quality at oblique angles
       if (gl && gl.capabilities.getMaxAnisotropy) {
@@ -772,6 +783,10 @@ const PhotoMesh: React.FC<{
       
       // Apply brightness by modifying the material color - only for photos with textures
       brightnessMaterial.color.setScalar(brightness || 1.0);
+      
+      // Enable high quality rendering for textures
+      brightnessMaterial.toneMapped = false;
+      brightnessMaterial.premultipliedAlpha = true;
       
       // Enable high quality rendering for textures
       brightnessMaterial.toneMapped = false;
@@ -877,8 +892,12 @@ const PhotoDebugger: React.FC<{ photos: Photo[] }> = ({ photos }) => {
 };
 
 // Main CollageScene component
-const CollageScene = forwardRef<HTMLCanvasElement, CollageSceneProps>(({ photos, settings, onSettingsChange }, ref) => {
+const CollageScene = forwardRef<HTMLCanvasElement, CollageSceneProps>(({ photos, settings, width = 1920, height = 1080, onSettingsChange }, ref) => {
   const [photosWithPositions, setPhotosWithPositions] = useState<PhotoWithPosition[]>([]);
+  const internalCanvasRef = useRef<HTMLCanvasElement>(null);
+  
+  // Combine the forwarded ref with our internal ref
+  const canvasRef = (ref || internalCanvasRef) as React.RefObject<HTMLCanvasElement>;
   const internalCanvasRef = useRef<HTMLCanvasElement>(null);
   
   // Combine the forwarded ref with our internal ref
@@ -916,8 +935,11 @@ const CollageScene = forwardRef<HTMLCanvasElement, CollageSceneProps>(({ photos,
     <div style={backgroundStyle} className="w-full h-full">
       <Canvas 
         ref={canvasRef}
-        width={1920}
-        height={1080}
+        width={width}
+        height={height}
+        ref={canvasRef}
+        width={width}
+        height={height}
         shadows={safeSettings.shadowsEnabled}
         camera={{ 
           position: [0, 0, 20], 
@@ -941,7 +963,10 @@ const CollageScene = forwardRef<HTMLCanvasElement, CollageSceneProps>(({ photos,
           state.gl.shadowMap.type = THREE.PCFSoftShadowMap;
           state.gl.shadowMap.autoUpdate = true;
           // Use a fixed pixel ratio of 1 for recording to ensure consistent quality
-          state.gl.setPixelRatio(1);
+          // For 4K, we need a higher pixel ratio
+          state.gl.setPixelRatio(width > 1920 ? 2 : 1);
+          // For 4K, we need a higher pixel ratio
+          state.gl.setPixelRatio(width > 1920 ? 2 : 1);
         }}
         performance={{ min: 0.8 }}
         linear={true}
@@ -971,6 +996,8 @@ const CollageScene = forwardRef<HTMLCanvasElement, CollageSceneProps>(({ photos,
     </div>
   );
 });
+
+CollageScene.displayName = 'CollageScene';
 
 CollageScene.displayName = 'CollageScene';
 
