@@ -347,7 +347,7 @@ const PhotoboothPage: React.FC = () => {
     setTextElements(prev => [...prev, newElement]);
     setSelectedTextId(newId);
     setIsEditingText(true);
-    setShowTextStylePanel(true);
+    // Don't auto-open style panel, let user choose
   }, []);
 
   // Delete text element
@@ -659,15 +659,13 @@ const PhotoboothPage: React.FC = () => {
         onDoubleClick={() => {
           setSelectedTextId(element.id);
           setIsEditingText(true);
-          setShowTextStylePanel(true);
         }}
       >
         {selectedTextId === element.id && isEditingText ? (
-          <input
-            type="text"
+          <textarea
             value={element.text}
             onChange={(e) => updateTextElement(element.id, { text: e.target.value })}
-            className="bg-transparent border-none outline-none text-center overflow-hidden"
+            className="bg-transparent border-none outline-none text-center resize-none"
             style={{
               fontSize: `${element.size}px`,
               color: element.color,
@@ -681,14 +679,18 @@ const PhotoboothPage: React.FC = () => {
               textShadow: element.style.outline ? '2px 2px 4px rgba(0,0,0,0.8), -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000' : 'none',
               caretColor: 'white',
               minWidth: '100px',
+              maxWidth: '280px', // Constrain to viewport width
               width: 'auto',
-              resize: 'none',
-              overflow: 'visible',
+              minHeight: '40px',
+              maxHeight: '200px', // Prevent too tall text
+              overflow: 'hidden',
+              lineHeight: '1.2',
             }}
             autoFocus
             placeholder="Enter text"
+            rows={3}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') {
+              if (e.key === 'Escape') {
                 setIsEditingText(false);
               }
             }}
@@ -707,10 +709,12 @@ const PhotoboothPage: React.FC = () => {
               padding: `${element.style.padding}px`,
               borderRadius: element.style.padding > 0 ? '8px' : '0',
               textShadow: element.style.outline ? '2px 2px 4px rgba(0,0,0,0.8), -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000' : 'none',
-              whiteSpace: 'nowrap',
-              maxWidth: 'none',
-              overflow: 'visible',
+              whiteSpace: 'pre-wrap', // Allow line breaks
+              maxWidth: '280px', // Constrain to viewport width
+              overflow: 'hidden',
               userSelect: 'none',
+              lineHeight: '1.2',
+              wordWrap: 'break-word',
             }}
           >
             {element.text}
@@ -954,13 +958,23 @@ const PhotoboothPage: React.FC = () => {
                     </button>
                     
                     {selectedTextId && (
-                      <button
-                        onClick={() => setShowTextStylePanel(!showTextStylePanel)}
-                        className="w-12 h-12 bg-black/60 backdrop-blur-sm hover:bg-black/80 text-white rounded-full flex items-center justify-center border border-white/20 transition-all"
-                        title="Text Style"
-                      >
-                        <Palette className="w-6 h-6" />
-                      </button>
+                      <>
+                        <button
+                          onClick={() => setShowTextStylePanel(!showTextStylePanel)}
+                          className="w-12 h-12 bg-black/60 backdrop-blur-sm hover:bg-black/80 text-white rounded-full flex items-center justify-center border border-white/20 transition-all"
+                          title="Text Style"
+                        >
+                          <Palette className="w-6 h-6" />
+                        </button>
+                        
+                        <button
+                          onClick={() => setIsEditingText(!isEditingText)}
+                          className="w-12 h-12 bg-black/60 backdrop-blur-sm hover:bg-black/80 text-white rounded-full flex items-center justify-center border border-white/20 transition-all"
+                          title="Edit Text"
+                        >
+                          <Type className="w-6 h-6" />
+                        </button>
+                      </>
                     )}
                     
                     {/* Delete All Text Button */}
