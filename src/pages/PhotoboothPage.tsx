@@ -546,8 +546,8 @@ const PhotoboothPage: React.FC = () => {
   // Show loading while fetching collage OR if we don't have a collage yet but no error
   if (loading || (!currentCollage && !storeError)) {
     return (
-      <Layout>
-        <div className="min-h-[calc(100vh-160px)] flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black text-white">
+        <div className="min-h-screen flex items-center justify-center">
           <div className="text-center">
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-white mb-4"></div>
             <p className="text-white">Loading photobooth...</p>
@@ -556,15 +556,15 @@ const PhotoboothPage: React.FC = () => {
             </p>
           </div>
         </div>
-      </Layout>
+      </div>
     );
   }
 
   // Show error ONLY if we have an actual error AND we're not loading AND showError is true
   if (showError && storeError && !loading && !currentCollage) {
     return (
-      <Layout>
-        <div className="min-h-[calc(100vh-160px)] flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black text-white">
+        <div className="min-h-screen flex items-center justify-center">
           <div className="text-center max-w-md">
             <div className="bg-red-900/30 border border-red-500/50 rounded-lg p-6">
               <h2 className="text-xl font-bold text-white mb-4">Collage Not Found</h2>
@@ -588,15 +588,15 @@ const PhotoboothPage: React.FC = () => {
             </div>
           </div>
         </div>
-      </Layout>
+      </div>
     );
   }
 
   // Ensure we have a currentCollage before rendering the main UI
   if (!currentCollage) {
     return (
-      <Layout>
-        <div className="min-h-[calc(100vh-160px)] flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black text-white">
+        <div className="min-h-screen flex items-center justify-center">
           <div className="text-center">
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-white mb-4"></div>
             <p className="text-white">Loading photobooth...</p>
@@ -605,7 +605,7 @@ const PhotoboothPage: React.FC = () => {
             </p>
           </div>
         </div>
-      </Layout>
+      </div>
     );
   }
 
