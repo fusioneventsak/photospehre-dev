@@ -221,30 +221,55 @@ const PhotoboothPage: React.FC = () => {
       const video = videoRef.current;
       
       const handleLoadedMetadata = () => {
-        console.log('📹 Video metadata loaded, playing...');
-        if (!video) return;
+        console.log('📹 Video metadata loaded, attempting to play...');
+        if (!video) {
+          console.error('❌ Video element missing in metadata handler');
+          return;
+        }
+        
+        console.log('📹 Video dimensions:', video.videoWidth, 'x', video.videoHeight);
         
         video.play().then(() => {
+          console.log('✅ Video play successful');
           streamRef.current = mediaStream;
           setCameraState('active');
           console.log('✅ Camera active and streaming');
         }).catch(playErr => {
           console.error('❌ Failed to play video:', playErr);
           setCameraState('error');
-          setError('Failed to start video playback');
+          setError('Failed to start video playback: ' + playErr.message);
           mediaStream.getTracks().forEach(track => track.stop());
         });
       };
       
       const handleError = (event: Event) => {
         console.error('❌ Video element error:', event);
+        const target = event.target as HTMLVideoElement;
+        if (target && target.error) {
+          console.error('❌ Video error details:', target.error);
+        }
         setCameraState('error');
         setError('Video playback error');
         mediaStream.getTracks().forEach(track => track.stop());
       };
       
+      const handleCanPlay = () => {
+        console.log('📹 Video can play - attempting play if not already playing');
+        if (video && video.paused) {
+          video.play().catch(err => console.error('❌ CanPlay play failed:', err));
+        }
+      };
+      
       video.addEventListener('loadedmetadata', handleLoadedMetadata, { once: true });
       video.addEventListener('error', handleError, { once: true });
+      video.addEventListener('canplay', handleCanPlay, { once: true });
+      
+      // Add additional debugging
+      video.addEventListener('loadstart', () => console.log('📹 Video load start'));
+      video.addEventListener('loadeddata', () => console.log('📹 Video data loaded'));
+      video.addEventListener('canplaythrough', () => console.log('📹 Video can play through'));
+      
+      console.log('📹 Video element setup complete, waiting for events...');
       
       const timeoutId = setTimeout(() => {
         if (cameraState === 'starting' && video) {
