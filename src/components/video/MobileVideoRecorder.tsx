@@ -89,13 +89,13 @@ const MobileVideoRecorder: React.FC<VideoRecorderProps> = ({
       
       // Get the canvas stream
       const canvas = canvasRef.current;
-      const stream = canvas.captureStream(isMobile ? 24 : 30); // Lower fps on mobile
+      const stream = canvas.captureStream(30); // Consistent 30fps for all devices
       streamRef.current = stream;
       
       // Configure MediaRecorder with appropriate settings
       const options: MediaRecorderOptions = {
         mimeType: supportedMimeType,
-        videoBitsPerSecond: isMobile ? 2500000 : 3500000 // 2.5Mbps for mobile, 3.5Mbps for desktop
+        videoBitsPerSecond: isMobile ? 5000000 : 8000000 // 5Mbps for mobile, 8Mbps for desktop
       };
       
       const recorder = new MediaRecorder(stream, options);
