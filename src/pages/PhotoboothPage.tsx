@@ -981,7 +981,10 @@ const PhotoboothPage: React.FC = () => {
                     
                     {selectedTextId && (
                       <button
-                        onClick={() => setShowTextStylePanel(!showTextStylePanel)}
+                        onClick={() => {
+                          console.log('Palette clicked, current showTextStylePanel:', showTextStylePanel);
+                          setShowTextStylePanel(!showTextStylePanel);
+                        }}
                         className={`w-12 h-12 backdrop-blur-sm text-white rounded-full flex items-center justify-center border border-white/20 transition-all ${
                           showTextStylePanel ? 'bg-white/80 text-black' : 'bg-black/60 hover:bg-black/80'
                         }`}
