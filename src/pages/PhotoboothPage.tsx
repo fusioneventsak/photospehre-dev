@@ -77,6 +77,7 @@ const PhotoboothPage: React.FC = () => {
   const waitForVideoElement = useCallback(async (maxWaitMs: number = 5000): Promise<HTMLVideoElement | null> => {
     const startTime = Date.now();
     
+    console.log('⏳ Waiting for video element to be available...');
     while (Date.now() - startTime < maxWaitMs) {
       if (videoRef.current) {
         console.log('✅ Video element is available');
@@ -507,16 +508,29 @@ const PhotoboothPage: React.FC = () => {
 
   // FIXED: Initialize camera with better timing
   useEffect(() => {
-    if (!photo && cameraState === 'idle' && !isInitializingRef.current && currentCollage) {
+    if (currentCollage && !photo && cameraState === 'idle' && !isInitializingRef.current) {
       console.log('🚀 Initializing camera...');
-      // Increased delay to ensure DOM is ready
+      // Increased delay to ensure DOM is fully ready
       const timer = setTimeout(() => {
         startCamera(selectedDevice);
-      }, 500);
+      }, 800);
       
       return () => clearTimeout(timer);
     }
   }, [photo, cameraState, startCamera, selectedDevice, currentCollage]);
+
+  // Add a retry mechanism for camera initialization failures
+  useEffect(() => {
+    if (cameraState === 'error' && currentCollage) {
+      console.log('🔄 Setting up auto-retry for camera error...');
+      const retryTimer = setTimeout(() => {
+        console.log('🔄 Auto-retrying camera initialization...');
+        startCamera(selectedDevice);
+      }, 3000); // Retry after 3 seconds
+      
+      return () => clearTimeout(retryTimer);
+    }
+  }, [cameraState, startCamera, selectedDevice, currentCollage]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -529,12 +543,10 @@ const PhotoboothPage: React.FC = () => {
   // Handle visibility change
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.hidden) {
-        console.log('📱 Page hidden, pausing camera...');
-      } else {
+      if (!document.hidden) {
         console.log('📱 Page visible, resuming camera...');
         if (!photo && cameraState === 'idle') {
-          setTimeout(() => startCamera(selectedDevice), 100);
+          setTimeout(() => startCamera(selectedDevice), 500);
         }
       }
     };
@@ -611,7 +623,7 @@ const PhotoboothPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black text-white">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 min-h-screen">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center space-x-4">
@@ -713,8 +725,9 @@ const PhotoboothPage: React.FC = () => {
                   <video
                     ref={videoRef}
                     autoPlay
-                    playsInline
                     muted
+                    playsInline
+                    style={{ objectFit: 'cover', width: '100%', height: '100%' }}
                     className="w-full h-full object-cover"
                   />
                   
@@ -745,7 +758,10 @@ const PhotoboothPage: React.FC = () => {
                             <Camera className="w-8 h-8 mx-auto mb-2 text-gray-400" />
                             <p className="text-sm mb-2">Camera not started</p>
                             <button
-                              onClick={() => startCamera(selectedDevice)}
+                              onClick={() => {
+                                console.log('🎥 Manual camera start requested');
+                                startCamera(selectedDevice);
+                              }}
                               className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded text-sm transition-colors"
                             >
                               Start Camera
@@ -800,10 +816,10 @@ const PhotoboothPage: React.FC = () => {
                   {/* FIXED: Larger Capture Button for better mobile usability */}
                   {cameraState === 'active' && (
                     <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2">
-                      <button
+                      <button 
                         onClick={capturePhoto}
-                        className="w-20 h-20 sm:w-16 sm:h-16 lg:w-14 lg:h-14 bg-white rounded-full border-4 border-gray-300 hover:border-gray-400 transition-all active:scale-95 flex items-center justify-center shadow-lg"
-                        style={{ touchAction: 'manipulation' }} // Prevents double-tap zoom
+                        className="w-20 h-20 sm:w-16 sm:h-16 lg:w-14 lg:h-14 bg-white rounded-full border-4 border-gray-300 hover:border-gray-400 transition-all active:scale-95 flex items-center justify-center shadow-lg focus:outline-none"
+                        style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }} // Prevents double-tap zoom and tap highlight
                       >
                         <div className="w-14 h-14 sm:w-10 sm:h-10 lg:w-8 lg:h-8 bg-gray-300 rounded-full"></div>
                       </button>
@@ -830,6 +846,11 @@ const PhotoboothPage: React.FC = () => {
                 <div className="space-y-3">
                   <label className="block text-sm font-medium text-gray-300">
                     Camera Device
+                    {devices.length > 0 && (
+                      <span className="text-xs text-gray-400 ml-2">
+                        ({devices.length} available)
+                      </span>
+                    )}
                   </label>
                   <select
                     value={selectedDevice}
@@ -852,9 +873,10 @@ const PhotoboothPage: React.FC = () => {
               <h3 className="text-base lg:text-lg font-semibold text-white mb-3 lg:mb-4">How to use</h3>
               <div className="space-y-2 text-sm text-gray-300">
                 <p>1. Allow camera access when prompted</p>
-                <p>2. Add text in the field above the capture button</p>
-                <p>3. Tap the large white button to take a photo</p>
-                <p>4. Review and upload to the collage</p>
+                <p>2. If camera doesn't start, tap "Start Camera"</p>
+                <p>3. Add text in the field above the capture button</p>
+                <p>4. Tap the large white button to take a photo</p>
+                <p>5. Review and upload to the collage</p>
               </div>
             </div>
 
@@ -863,6 +885,7 @@ const PhotoboothPage: React.FC = () => {
               <h3 className="text-base lg:text-lg font-semibold text-purple-300 mb-3">Tips</h3>
               <div className="space-y-2 text-sm text-purple-200">
                 <p>• Hold your device steady for clearer photos</p>
+                <p>• If camera doesn't start, try refreshing the page</p>
                 <p>• Make sure you have good lighting</p>
                 <p>• Text gets larger with shorter messages</p>
                 <p>• Text appears centered and easy to read</p>
