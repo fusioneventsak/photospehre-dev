@@ -1,3 +1,29 @@
+/* Instagram Stories-style slider */
+.slider::-webkit-slider-thumb {
+  appearance: none;
+  height: 20px;
+  width: 20px;
+  border-radius: 50%;
+  background: #ffffff;
+  cursor: pointer;
+  border: 2px solid #000;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+}
+
+.slider::-moz-range-thumb {
+  height: 20px;
+  width: 20px;
+  border-radius: 50%;
+  background: #ffffff;
+  cursor: pointer;
+  border: 2px solid #000;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+}
+
+.safe-area-pb {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
 // src/pages/PhotoboothPage.tsx - COMPLETE with Instagram Story-like text editing
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -881,7 +907,7 @@ const PhotoboothPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black text-white">
+    <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black text-white" style={{ paddingBottom: showTextStylePanel ? '300px' : '0' }}>
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 min-h-screen">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
@@ -980,79 +1006,7 @@ const PhotoboothPage: React.FC = () => {
                     )}
                   </div>
                   
-                  {/* Text Style Panel */}
-                  {showTextStylePanel && selectedTextId && (
-                    <div className="absolute bottom-20 left-4 right-4 bg-black/80 backdrop-blur-md rounded-2xl p-4 border border-white/20 z-30">
-                      <div className="space-y-4">
-                        <div>
-                          <label className="text-sm text-gray-300 mb-2 block">Size</label>
-                          <input
-                            type="range"
-                            min="16"
-                            max="72"
-                            value={textElements.find(el => el.id === selectedTextId)?.size || 32}
-                            onChange={(e) => updateTextElement(selectedTextId, { size: parseInt(e.target.value) })}
-                            className="w-full"
-                          />
-                        </div>
-                        
-                        <div>
-                          <label className="text-sm text-gray-300 mb-2 block">Color</label>
-                          <div className="flex space-x-2 overflow-x-auto">
-                            {colorPresets.map((color) => (
-                              <button
-                                key={color}
-                                onClick={() => updateTextElement(selectedTextId, { color })}
-                                className="w-8 h-8 rounded-full border-2 border-white/30 flex-shrink-0"
-                                style={{ backgroundColor: color }}
-                              />
-                            ))}
-                          </div>
-                        </div>
-                        
-                        <div>
-                          <label className="text-sm text-gray-300 mb-2 block">Style</label>
-                          <div className="grid grid-cols-2 gap-2">
-                            {textStylePresets.map((preset) => (
-                              <button
-                                key={preset.name}
-                                onClick={() => updateTextElement(selectedTextId, { style: preset })}
-                                className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm transition-colors"
-                              >
-                                {preset.name}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                        
-                        <div>
-                          <label className="text-sm text-gray-300 mb-2 block">Alignment</label>
-                          <div className="flex space-x-2">
-                            {[
-                              { align: 'left' as const, icon: AlignLeft },
-                              { align: 'center' as const, icon: AlignCenter },
-                              { align: 'right' as const, icon: AlignRight }
-                            ].map(({ align, icon: Icon }) => (
-                              <button
-                                key={align}
-                                onClick={() => {
-                                  const element = textElements.find(el => el.id === selectedTextId);
-                                  if (element) {
-                                    updateTextElement(selectedTextId, { 
-                                      style: { ...element.style, align } 
-                                    });
-                                  }
-                                }}
-                                className="p-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
-                              >
-                                <Icon className="w-4 h-4" />
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
+
                   
                   <div className="absolute bottom-4 left-4 right-4">
                     <div className="flex justify-center space-x-3">
