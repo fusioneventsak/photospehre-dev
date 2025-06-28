@@ -1,7 +1,7 @@
-// src/pages/PhotoboothPage.tsx - FIXED: Mobile zoom prevention & larger capture button
+// src/pages/PhotoboothPage.tsx - COMPLETE with Instagram Story-like text editing
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Camera, SwitchCamera, Download, Send, X, RefreshCw, Type, ArrowLeft, Settings, Video, Move, ZoomIn, ZoomOut } from 'lucide-react';
+import { Camera, SwitchCamera, Download, Send, X, RefreshCw, Type, ArrowLeft, Settings, Video, Palette, AlignCenter, AlignLeft, AlignRight, Move, ZoomIn, ZoomOut } from 'lucide-react';
 import { useCollageStore } from '../store/collageStore';
 import MobileVideoRecorder from '../components/video/MobileVideoRecorder';
 
@@ -11,6 +11,15 @@ type VideoDevice = {
 };
 
 type CameraState = 'idle' | 'starting' | 'active' | 'error';
+
+type TextStyle = {
+  fontFamily: string;
+  backgroundColor: string;
+  backgroundOpacity: number;
+  align: 'left' | 'center' | 'right';
+  outline: boolean;
+  padding: number;
+};
 
 const PhotoboothPage: React.FC = () => {
   const { code } = useParams<{ code: string }>();
@@ -28,26 +37,53 @@ const PhotoboothPage: React.FC = () => {
   const [uploading, setUploading] = useState(false);
   const [showVideoRecorder, setShowVideoRecorder] = useState(false);
   const [isEditingText, setIsEditingText] = useState(false);
-  const [textPosition, setTextPosition] = useState({ x: 50, y: 50 }); // Center by default (%)
-  const [textSize, setTextSize] = useState(24); // Font size in pixels
-  const [textColor, setTextColor] = useState('#ffffff'); // White text
-  const [textShadow, setTextShadow] = useState(true); // Text shadow enabled by default
+  const [textPosition, setTextPosition] = useState({ x: 50, y: 50 });
+  const [textSize, setTextSize] = useState(24);
+  const [textColor, setTextColor] = useState('#ffffff');
+  const [textShadow, setTextShadow] = useState(true);
   const [cameraState, setCameraState] = useState<CameraState>('idle');
   const [recordingResolution, setRecordingResolution] = useState({ width: 1920, height: 1080 });
+  
+  // New Instagram Story-like states
+  const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
+  const [textElements, setTextElements] = useState<Array<{
+    id: string;
+    text: string;
+    position: { x: number; y: number };
+    size: number;
+    color: string;
+    style: TextStyle;
+    rotation: number;
+    scale: number;
+  }>>([]);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isResizing, setIsResizing] = useState(false);
+  const [initialDistance, setInitialDistance] = useState(0);
+  const [initialScale, setInitialScale] = useState(1);
+  const [initialRotation, setInitialRotation] = useState(0);
+  const [showTextStylePanel, setShowTextStylePanel] = useState(false);
   
   const [showError, setShowError] = useState(false);
   const { currentCollage, fetchCollageByCode, uploadPhoto, setupRealtimeSubscription, cleanupRealtimeSubscription, loading, error: storeError, photos } = useCollageStore();
 
-  // Ref for the text overlay div
   const textOverlayRef = useRef<HTMLDivElement>(null);
-  // Ref for the photo container to calculate relative positions
   const photoContainerRef = useRef<HTMLDivElement>(null);
   
-  // SAFETY: Ensure photos is always an array
   const safePhotos = Array.isArray(photos) ? photos : [];
-
-  // FIXED: Normalize code to uppercase for consistent database lookup
   const normalizedCode = code?.toUpperCase();
+
+  // Text style presets
+  const textStylePresets = [
+    { name: 'Classic', fontFamily: 'Arial', backgroundColor: 'transparent', backgroundOpacity: 0, align: 'center' as const, outline: true, padding: 0 },
+    { name: 'Highlight', fontFamily: 'Arial', backgroundColor: '#000000', backgroundOpacity: 0.7, align: 'center' as const, outline: false, padding: 8 },
+    { name: 'Neon', fontFamily: 'Impact', backgroundColor: 'transparent', backgroundOpacity: 0, align: 'center' as const, outline: true, padding: 0 },
+    { name: 'Modern', fontFamily: 'Helvetica', backgroundColor: '#ffffff', backgroundOpacity: 0.9, align: 'center' as const, outline: false, padding: 12 },
+  ];
+
+  const colorPresets = [
+    '#ffffff', '#000000', '#ff0000', '#00ff00', '#0000ff', 
+    '#ffff00', '#ff00ff', '#00ffff', '#ff8000', '#8000ff'
+  ];
 
   const cleanupCamera = useCallback(() => {
     console.log('🧹 Cleaning up camera...');
@@ -86,7 +122,6 @@ const PhotoboothPage: React.FC = () => {
     }
   }, []);
 
-  // FIXED: Wait for video element to be available
   const waitForVideoElement = useCallback(async (maxWaitMs: number = 5000): Promise<HTMLVideoElement | null> => {
     const startTime = Date.now();
     
@@ -106,7 +141,6 @@ const PhotoboothPage: React.FC = () => {
   }, []);
 
   const startCamera = useCallback(async (deviceId?: string) => {
-    // Prevent multiple simultaneous initializations
     if (isInitializingRef.current) {
       console.log('🔄 Camera initialization already in progress, skipping...');
       return;
@@ -118,26 +152,20 @@ const PhotoboothPage: React.FC = () => {
     setError(null);
 
     try {
-      // Clean up any existing camera first
       cleanupCamera();
-
-      // FIXED: Wait for video element to be available before proceeding
       const videoElement = await waitForVideoElement();
       if (!videoElement) {
         throw new Error('Video element not available - component may not be fully mounted');
       }
 
-      // Small delay to ensure cleanup is complete
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      // Detect platform
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
       const isAndroid = /Android/.test(navigator.userAgent);
       const isMobile = isIOS || isAndroid;
       
       console.log('📱 Platform detected:', { isIOS, isAndroid, isMobile });
       
-      // Build constraints based on platform
       let constraints: MediaStreamConstraints;
       
       if (deviceId) {
@@ -161,15 +189,12 @@ const PhotoboothPage: React.FC = () => {
       
       console.log('🔧 Using constraints:', constraints);
       
-      // Get user media
       const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
       console.log('✅ Got media stream:', mediaStream.active);
       
-      // Update devices list after getting permission
       const videoDevices = await getVideoDevices();
       setDevices(videoDevices);
       
-      // Auto-select front camera on mobile if not already selected
       if (!selectedDevice && videoDevices.length > 0 && isMobile) {
         const frontCamera = videoDevices.find(device => 
           device.label.toLowerCase().includes('front') ||
@@ -186,17 +211,13 @@ const PhotoboothPage: React.FC = () => {
         }
       }
       
-      // FIXED: Double-check video element is still available
       if (!videoRef.current) {
-        // Clean up stream if video element disappeared
         mediaStream.getTracks().forEach(track => track.stop());
         throw new Error('Video element became unavailable during setup');
       }
       
-      // Set up video element
       videoRef.current.srcObject = mediaStream;
       
-      // Setup event listeners
       const video = videoRef.current;
       
       const handleLoadedMetadata = () => {
@@ -211,7 +232,6 @@ const PhotoboothPage: React.FC = () => {
           console.error('❌ Failed to play video:', playErr);
           setCameraState('error');
           setError('Failed to start video playback');
-          // Clean up stream on play error
           mediaStream.getTracks().forEach(track => track.stop());
         });
       };
@@ -220,14 +240,12 @@ const PhotoboothPage: React.FC = () => {
         console.error('❌ Video element error:', event);
         setCameraState('error');
         setError('Video playback error');
-        // Clean up stream on video error
         mediaStream.getTracks().forEach(track => track.stop());
       };
       
       video.addEventListener('loadedmetadata', handleLoadedMetadata, { once: true });
       video.addEventListener('error', handleError, { once: true });
       
-      // Timeout fallback
       const timeoutId = setTimeout(() => {
         if (cameraState === 'starting' && video) {
           console.log('⏰ Camera start timeout, forcing play...');
@@ -235,13 +253,11 @@ const PhotoboothPage: React.FC = () => {
             console.error('❌ Timeout play failed:', err);
             setCameraState('error');
             setError('Camera initialization timeout');
-            // Clean up stream on timeout
             mediaStream.getTracks().forEach(track => track.stop());
           });
         }
-      }, 5000); // Increased timeout to 5 seconds
+      }, 5000);
       
-      // Clean up timeout when camera becomes active
       const checkActive = setInterval(() => {
         if (cameraState === 'active') {
           clearTimeout(timeoutId);
@@ -262,7 +278,6 @@ const PhotoboothPage: React.FC = () => {
       } else if (err.name === 'NotReadableError') {
         errorMessage = 'Camera is busy. Please close other apps using the camera and try again.';
       } else if (err.name === 'OverconstrainedError') {
-        // Try fallback constraints
         try {
           console.log('🔄 Trying fallback constraints...');
           const fallbackStream = await navigator.mediaDevices.getUserMedia({ 
@@ -270,7 +285,6 @@ const PhotoboothPage: React.FC = () => {
             audio: false 
           });
           
-          // FIXED: Check video element again for fallback
           if (videoRef.current) {
             videoRef.current.srcObject = fallbackStream;
             await videoRef.current.play();
@@ -280,7 +294,6 @@ const PhotoboothPage: React.FC = () => {
             console.log('✅ Fallback camera working');
             return;
           } else {
-            // Clean up fallback stream if no video element
             fallbackStream.getTracks().forEach(track => track.stop());
             throw new Error('Video element not available for fallback');
           }
@@ -311,17 +324,138 @@ const PhotoboothPage: React.FC = () => {
     
     setSelectedDevice(newDeviceId);
     
-    // Only restart camera if we're currently showing the camera view
     if (!photo && cameraState !== 'starting') {
       console.log('📱 Device changed, restarting camera...');
       startCamera(newDeviceId);
     }
   }, [selectedDevice, photo, cameraState, startCamera]);
 
+  // Add new text element
+  const addTextElement = useCallback(() => {
+    const newId = Date.now().toString();
+    const newElement = {
+      id: newId,
+      text: 'Your text here',
+      position: { x: 50, y: 50 },
+      size: 32,
+      color: '#ffffff',
+      style: textStylePresets[0],
+      rotation: 0,
+      scale: 1,
+    };
+    
+    setTextElements(prev => [...prev, newElement]);
+    setSelectedTextId(newId);
+    setIsEditingText(true);
+    setShowTextStylePanel(true);
+  }, []);
+
+  // Delete text element
+  const deleteTextElement = useCallback((id: string) => {
+    setTextElements(prev => prev.filter(el => el.id !== id));
+    if (selectedTextId === id) {
+      setSelectedTextId(null);
+      setIsEditingText(false);
+      setShowTextStylePanel(false);
+    }
+  }, [selectedTextId]);
+
+  // Update text element
+  const updateTextElement = useCallback((id: string, updates: Partial<typeof textElements[0]>) => {
+    setTextElements(prev => prev.map(el => 
+      el.id === id ? { ...el, ...updates } : el
+    ));
+  }, []);
+
+  // Get touch distance for pinch gestures
+  const getTouchDistance = (touches: TouchList): number => {
+    if (touches.length < 2) return 0;
+    const touch1 = touches[0];
+    const touch2 = touches[1];
+    return Math.sqrt(
+      Math.pow(touch2.clientX - touch1.clientX, 2) + 
+      Math.pow(touch2.clientY - touch1.clientY, 2)
+    );
+  };
+
+  // Get touch angle for rotation
+  const getTouchAngle = (touches: TouchList): number => {
+    if (touches.length < 2) return 0;
+    const touch1 = touches[0];
+    const touch2 = touches[1];
+    return Math.atan2(touch2.clientY - touch1.clientY, touch2.clientX - touch1.clientX) * 180 / Math.PI;
+  };
+
+  // Handle text interaction start (mouse/touch)
+  const handleTextInteractionStart = useCallback((e: React.MouseEvent | React.TouchEvent, textId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!photoContainerRef.current) return;
+    
+    setSelectedTextId(textId);
+    setIsDragging(true);
+    
+    const container = photoContainerRef.current.getBoundingClientRect();
+    
+    if ('touches' in e && e.touches.length === 2) {
+      setIsResizing(true);
+      setInitialDistance(getTouchDistance(e.touches));
+      setInitialRotation(getTouchAngle(e.touches));
+      
+      const element = textElements.find(el => el.id === textId);
+      if (element) {
+        setInitialScale(element.scale);
+      }
+    } else {
+      setIsResizing(false);
+    }
+    
+    const moveHandler = (moveEvent: MouseEvent | TouchEvent) => {
+      if ('touches' in moveEvent && moveEvent.touches.length === 2 && isResizing) {
+        const currentDistance = getTouchDistance(moveEvent.touches);
+        const currentAngle = getTouchAngle(moveEvent.touches);
+        
+        const scaleChange = currentDistance / initialDistance;
+        const rotationChange = currentAngle - initialRotation;
+        
+        updateTextElement(textId, {
+          scale: Math.max(0.5, Math.min(3, initialScale * scaleChange)),
+          rotation: rotationChange
+        });
+      } else {
+        const clientX = 'touches' in moveEvent 
+          ? moveEvent.touches[0].clientX 
+          : moveEvent.clientX;
+        const clientY = 'touches' in moveEvent 
+          ? moveEvent.touches[0].clientY 
+          : moveEvent.clientY;
+        
+        const x = Math.max(5, Math.min(95, ((clientX - container.left) / container.width) * 100));
+        const y = Math.max(5, Math.min(95, ((clientY - container.top) / container.height) * 100));
+        
+        updateTextElement(textId, { position: { x, y } });
+      }
+    };
+    
+    const endHandler = () => {
+      setIsDragging(false);
+      setIsResizing(false);
+      document.removeEventListener('mousemove', moveHandler);
+      document.removeEventListener('touchmove', moveHandler);
+      document.removeEventListener('mouseup', endHandler);
+      document.removeEventListener('touchend', endHandler);
+    };
+    
+    document.addEventListener('mousemove', moveHandler);
+    document.addEventListener('touchmove', moveHandler);
+    document.addEventListener('mouseup', endHandler);
+    document.addEventListener('touchend', endHandler);
+  }, [textElements, isResizing, initialDistance, initialRotation, initialScale, updateTextElement]);
+
   const capturePhoto = useCallback(() => {
     if (!videoRef.current || !canvasRef.current || cameraState !== 'active') return;
 
-    // Reset text editing state when capturing a new photo
     setIsEditingText(false);
     
     const video = videoRef.current;
@@ -330,118 +464,89 @@ const PhotoboothPage: React.FC = () => {
 
     if (!context) return;
 
-    // Calculate 9:16 aspect ratio dimensions
     const targetAspectRatio = 9 / 16;
     const videoAspectRatio = video.videoWidth / video.videoHeight;
     
     let sourceWidth, sourceHeight, sourceX, sourceY;
     
     if (videoAspectRatio > targetAspectRatio) {
-      // Video is wider than target, crop horizontally
       sourceHeight = video.videoHeight;
       sourceWidth = sourceHeight * targetAspectRatio;
       sourceX = (video.videoWidth - sourceWidth) / 2;
       sourceY = 0;
     } else {
-      // Video is taller than target, crop vertically  
       sourceWidth = video.videoWidth;
       sourceHeight = sourceWidth / targetAspectRatio;
       sourceX = 0;
       sourceY = (video.videoHeight - sourceHeight) / 2;
     }
 
-    // Set canvas dimensions to 9:16 aspect ratio
-    const canvasWidth = 540; // 9:16 ratio at reasonable resolution
+    const canvasWidth = 540;
     const canvasHeight = 960;
     canvas.width = canvasWidth;
     canvas.height = canvasHeight;
 
-    // Draw the cropped video frame
     context.drawImage(
       video,
-      sourceX, sourceY, sourceWidth, sourceHeight, // Source rectangle (cropped)
-      0, 0, canvasWidth, canvasHeight // Destination rectangle (full canvas)
+      sourceX, sourceY, sourceWidth, sourceHeight,
+      0, 0, canvasWidth, canvasHeight
     );
 
-    // Add text overlay if provided with dynamic sizing
-    if (text.trim()) {
-      // Dynamic font size calculation - starts large and gets smaller with longer text
-      const baseSize = Math.min(canvasWidth, canvasHeight) * 0.10; // Slightly smaller base size
-      const dynamicSize = Math.max(baseSize * 0.4, baseSize - (text.length * 1.5)); // Dynamic scaling
-      const fontSize = dynamicSize;
+    // Render text elements on canvas
+    textElements.forEach(element => {
+      const x = (element.position.x / 100) * canvasWidth;
+      const y = (element.position.y / 100) * canvasHeight;
+      const fontSize = element.size * element.scale;
       
-      context.font = `bold ${fontSize}px Arial`;
-      context.textAlign = 'center';
+      context.save();
+      context.translate(x, y);
+      context.rotate((element.rotation * Math.PI) / 180);
+      context.scale(element.scale, element.scale);
+      
+      context.font = `bold ${fontSize}px ${element.style.fontFamily}`;
+      context.textAlign = element.style.align;
       context.textBaseline = 'middle';
       
-      // Enhanced shadow for better readability
-      context.shadowColor = 'rgba(0,0,0,0.9)';
-      context.shadowBlur = 8;
-      context.shadowOffsetX = 3;
-      context.shadowOffsetY = 3;
-      
-      // White text with stronger black outline
-      context.strokeStyle = 'black';
-      context.lineWidth = fontSize * 0.08;
-      context.fillStyle = 'white';
-      
-      // Split text into lines if too long
-      const maxWidth = canvasWidth * 0.85; // Slightly more padding
-      const words = text.split(' ');
-      const lines: string[] = [];
-      let currentLine = words[0] || '';
-
-      for (let i = 1; i < words.length; i++) {
-        const word = words[i];
-        const width = context.measureText(currentLine + ' ' + word).width;
-        if (width < maxWidth) {
-          currentLine += ' ' + word;
-        } else {
-          lines.push(currentLine);
-          currentLine = word;
-        }
+      if (element.style.backgroundColor !== 'transparent') {
+        context.fillStyle = `${element.style.backgroundColor}${Math.round(element.style.backgroundOpacity * 255).toString(16).padStart(2, '0')}`;
+        const metrics = context.measureText(element.text);
+        const padding = element.style.padding;
+        context.fillRect(
+          -metrics.width/2 - padding, 
+          -fontSize/2 - padding, 
+          metrics.width + padding*2, 
+          fontSize + padding*2
+        );
       }
-      if (currentLine) lines.push(currentLine);
-
-      // Draw each line with improved spacing
-      const lineHeight = fontSize * 1.1;
-      const totalHeight = lines.length * lineHeight;
-      const startY = (canvasHeight - totalHeight) / 2 + fontSize / 2;
-
-      lines.forEach((line, index) => {
-        const textY = startY + index * lineHeight;
-        const textX = canvasWidth / 2;
-        
-        // Draw outline first
-        context.strokeText(line, textX, textY);
-        // Then fill text
-        context.fillText(line, textX, textY);
-      });
       
-      // Reset shadow
-      context.shadowColor = 'transparent';
-      context.shadowBlur = 0;
-      context.shadowOffsetX = 0;
-      context.shadowOffsetY = 0;
-    }
+      if (element.style.outline) {
+        context.shadowColor = 'rgba(0,0,0,0.9)';
+        context.shadowBlur = 8;
+        context.shadowOffsetX = 3;
+        context.shadowOffsetY = 3;
+        context.strokeStyle = 'black';
+        context.lineWidth = fontSize * 0.08;
+        context.strokeText(element.text, 0, 0);
+      }
+      
+      context.fillStyle = element.color;
+      context.fillText(element.text, 0, 0);
+      
+      context.restore();
+    });
 
     const dataUrl = canvas.toDataURL('image/jpeg', 1.0);
     setPhoto(dataUrl);
-    
-    // Stop camera after taking photo to free up resources
-    // Also reset text position and size for editing
     setTextPosition({ x: 50, y: 50 });
     setTextSize(24);
     cleanupCamera();
-  }, [text, cameraState, cleanupCamera, textPosition]);
+  }, [textElements, cameraState, cleanupCamera]);
 
   const uploadToCollage = useCallback(async () => {
     if (!photo || !currentCollage) return;
 
     setUploading(true);
     setError(null);
-
-    // Disable text editing during upload
     setIsEditingText(false);
     
     try {
@@ -451,15 +556,15 @@ const PhotoboothPage: React.FC = () => {
 
       const result = await uploadPhoto(currentCollage.id, file);
       if (result) {        
-        // Reset state
         setPhoto(null);
         setText('');
+        setTextElements([]);
+        setSelectedTextId(null);
+        setShowTextStylePanel(false);
         
-        // Show success message
         setError('Photo uploaded successfully! Your photo will appear in the collage automatically.');
         setTimeout(() => setError(null), 3000);
         
-        // Restart camera after a brief delay
         setTimeout(() => {
           console.log('🔄 Restarting camera after upload...');
           startCamera(selectedDevice);
@@ -473,13 +578,12 @@ const PhotoboothPage: React.FC = () => {
     } finally {
       setUploading(false);
     }
-  }, [photo, currentCollage, uploadPhoto, startCamera, selectedDevice, isEditingText]);
+  }, [photo, currentCollage, uploadPhoto, startCamera, selectedDevice]);
 
   const downloadPhoto = useCallback(() => {
     if (!photo) return;
     const link = document.createElement('a');
     link.href = photo;
-    // Add timestamp to filename
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     link.download = 'photobooth.jpg';
     link.click();
@@ -488,37 +592,116 @@ const PhotoboothPage: React.FC = () => {
   const retakePhoto = useCallback(() => {
     setPhoto(null);
     setText('');
-    // Reset text editing state
+    setTextElements([]);
+    setSelectedTextId(null);
     setIsEditingText(false);
+    setShowTextStylePanel(false);
     
-    // Restart camera immediately
     setTimeout(() => {
       console.log('🔄 Restarting camera after retake...');
       startCamera(selectedDevice);
     }, 100);
   }, [startCamera, selectedDevice]);
 
-  // Toggle text editing mode
   const toggleTextEditing = useCallback(() => {
     setIsEditingText(prev => !prev);
     if (!isEditingText) setText(text || 'Edit this text');
   }, [isEditingText, text]);
+
+  // Render text elements on photo
+  const renderTextElements = () => {
+    return textElements.map((element) => (
+      <div
+        key={element.id}
+        className={`absolute cursor-move select-none ${selectedTextId === element.id ? 'ring-2 ring-white ring-opacity-70' : ''}`}
+        style={{
+          left: `${element.position.x}%`,
+          top: `${element.position.y}%`,
+          transform: `translate(-50%, -50%) scale(${element.scale}) rotate(${element.rotation}deg)`,
+          touchAction: 'none',
+          zIndex: selectedTextId === element.id ? 20 : 10,
+        }}
+        onMouseDown={(e) => handleTextInteractionStart(e, element.id)}
+        onTouchStart={(e) => handleTextInteractionStart(e, element.id)}
+        onDoubleClick={() => {
+          setSelectedTextId(element.id);
+          setIsEditingText(true);
+          setShowTextStylePanel(true);
+        }}
+      >
+        {selectedTextId === element.id && isEditingText ? (
+          <textarea
+            value={element.text}
+            onChange={(e) => updateTextElement(element.id, { text: e.target.value })}
+            className="bg-transparent border-none outline-none resize-none text-center"
+            style={{
+              fontSize: `${element.size}px`,
+              color: element.color,
+              fontFamily: element.style.fontFamily,
+              textAlign: element.style.align,
+              backgroundColor: element.style.backgroundColor !== 'transparent' 
+                ? `${element.style.backgroundColor}${Math.round(element.style.backgroundOpacity * 255).toString(16).padStart(2, '0')}`
+                : 'transparent',
+              padding: `${element.style.padding}px`,
+              borderRadius: element.style.padding > 0 ? '8px' : '0',
+              textShadow: element.style.outline ? '2px 2px 4px rgba(0,0,0,0.8), -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000' : 'none',
+              caretColor: 'white',
+              minWidth: '100px',
+              minHeight: '40px',
+            }}
+            autoFocus
+            placeholder="Enter text"
+            rows={1}
+          />
+        ) : (
+          <div
+            style={{
+              fontSize: `${element.size}px`,
+              color: element.color,
+              fontFamily: element.style.fontFamily,
+              textAlign: element.style.align,
+              backgroundColor: element.style.backgroundColor !== 'transparent' 
+                ? `${element.style.backgroundColor}${Math.round(element.style.backgroundOpacity * 255).toString(16).padStart(2, '0')}`
+                : 'transparent',
+              padding: `${element.style.padding}px`,
+              borderRadius: element.style.padding > 0 ? '8px' : '0',
+              textShadow: element.style.outline ? '2px 2px 4px rgba(0,0,0,0.8), -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000' : 'none',
+              whiteSpace: 'pre-wrap',
+              maxWidth: '200px',
+            }}
+          >
+            {element.text}
+          </div>
+        )}
+        
+        {selectedTextId === element.id && !isEditingText && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              deleteTextElement(element.id);
+            }}
+            className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center text-xs z-30"
+          >
+            <X className="w-3 h-3" />
+          </button>
+        )}
+      </div>
+    ));
+  };
   
-  // FIXED: Load collage on mount with normalized (uppercase) code
   useEffect(() => {
     if (normalizedCode) {
       console.log('🔍 Fetching collage with normalized code:', normalizedCode);
-      setShowError(false); // Reset error state when starting new fetch
+      setShowError(false);
       fetchCollageByCode(normalizedCode);
     }
   }, [normalizedCode, fetchCollageByCode]);
 
-  // Delay showing error to prevent flash
   useEffect(() => {
     if (storeError && !loading && !currentCollage) {
       const timer = setTimeout(() => {
         setShowError(true);
-      }, 1000); // Wait 1 second before showing error
+      }, 1000);
       
       return () => clearTimeout(timer);
     } else {
@@ -526,7 +709,6 @@ const PhotoboothPage: React.FC = () => {
     }
   }, [storeError, loading, currentCollage]);
 
-  // Setup realtime subscription when collage is loaded
   useEffect(() => {
     if (currentCollage?.id) {
       console.log('🔄 Setting up realtime subscription in photobooth for collage:', currentCollage.id);
@@ -538,11 +720,9 @@ const PhotoboothPage: React.FC = () => {
     };
   }, [currentCollage?.id, setupRealtimeSubscription, cleanupRealtimeSubscription]);
 
-  // FIXED: Initialize camera with better timing
   useEffect(() => {
     if (currentCollage && !photo && cameraState === 'idle' && !isInitializingRef.current) {
       console.log('🚀 Initializing camera...');
-      // Increased delay to ensure DOM is fully ready
       const timer = setTimeout(() => {
         startCamera(selectedDevice);
       }, 800);
@@ -551,76 +731,18 @@ const PhotoboothPage: React.FC = () => {
     }
   }, [photo, cameraState, startCamera, selectedDevice, currentCollage]);
 
-  // Handle text dragging
-  const handleDragStart = useCallback((e: React.MouseEvent | React.TouchEvent) => {
-    if (!textOverlayRef.current || !photoContainerRef.current) return;
-    
-    e.preventDefault();
-    
-    const container = photoContainerRef.current.getBoundingClientRect();
-    
-    const moveHandler = (moveEvent: MouseEvent | TouchEvent) => {
-      const clientX = 'touches' in moveEvent 
-        ? moveEvent.touches[0].clientX 
-        : moveEvent.clientX;
-      const clientY = 'touches' in moveEvent 
-        ? moveEvent.touches[0].clientY 
-        : moveEvent.clientY;
-      
-      // Calculate position as percentage of container
-      const x = Math.max(0, Math.min(100, ((clientX - container.left) / container.width) * 100));
-      const y = Math.max(0, Math.min(100, ((clientY - container.top) / container.height) * 100));
-      
-      setTextPosition({ x, y });
-    };
-    
-    const endHandler = () => {
-      document.removeEventListener('mousemove', moveHandler);
-      document.removeEventListener('touchmove', moveHandler);
-      document.removeEventListener('mouseup', endHandler);
-      document.removeEventListener('touchend', endHandler);
-    };
-    
-    document.addEventListener('mousemove', moveHandler);
-    document.addEventListener('touchmove', moveHandler);
-    document.addEventListener('mouseup', endHandler);
-    document.addEventListener('touchend', endHandler);
-  }, []);
-  
-  // Increase text size
-  const increaseTextSize = useCallback(() => {
-    setTextSize(prev => Math.min(prev + 4, 72)); // Max size 72px
-  }, []);
-  
-  // Decrease text size
-  const decreaseTextSize = useCallback(() => {
-    setTextSize(prev => Math.max(prev - 4, 12)); // Min size 12px
-  }, []);
-  
-  // Toggle text shadow
-  const toggleTextShadow = useCallback(() => {
-    setTextShadow(prev => !prev);
-  }, []);
-  
-  // Change text color
-  const changeTextColor = useCallback((color: string) => {
-    setTextColor(color);
-  }, []);
-  
-  // Add a retry mechanism for camera initialization failures
   useEffect(() => {
     if (cameraState === 'error' && currentCollage) {
       console.log('🔄 Setting up auto-retry for camera error...');
       const retryTimer = setTimeout(() => {
         console.log('🔄 Auto-retrying camera initialization...');
         startCamera(selectedDevice);
-      }, 3000); // Retry after 3 seconds
+      }, 3000);
       
       return () => clearTimeout(retryTimer);
     }
   }, [cameraState, startCamera, selectedDevice, currentCollage]);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       console.log('🧹 Component unmounting, cleaning up...');
@@ -628,7 +750,6 @@ const PhotoboothPage: React.FC = () => {
     };
   }, [cleanupCamera]);
 
-  // Handle visibility change
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (!document.hidden) {
@@ -643,7 +764,6 @@ const PhotoboothPage: React.FC = () => {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [photo, cameraState, startCamera, selectedDevice]);
 
-  // Show loading while fetching collage OR if we don't have a collage yet but no error
   if (loading || (!currentCollage && !storeError)) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black text-white">
@@ -660,7 +780,6 @@ const PhotoboothPage: React.FC = () => {
     );
   }
 
-  // Show error ONLY if we have an actual error AND we're not loading AND showError is true
   if (showError && storeError && !loading && !currentCollage) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black text-white">
@@ -685,17 +804,6 @@ const PhotoboothPage: React.FC = () => {
                   Go Home
                 </button>
               </div>
-              
-              {/* Video Recording */}
-              {photo && (
-                <button
-                  onClick={() => setShowVideoRecorder(!showVideoRecorder)}
-                  className="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors flex items-center space-x-2 text-sm"
-                >
-                  <Video className="w-4 h-4" />
-                  <span>Record Video</span>
-                </button>
-              )}
             </div>
           </div>
         </div>
@@ -703,7 +811,6 @@ const PhotoboothPage: React.FC = () => {
     );
   }
 
-  // Ensure we have a currentCollage before rendering the main UI
   if (!currentCollage) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black text-white">
@@ -741,7 +848,6 @@ const PhotoboothPage: React.FC = () => {
             </div>
           </div>
           
-          {/* Camera Controls */}
           {!photo && devices.length > 1 && (
             <button
               onClick={switchCamera}
@@ -753,7 +859,6 @@ const PhotoboothPage: React.FC = () => {
           )}
         </div>
 
-        {/* Error Display */}
         {error && (
           <div className={`mb-6 p-4 rounded-lg ${
             error.includes('successfully') 
@@ -764,13 +869,10 @@ const PhotoboothPage: React.FC = () => {
           </div>
         )}
 
-        {/* Main Content */}
         <div className="flex flex-col lg:flex-row gap-4 lg:gap-8">
-          {/* Camera/Photo View */}
           <div className="flex-1 flex justify-center">
             <div className="bg-gray-900 rounded-lg overflow-hidden w-full max-w-xs sm:max-w-sm lg:max-w-md">
               {photo ? (
-                /* Photo Preview with text editing - 9:16 aspect ratio */
                 <div ref={photoContainerRef} className="relative aspect-[9/16]">
                   <img 
                     src={photo} 
@@ -778,138 +880,136 @@ const PhotoboothPage: React.FC = () => {
                     className="w-full h-full object-cover"
                   />
                   
-                  {/* Editable Text Overlay */}
-                  {isEditingText && (
-                    <div 
-                      ref={textOverlayRef}
-                      className="absolute cursor-move"
-                      style={{
-                        left: `${textPosition.x}%`,
-                        top: `${textPosition.y}%`,
-                        transform: 'translate(-50%, -50%)',
-                        maxWidth: '80%',
-                        touchAction: 'none', // Prevents scrolling while dragging on mobile
-                      }}
-                      onMouseDown={handleDragStart}
-                      onTouchStart={handleDragStart}
+                  {renderTextElements()}
+                  
+                  {/* Instagram Story-like UI Controls - Top Right */}
+                  <div className="absolute top-4 right-4 flex flex-col space-y-3 z-20">
+                    <button
+                      onClick={addTextElement}
+                      className="w-12 h-12 bg-black/60 backdrop-blur-sm hover:bg-black/80 text-white rounded-full flex items-center justify-center border border-white/20 transition-all"
+                      title="Add Text"
                     >
-                      <textarea
-                        value={text}
-                        onChange={(e) => setText(e.target.value)}
-                        className="bg-transparent border-none outline-none resize-none text-center w-full"
-                        style={{
-                          fontSize: `${textSize}px`,
-                          color: textColor,
-                          textShadow: textShadow ? '2px 2px 4px rgba(0,0,0,0.8), -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000' : 'none',
-                          caretColor: 'white',
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                        onTouchStart={(e) => e.stopPropagation()}
-                        placeholder="Enter text here"
-                        rows={2}
-                      />
+                      <Type className="w-6 h-6" />
+                    </button>
+                    
+                    <button
+                      onClick={downloadPhoto}
+                      className="w-12 h-12 bg-black/60 backdrop-blur-sm hover:bg-black/80 text-white rounded-full flex items-center justify-center border border-white/20 transition-all"
+                      title="Download"
+                    >
+                      <Download className="w-6 h-6" />
+                    </button>
+                    
+                    {selectedTextId && (
+                      <button
+                        onClick={() => setShowTextStylePanel(!showTextStylePanel)}
+                        className="w-12 h-12 bg-black/60 backdrop-blur-sm hover:bg-black/80 text-white rounded-full flex items-center justify-center border border-white/20 transition-all"
+                        title="Text Style"
+                      >
+                        <Palette className="w-6 h-6" />
+                      </button>
+                    )}
+                  </div>
+                  
+                  {/* Text Style Panel */}
+                  {showTextStylePanel && selectedTextId && (
+                    <div className="absolute bottom-20 left-4 right-4 bg-black/80 backdrop-blur-md rounded-2xl p-4 border border-white/20 z-30">
+                      <div className="space-y-4">
+                        <div>
+                          <label className="text-sm text-gray-300 mb-2 block">Size</label>
+                          <input
+                            type="range"
+                            min="16"
+                            max="72"
+                            value={textElements.find(el => el.id === selectedTextId)?.size || 32}
+                            onChange={(e) => updateTextElement(selectedTextId, { size: parseInt(e.target.value) })}
+                            className="w-full"
+                          />
+                        </div>
+                        
+                        <div>
+                          <label className="text-sm text-gray-300 mb-2 block">Color</label>
+                          <div className="flex space-x-2 overflow-x-auto">
+                            {colorPresets.map((color) => (
+                              <button
+                                key={color}
+                                onClick={() => updateTextElement(selectedTextId, { color })}
+                                className="w-8 h-8 rounded-full border-2 border-white/30 flex-shrink-0"
+                                style={{ backgroundColor: color }}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                        
+                        <div>
+                          <label className="text-sm text-gray-300 mb-2 block">Style</label>
+                          <div className="grid grid-cols-2 gap-2">
+                            {textStylePresets.map((preset) => (
+                              <button
+                                key={preset.name}
+                                onClick={() => updateTextElement(selectedTextId, { style: preset })}
+                                className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm transition-colors"
+                              >
+                                {preset.name}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        
+                        <div>
+                          <label className="text-sm text-gray-300 mb-2 block">Alignment</label>
+                          <div className="flex space-x-2">
+                            {[
+                              { align: 'left' as const, icon: AlignLeft },
+                              { align: 'center' as const, icon: AlignCenter },
+                              { align: 'right' as const, icon: AlignRight }
+                            ].map(({ align, icon: Icon }) => (
+                              <button
+                                key={align}
+                                onClick={() => {
+                                  const element = textElements.find(el => el.id === selectedTextId);
+                                  if (element) {
+                                    updateTextElement(selectedTextId, { 
+                                      style: { ...element.style, align } 
+                                    });
+                                  }
+                                }}
+                                className="p-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+                              >
+                                <Icon className="w-4 h-4" />
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   )}
                   
-                  {/* Text Editing Controls */}
-                  {isEditingText && (
-                    <div className="absolute top-3 left-3 right-3 bg-black/70 backdrop-blur-sm rounded-lg p-2 flex flex-wrap gap-2 items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <button
-                          onClick={decreaseTextSize}
-                          className="p-1.5 bg-gray-700 hover:bg-gray-600 text-white rounded transition-colors"
-                          title="Decrease text size"
-                        >
-                          <ZoomOut className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={increaseTextSize}
-                          className="p-1.5 bg-gray-700 hover:bg-gray-600 text-white rounded transition-colors"
-                          title="Increase text size"
-                        >
-                          <ZoomIn className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={toggleTextShadow}
-                          className={`p-1.5 ${textShadow ? 'bg-purple-600' : 'bg-gray-700'} hover:bg-gray-600 text-white rounded transition-colors`}
-                          title="Toggle text shadow"
-                        >
-                          <span className="text-xs font-bold">T</span>
-                        </button>
-                      </div>
-                      <div className="flex items-center space-x-1">
-                        <div className="text-xs text-white">Drag to move</div>
-                        <Move className="w-3 h-3 text-gray-400" />
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* Photo Controls Overlay */}
-                  <div className="absolute bottom-3 left-3 right-3">
-                    <div className="flex justify-center space-x-2">
+                  <div className="absolute bottom-4 left-4 right-4">
+                    <div className="flex justify-center space-x-3">
                       <button
                         onClick={retakePhoto}
-                        className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors flex items-center space-x-2 text-sm"
+                        className="px-4 py-2 bg-black/60 backdrop-blur-sm hover:bg-black/80 text-white rounded-full transition-all border border-white/20"
                       >
-                        <RefreshCw className="w-4 h-4" />
-                        <span>Retake</span>
+                        <RefreshCw className="w-5 h-5" />
                       </button>
                       
-                      <button
-                        onClick={toggleTextEditing}
-                        className={`px-3 py-2 ${isEditingText ? 'bg-purple-600' : 'bg-gray-700 hover:bg-gray-600'} text-white rounded-lg transition-colors flex items-center space-x-2 text-sm`}
-                      >
-                        <Type className="w-4 h-4" />
-                        <span>{isEditingText ? 'Done' : 'Add Text'}</span>
-                      </button>
-                      
-                      {!isEditingText && (
-                      <button
-                        onClick={downloadPhoto}
-                        className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center space-x-2 text-sm"
-                      >
-                        <Download className="w-4 h-4" />
-                        <span>Download</span>
-                      </button>
-                      )}
-                      
-                      {!isEditingText && (
                       <button
                         onClick={uploadToCollage}
                         disabled={uploading}
-                        className="px-3 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-800 text-white rounded-lg transition-colors flex items-center space-x-2 text-sm"
+                        className="px-6 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-800 text-white rounded-full transition-colors border border-white/20"
                       >
                         {uploading ? (
-                          <>
-                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                            <span>Uploading...</span>
-                          </>
+                          <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                         ) : (
-                          <>
-                            <Send className="w-4 h-4" />
-                            <span>Upload</span>
-                          </>
+                          <Send className="w-5 h-5" />
                         )}
                       </button>
-                      )}
                     </div>
                   </div>
-                  
-                  {/* Video Recording */}
-                  {photo && (
-                    <button
-                      onClick={() => setShowVideoRecorder(!showVideoRecorder)}
-                      className="absolute top-3 right-3 px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors flex items-center space-x-2 text-sm"
-                    >
-                      <Video className="w-4 h-4" />
-                      <span>Record Video</span>
-                    </button>
-                  )}
                 </div>
               ) : (
-                /* Camera View - 9:16 aspect ratio */
                 <div className="relative aspect-[9/16] bg-gray-800">
-                  {/* Video Element */}
                   <video
                     ref={videoRef}
                     autoPlay
@@ -919,7 +1019,6 @@ const PhotoboothPage: React.FC = () => {
                     className="w-full h-full object-cover"
                   />
                   
-                  {/* Camera State Overlay */}
                   {cameraState !== 'active' && (
                     <div className="absolute inset-0 flex items-center justify-center bg-black/50">
                       <div className="text-center text-white">
@@ -960,7 +1059,6 @@ const PhotoboothPage: React.FC = () => {
                     </div>
                   )}
                   
-                  {/* Text Overlay Preview */}
                   {text.trim() && cameraState === 'active' && (
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none px-4">
                       <div 
@@ -976,14 +1074,13 @@ const PhotoboothPage: React.FC = () => {
                     </div>
                   )}
                   
-                  {/* FIXED: Text Input Field - Positioned above capture button */}
                   <div className="absolute bottom-28 sm:bottom-24 lg:bottom-20 left-2 right-2 px-2">
                     <textarea
                       value={text}
                       onChange={(e) => setText(e.target.value)}
                       placeholder="ADD TEXT BEFORE TAKING PICTURE:"
                       className="w-full h-10 sm:h-12 bg-black/70 backdrop-blur-sm border border-white/30 rounded-lg px-3 py-2 text-white placeholder-gray-300 resize-none focus:outline-none focus:border-purple-400 focus:bg-black/80 transition-all"
-                      style={{ fontSize: '16px' }} // CRITICAL: Prevents iOS zoom
+                      style={{ fontSize: '16px' }}
                       maxLength={100}
                     />
                     <div className="flex justify-between items-center mt-1 px-1">
@@ -1001,13 +1098,12 @@ const PhotoboothPage: React.FC = () => {
                     </div>
                   </div>
                   
-                  {/* FIXED: Larger Capture Button for better mobile usability */}
                   {cameraState === 'active' && (
                     <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2">
                       <button 
                         onClick={capturePhoto}
                         className="w-20 h-20 sm:w-16 sm:h-16 lg:w-14 lg:h-14 bg-white rounded-full border-4 border-gray-300 hover:border-gray-400 transition-all active:scale-95 flex items-center justify-center shadow-lg focus:outline-none"
-                        style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }} // Prevents double-tap zoom and tap highlight
+                        style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                       >
                         <div className="w-14 h-14 sm:w-10 sm:h-10 lg:w-8 lg:h-8 bg-gray-300 rounded-full"></div>
                       </button>
@@ -1016,14 +1112,11 @@ const PhotoboothPage: React.FC = () => {
                 </div>
               )}
               
-              {/* Hidden Canvas for Photo Processing */}
               <canvas ref={canvasRef} className="hidden" />
             </div>
           </div>
 
-          {/* Controls Panel - Desktop Side Panel */}
           <div className="w-full lg:w-72 space-y-4 lg:space-y-6">
-            {/* Camera Settings */}
             {devices.length > 1 && (
               <div className="bg-gray-900 rounded-lg p-4 lg:p-6">
                 <div className="flex items-center space-x-2 mb-3 lg:mb-4">
@@ -1044,7 +1137,7 @@ const PhotoboothPage: React.FC = () => {
                     value={selectedDevice}
                     onChange={(e) => handleDeviceChange(e.target.value)}
                     className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-purple-500"
-                    style={{ fontSize: '16px' }} // CRITICAL: Prevents iOS zoom
+                    style={{ fontSize: '16px' }}
                   >
                     {devices.map((device, index) => (
                       <option key={device.deviceId} value={device.deviceId}>
@@ -1056,7 +1149,18 @@ const PhotoboothPage: React.FC = () => {
               </div>
             )}
 
-            {/* Instructions */}
+            <div className="bg-gray-900 rounded-lg p-4 lg:p-6">
+              <h3 className="text-base lg:text-lg font-semibold text-white mb-3 lg:mb-4">Text Editing</h3>
+              <div className="space-y-2 text-sm text-gray-300">
+                <p>• Tap the <Type className="w-4 h-4 inline mx-1" /> icon to add text</p>
+                <p>• Drag text to move it around</p>
+                <p>• Double-tap text to edit content</p>
+                <p>• Use two fingers to resize and rotate</p>
+                <p>• Tap <Palette className="w-4 h-4 inline mx-1" /> to change style and color</p>
+                <p>• Tap X to delete selected text</p>
+              </div>
+            </div>
+
             <div className="bg-gray-900 rounded-lg p-4 lg:p-6">
               <h3 className="text-base lg:text-lg font-semibold text-white mb-3 lg:mb-4">How to use</h3>
               <div className="space-y-2 text-sm text-gray-300">
@@ -1069,20 +1173,18 @@ const PhotoboothPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Upload Tips */}
             <div className="bg-purple-900/20 border border-purple-500/30 rounded-lg p-4 lg:p-6">
               <h3 className="text-base lg:text-lg font-semibold text-purple-300 mb-3">Tips</h3>
               <div className="space-y-2 text-sm text-purple-200">
                 <p>• Hold your device steady for clearer photos</p>
                 <p>• If camera doesn't start, try refreshing the page</p>
-                <p>• You can add text before or after taking a photo</p>
+                <p>• You can add multiple text elements</p>
                 <p>• Drag text to position it anywhere on the photo</p>
                 <p>• Use the controls to resize and style your text</p>
                 <p>• Photos appear in the collage automatically</p>
               </div>
             </div>
 
-            {/* Collage Info */}
             {currentCollage && (
               <div className="bg-gray-900 rounded-lg p-4 lg:p-6">
                 <h3 className="text-base lg:text-lg font-semibold text-white mb-3">Collage Info</h3>
@@ -1106,7 +1208,6 @@ const PhotoboothPage: React.FC = () => {
         </div>
       </div>
       
-      {/* Video Recorder */}
       {showVideoRecorder && (
         <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-30 bg-black/50 backdrop-blur-md p-4 rounded-lg border border-white/20">
           <MobileVideoRecorder 
