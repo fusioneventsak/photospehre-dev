@@ -1,10 +1,10 @@
 import { type SceneSettings } from '../../../store/sceneStore';
 import { type Photo } from './BasePattern';
+import { SlotManager } from './SlotManager';
 import { FloatPattern } from './FloatPattern';
 import { GridPattern } from './GridPattern';
 import { SpiralPattern } from './SpiralPattern';
 import { WavePattern } from './WavePattern';
-import { SlotManager } from './SlotManager';
 
 export class PatternFactory {
   static createPattern(type: string, settings: SceneSettings, photos: Photo[]) {
