@@ -1,8 +1,9 @@
 // src/pages/PhotoboothPage.tsx - FIXED: Mobile zoom prevention & larger capture button
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Camera, SwitchCamera, Download, Send, X, RefreshCw, Type, ArrowLeft, Settings } from 'lucide-react';
+import { Camera, SwitchCamera, Download, Send, X, RefreshCw, Type, ArrowLeft, Settings, Video } from 'lucide-react';
 import { useCollageStore, Photo } from '../store/collageStore';
+import MobileVideoRecorder from '../components/video/MobileVideoRecorder';
 
 type VideoDevice = {
   deviceId: string;
@@ -25,6 +26,7 @@ const PhotoboothPage: React.FC = () => {
   const [text, setText] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [showVideoRecorder, setShowVideoRecorder] = useState(false);
   const [cameraState, setCameraState] = useState<CameraState>('idle');
   
   const [showError, setShowError] = useState(false);
@@ -597,6 +599,17 @@ const PhotoboothPage: React.FC = () => {
                   Go Home
                 </button>
               </div>
+              
+              {/* Video Recording */}
+              {photo && (
+                <button
+                  onClick={() => setShowVideoRecorder(!showVideoRecorder)}
+                  className="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors flex items-center space-x-2 text-sm"
+                >
+                  <Video className="w-4 h-4" />
+                  <span>Record Video</span>
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -916,6 +929,16 @@ const PhotoboothPage: React.FC = () => {
           </div>
         </div>
       </div>
+      
+      {/* Video Recorder */}
+      {showVideoRecorder && (
+        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-30 bg-black/50 backdrop-blur-md p-4 rounded-lg border border-white/20">
+          <MobileVideoRecorder 
+            canvasRef={canvasRef} 
+            onClose={() => setShowVideoRecorder(false)}
+          />
+        </div>
+      )}
     </div>
   );
 };

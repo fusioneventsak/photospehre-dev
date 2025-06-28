@@ -1,5 +1,5 @@
 // src/components/three/CollageScene.tsx - COMPLETE FIX: Floor, Grid, Controls, and Stable Rendering
-import React, { useRef, useMemo, useEffect, useState, useCallback } from 'react';
+import React, { useRef, useMemo, useEffect, useState, useCallback, forwardRef } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
 import * as THREE from 'three';
@@ -866,8 +866,12 @@ const PhotoDebugger: React.FC<{ photos: Photo[] }> = ({ photos }) => {
 };
 
 // Main CollageScene component
-const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSettingsChange }) => {
+const CollageScene = forwardRef<HTMLCanvasElement, CollageSceneProps>(({ photos, settings, onSettingsChange }, ref) => {
   const [photosWithPositions, setPhotosWithPositions] = useState<PhotoWithPosition[]>([]);
+  const internalCanvasRef = useRef<HTMLCanvasElement>(null);
+  
+  // Combine the forwarded ref with our internal ref
+  const canvasRef = (ref || internalCanvasRef) as React.RefObject<HTMLCanvasElement>;
 
   const safePhotos = Array.isArray(photos) ? photos : [];
   const safeSettings = { ...settings };
@@ -899,7 +903,8 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
 
   return (
     <div style={backgroundStyle} className="w-full h-full">
-      <Canvas
+      <Canvas 
+        ref={canvasRef}
         shadows={safeSettings.shadowsEnabled}
         camera={{ 
           position: [0, 0, 20], 
@@ -951,6 +956,8 @@ const CollageScene: React.FC<CollageSceneProps> = ({ photos, settings, onSetting
       </Canvas>
     </div>
   );
-};
+});
+
+CollageScene.displayName = 'CollageScene';
 
 export default CollageScene;

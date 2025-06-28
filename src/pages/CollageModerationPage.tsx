@@ -1,13 +1,14 @@
 // src/pages/CollageModerationPage.tsx - ENHANCED VERSION WITH BETTER DELETION
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ChevronLeft, Shield, RefreshCw, Trash2, Eye, AlertCircle } from 'lucide-react';
+import { ChevronLeft, Shield, RefreshCw, Trash2, Eye, AlertCircle, Video } from 'lucide-react';
 import { useCollageStore } from '../store/collageStore';
 import PhotoModerationModal from '../components/collage/PhotoModerationModal';
 import Layout from '../components/layout/Layout';
 import RealtimeStatus from '../components/debug/RealtimeStatus';
 import RealtimeDebugPanel from '../components/debug/RealtimeDebugPanel';
 import { useCallback } from 'react';
+import MobileVideoRecorder from '../components/video/MobileVideoRecorder';
 
 // Debug flag for logging
 const DEBUG = false;
@@ -47,6 +48,8 @@ const CollageModerationPage: React.FC = () => {
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null); 
   const [showModerationModal, setShowModerationModal] = useState(false);
   const [showDebugPanel, setShowDebugPanel] = useState(false);
+  const [showVideoRecorder, setShowVideoRecorder] = useState(false);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // DEBUG: Log photos changes in moderation
   useEffect(() => {
@@ -266,6 +269,13 @@ const CollageModerationPage: React.FC = () => {
                   {showDebugPanel ? 'Hide Debug' : 'Show Debug'}
                 </button>
               </div>
+              <button
+                onClick={() => setShowVideoRecorder(!showVideoRecorder)}
+                className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors text-sm flex items-center space-x-1"
+              >
+                <Video className="w-4 h-4" />
+                <span>Record</span>
+              </button>
             </div>
           </div>
         </div>
@@ -404,6 +414,16 @@ const CollageModerationPage: React.FC = () => {
           </div>
         )}
       </div>
+      
+      {/* Video Recorder */}
+      {showVideoRecorder && (
+        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50 bg-black/50 backdrop-blur-md p-4 rounded-lg border border-white/20">
+          <MobileVideoRecorder 
+            canvasRef={canvasRef} 
+            onClose={() => setShowVideoRecorder(false)}
+          />
+        </div>
+      )}
       
       {/* Moderation Modal */}
       {showModerationModal && (

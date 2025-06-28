@@ -1,7 +1,7 @@
 // src/pages/CollageEditorPage.tsx - UPDATED: Left-side settings panel with improved styling
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ChevronLeft, Settings, Image, Shield } from 'lucide-react';
+import { ChevronLeft, Settings, Image, Shield, Video } from 'lucide-react';
 import { useCollageStore } from '../store/collageStore';
 import { useSceneStore } from '../store/sceneStore';
 import { ErrorBoundary } from 'react-error-boundary';
@@ -11,6 +11,7 @@ import CollageScene from '../components/three/CollageScene';
 import PhotoUploader from '../components/collage/PhotoUploader';
 import CollagePhotos from '../components/collage/CollagePhotos';
 import RealtimeDebugPanel from '../components/debug/RealtimeDebugPanel';
+import MobileVideoRecorder from '../components/video/MobileVideoRecorder';
 
 type Tab = 'settings' | 'photos';
 
@@ -56,8 +57,10 @@ const CollageEditorPage: React.FC = () => {
   const { settings, updateSettings } = useSceneStore();
   
   const [activeTab, setActiveTab] = useState<Tab>('settings');
+  const [showVideoRecorder, setShowVideoRecorder] = useState(false);
   const [saving, setSaving] = useState(false);
   const saveTimeoutRef = useRef<NodeJS.Timeout>();
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // SAFETY: Ensure photos is always an array
   const safePhotos = Array.isArray(photos) ? photos : [];
@@ -271,6 +274,13 @@ const CollageEditorPage: React.FC = () => {
                 >
                   View Live
                 </Link>
+                <button
+                  onClick={() => setShowVideoRecorder(!showVideoRecorder)}
+                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md text-sm transition-colors flex items-center space-x-2"
+                >
+                  <Video className="w-4 h-4" />
+                  <span>Record</span>
+                </button>
                 <Link
                   to={`/collage/${currentCollage.id}/moderation`}
                   className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md text-sm transition-colors flex items-center space-x-2"
@@ -376,7 +386,8 @@ const CollageEditorPage: React.FC = () => {
                 FallbackComponent={SceneErrorFallback}
                 resetKeys={[currentCollage.id, settings, safePhotos.length]}
               >
-                <CollageScene 
+                <CollageScene
+                  ref={canvasRef}
                   photos={safePhotos}
                   settings={settings}
                   onSettingsChange={handleSettingsChange}
@@ -391,6 +402,16 @@ const CollageEditorPage: React.FC = () => {
       {import.meta.env.DEV && (
         <div className="fixed bottom-4 right-4 z-20 w-64">
           <RealtimeDebugPanel collageId={currentCollage?.id} />
+        </div>
+      )}
+      
+      {/* Video Recorder */}
+      {showVideoRecorder && (
+        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50 bg-black/50 backdrop-blur-md p-4 rounded-lg border border-white/20">
+          <MobileVideoRecorder 
+            canvasRef={canvasRef} 
+            onClose={() => setShowVideoRecorder(false)}
+          />
         </div>
       )}
     </Layout>
