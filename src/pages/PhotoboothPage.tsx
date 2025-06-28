@@ -453,6 +453,39 @@ const PhotoboothPage: React.FC = () => {
     document.addEventListener('touchend', endHandler);
   }, [textElements, isResizing, initialDistance, initialRotation, initialScale, updateTextElement]);
 
+  // Handle resize corner drag (desktop only)
+  const handleResizeCornerStart = useCallback((e: React.MouseEvent, textId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const element = textElements.find(el => el.id === textId);
+    if (!element) return;
+    
+    setInitialScale(element.scale);
+    
+    const startX = e.clientX;
+    const startY = e.clientY;
+    
+    const moveHandler = (moveEvent: MouseEvent) => {
+      const deltaX = moveEvent.clientX - startX;
+      const deltaY = moveEvent.clientY - startY;
+      const delta = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+      const scaleChange = 1 + (delta / 100); // Adjust sensitivity
+      
+      updateTextElement(textId, {
+        scale: Math.max(0.5, Math.min(3, initialScale * scaleChange))
+      });
+    };
+    
+    const endHandler = () => {
+      document.removeEventListener('mousemove', moveHandler);
+      document.removeEventListener('mouseup', endHandler);
+    };
+    
+    document.addEventListener('mousemove', moveHandler);
+    document.addEventListener('mouseup', endHandler);
+  }, [textElements, initialScale, updateTextElement]);
+
   const capturePhoto = useCallback(() => {
     if (!videoRef.current || !canvasRef.current || cameraState !== 'active') return;
 
@@ -630,10 +663,11 @@ const PhotoboothPage: React.FC = () => {
         }}
       >
         {selectedTextId === element.id && isEditingText ? (
-          <textarea
+          <input
+            type="text"
             value={element.text}
             onChange={(e) => updateTextElement(element.id, { text: e.target.value })}
-            className="bg-transparent border-none outline-none resize-none text-center"
+            className="bg-transparent border-none outline-none text-center overflow-hidden"
             style={{
               fontSize: `${element.size}px`,
               color: element.color,
@@ -647,11 +681,18 @@ const PhotoboothPage: React.FC = () => {
               textShadow: element.style.outline ? '2px 2px 4px rgba(0,0,0,0.8), -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000' : 'none',
               caretColor: 'white',
               minWidth: '100px',
-              minHeight: '40px',
+              width: 'auto',
+              resize: 'none',
+              overflow: 'visible',
             }}
             autoFocus
             placeholder="Enter text"
-            rows={1}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                setIsEditingText(false);
+              }
+            }}
+            onBlur={() => setIsEditingText(false)}
           />
         ) : (
           <div
@@ -666,14 +707,17 @@ const PhotoboothPage: React.FC = () => {
               padding: `${element.style.padding}px`,
               borderRadius: element.style.padding > 0 ? '8px' : '0',
               textShadow: element.style.outline ? '2px 2px 4px rgba(0,0,0,0.8), -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000' : 'none',
-              whiteSpace: 'pre-wrap',
-              maxWidth: '200px',
+              whiteSpace: 'nowrap',
+              maxWidth: 'none',
+              overflow: 'visible',
+              userSelect: 'none',
             }}
           >
             {element.text}
           </div>
         )}
         
+        {/* Delete button for selected text */}
         {selectedTextId === element.id && !isEditingText && (
           <button
             onClick={(e) => {
@@ -684,6 +728,15 @@ const PhotoboothPage: React.FC = () => {
           >
             <X className="w-3 h-3" />
           </button>
+        )}
+        
+        {/* Resize corner for desktop */}
+        {selectedTextId === element.id && !isEditingText && (
+          <div
+            className="absolute -bottom-1 -right-1 w-4 h-4 bg-white border border-gray-400 rounded-full cursor-se-resize z-30 hidden md:block"
+            onMouseDown={(e) => handleResizeCornerStart(e, element.id)}
+            style={{ touchAction: 'none' }}
+          />
         )}
       </div>
     ));
@@ -907,6 +960,22 @@ const PhotoboothPage: React.FC = () => {
                         title="Text Style"
                       >
                         <Palette className="w-6 h-6" />
+                      </button>
+                    )}
+                    
+                    {/* Delete All Text Button */}
+                    {textElements.length > 0 && (
+                      <button
+                        onClick={() => {
+                          setTextElements([]);
+                          setSelectedTextId(null);
+                          setIsEditingText(false);
+                          setShowTextStylePanel(false);
+                        }}
+                        className="w-12 h-12 bg-red-600/60 backdrop-blur-sm hover:bg-red-600/80 text-white rounded-full flex items-center justify-center border border-white/20 transition-all"
+                        title="Delete All Text"
+                      >
+                        <X className="w-6 h-6" />
                       </button>
                     )}
                   </div>
@@ -1155,9 +1224,11 @@ const PhotoboothPage: React.FC = () => {
                 <p>• Tap the <Type className="w-4 h-4 inline mx-1" /> icon to add text</p>
                 <p>• Drag text to move it around</p>
                 <p>• Double-tap text to edit content</p>
-                <p>• Use two fingers to resize and rotate</p>
+                <p>• Use two fingers to resize and rotate (mobile)</p>
+                <p>• Drag corner handle to resize (desktop)</p>
                 <p>• Tap <Palette className="w-4 h-4 inline mx-1" /> to change style and color</p>
-                <p>• Tap X to delete selected text</p>
+                <p>• Tap individual X to delete specific text</p>
+                <p>• Tap red X icon to delete all text</p>
               </div>
             </div>
 
