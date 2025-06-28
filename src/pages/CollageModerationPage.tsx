@@ -7,7 +7,6 @@ import PhotoModerationModal from '../components/collage/PhotoModerationModal';
 import Layout from '../components/layout/Layout';
 import RealtimeStatus from '../components/debug/RealtimeStatus';
 import RealtimeDebugPanel from '../components/debug/RealtimeDebugPanel';
-import { useCallback } from 'react';
 import MobileVideoRecorder from '../components/video/MobileVideoRecorder';
 
 // Debug flag for logging
