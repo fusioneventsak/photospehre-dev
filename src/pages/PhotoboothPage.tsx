@@ -195,14 +195,150 @@ const PhotoboothPage: React.FC = () => {
       const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
       setPhoto(dataUrl);
       
-      // Stop camera to save battery
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
+    try {
+      let finalPhoto = photo;
+      
+      // Render text to the photo before downloading
+      if (textElements.length > 0 && canvasRef.current) {
+        console.log('🎨 Rendering text to photo before download...');
+        finalPhoto = await renderTextToCanvas(canvasRef.current, photo);
       }
-      setCameraState('idle');
+
+      const link = document.createElement('a');
+      link.href = finalPhoto;
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      link.download = `photobooth-${timestamp}.jpg`;
+      link.click();
+      
+      console.log('💾 Photo downloaded with text elements');
+    } catch (error) {
+      console.error('Error downloading photo:', error);
+      setError('Failed to download photo');
     }
-  }, [cameraState]);
-  
+  }, [photo, textElements]);
+
+  // Render text to canvas
+  const renderTextToCanvas = useCallback((canvas: HTMLCanvasElement, imageUrl: string): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      
+      img.onload = () => {
+        console.log('🖼️ Image loaded for text rendering, dimensions:', img.width, 'x', img.height);
+        canvas.width = img.width;
+        canvas.height = img.height;
+        
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          console.error('❌ Could not get canvas context');
+          reject(new Error('Could not get canvas context'));
+          return;
+        }
+        
+        // Draw the image
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        console.log('🖼️ Base image drawn to canvas');
+        
+        // Draw each text element
+        textElements.forEach((el, index) => {
+          console.log(`✏️ Rendering text element ${index}: "${el.text}"`);
+          
+          // Calculate positions based on percentages
+          const x = el.position.x / 100 * canvas.width;
+          const y = el.position.y / 100 * canvas.height;
+          
+          // Set text style
+          ctx.save();
+          
+          // Apply transformations
+          ctx.translate(x, y);
+          ctx.rotate(el.rotation * Math.PI / 180);
+          ctx.scale(el.scale, el.scale);
+          
+          // Set font properties
+          ctx.font = `bold ${el.size}px ${el.style.fontFamily}`;
+          ctx.textBaseline = 'middle';
+          ctx.textAlign = el.style.align;
+          
+          // Draw background if needed
+          if (el.style.backgroundColor !== 'transparent' && el.style.backgroundOpacity > 0 && el.style.padding > 0) {
+            const padding = el.style.padding;
+            const opacity = el.style.backgroundOpacity;
+            ctx.fillStyle = `${el.style.backgroundColor}${Math.round(opacity * 255).toString(16).padStart(2, '0')}`;
+            
+            const lines = el.text.split('\n');
+            const lineHeight = el.size * 1.2;
+            const startY = -(lines.length - 1) * lineHeight / 2;
+            
+            lines.forEach((line, lineIndex) => {
+              const lineY = startY + lineIndex * lineHeight;
+              const metrics = ctx.measureText(line);
+              let bgX = -metrics.width/2 - padding;
+              if (el.style.align === 'left') bgX = -padding;
+              if (el.style.align === 'right') bgX = -metrics.width - padding;
+              
+              ctx.fillRect(
+                bgX,
+                lineY - el.size/2 - padding,
+                metrics.width + padding*2,
+                el.size + padding*2
+              );
+            });
+          }
+          
+          // Draw text with outline or shadow
+          if (el.style.outline) {
+            // Enhanced 3D shadow and outline effects
+            ctx.shadowColor = 'rgba(0,0,0,0.9)';
+            ctx.shadowBlur = 12;
+            ctx.shadowOffsetX = 4;
+            ctx.shadowOffsetY = 4;
+
+            ctx.strokeStyle = 'black';
+            ctx.lineWidth = el.size * 0.12;
+            ctx.strokeText(el.text, 0, 0);
+
+            ctx.shadowColor = 'rgba(0,0,0,0.8)';
+            ctx.shadowBlur = 6;
+            ctx.shadowOffsetX = 2;
+            ctx.shadowOffsetY = 2;
+            ctx.strokeStyle = 'rgba(0,0,0,0.8)';
+            ctx.lineWidth = el.size * 0.06;
+            ctx.strokeText(el.text, 0, 0);
+          } else {
+            ctx.shadowColor = 'rgba(0,0,0,0.8)';
+            ctx.shadowBlur = 8;
+            ctx.shadowOffsetX = 3;
+            ctx.shadowOffsetY = 3;
+          }
+          
+          // Draw main text
+          ctx.fillStyle = el.color;
+          ctx.fillText(el.text, 0, 0);
+          
+          // Reset shadow
+          ctx.shadowColor = 'transparent';
+          ctx.shadowBlur = 0;
+          ctx.shadowOffsetX = 0;
+          ctx.shadowOffsetY = 0;
+          
+          ctx.restore();
+        });
+        
+        // Convert canvas to data URL
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+        console.log('✅ Text rendering complete, returning final image');
+        resolve(dataUrl);
+      };
+      
+      img.onerror = (err) => {
+        console.error('❌ Failed to load image for text rendering:', err);
+        reject(new Error('Failed to load image'));
+      };
+      
+      img.src = imageUrl;
+    });
+  }, [textElements]);
   // Retake photo
   const retakePhoto = useCallback(() => {
     setPhoto(null);
@@ -336,7 +472,14 @@ const PhotoboothPage: React.FC = () => {
     setIsEditingText(false);
     
     try {
+      // First render text onto the photo
       let finalPhoto = photo;
+      if (textElements.length > 0 && canvasRef.current) {
+        console.log('🎨 Rendering text to photo before upload...');
+        finalPhoto = await renderTextToCanvas(canvasRef.current, photo);
+      }
+
+      const response = await fetch(finalPhoto);
       
       // First render text onto the photo
       if (textElements.length > 0 && canvasRef.current) {
