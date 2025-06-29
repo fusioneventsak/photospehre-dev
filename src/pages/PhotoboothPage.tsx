@@ -219,26 +219,102 @@ const PhotoboothPage: React.FC = () => {
       
       const video = videoRef.current;
       
-      const handleLoadedMetadata = () => {
-        console.log('📹 Video metadata loaded, attempting to play...');
-        if (!video) {
-          console.error('❌ Video element missing in metadata handler');
-          return;
+      // Enhanced event handling with better timing
+      let hasStartedPlaying = false;
+      let eventListeners: { element: HTMLElement, event: string, handler: EventListener }[] = [];
+      
+      // Helper function to ensure video plays
+      const ensureVideoPlay = async (video: HTMLVideoElement) => {
+        try {
+          // Check if video can autoplay
+          const playPromise = video.play();
+          
+          if (playPromise !== undefined) {
+            await playPromise;
+            console.log('✅ Video autoplay successful');
+            return true;
+          }
+        } catch (error: any) {
+          console.warn('⚠️ Autoplay prevented:', error.message);
+          
+          // If autoplay fails, try to enable play after user interaction
+          if (error.name === 'NotAllowedError') {
+            console.log('👆 Autoplay blocked - waiting for user interaction');
+            setError('Camera ready - tap anywhere to start video');
+            
+            const enablePlay = () => {
+              video.play().then(() => {
+                console.log('✅ Video play after interaction successful');
+                setError(null);
+                document.removeEventListener('click', enablePlay);
+                document.removeEventListener('touchstart', enablePlay);
+              }).catch(err => console.error('❌ Play after interaction failed:', err));
+            };
+            
+            document.addEventListener('click', enablePlay, { once: true });
+            document.addEventListener('touchstart', enablePlay, { once: true });
+          }
+          
+          return false;
         }
-        
-        console.log('📹 Video dimensions:', video.videoWidth, 'x', video.videoHeight);
-        
-        video.play().then(() => {
-          console.log('✅ Video play successful');
-          streamRef.current = mediaStream;
-          setCameraState('active');
-          console.log('✅ Camera active and streaming');
-        }).catch(playErr => {
-          console.error('❌ Failed to play video:', playErr);
-          setCameraState('error');
-          setError('Failed to start video playback: ' + playErr.message);
-          mediaStream.getTracks().forEach(track => track.stop());
+        return false;
+      };
+      
+      // Add event listener with tracking for cleanup
+      const addTrackedEventListener = (element: HTMLElement, event: string, handler: EventListener) => {
+        element.addEventListener(event, handler);
+        eventListeners.push({ element, event, handler });
+      };
+      
+      // Clean up all tracked event listeners
+      const cleanupEventListeners = () => {
+        eventListeners.forEach(({ element, event, handler }) => {
+          element.removeEventListener(event, handler);
         });
+        eventListeners = [];
+      };
+      
+      const handleLoadedMetadata = async () => {
+        console.log('📹 Video metadata loaded, dimensions:', video.videoWidth, 'x', video.videoHeight);
+        if (!hasStartedPlaying && video) {
+          const success = await ensureVideoPlay(video);
+          if (success) {
+            hasStartedPlaying = true;
+            streamRef.current = mediaStream;
+            setCameraState('active');
+            console.log('✅ Camera active and streaming from loadedmetadata');
+            cleanupEventListeners();
+          }
+        }
+      };
+      
+      const handleCanPlay = async () => {
+        console.log('📹 Video can play - attempting play if not already playing');
+        if (!hasStartedPlaying && video && video.paused) {
+          const success = await ensureVideoPlay(video);
+          if (success) {
+            hasStartedPlaying = true;
+            streamRef.current = mediaStream;
+            setCameraState('active');
+            console.log('✅ Camera active and streaming from canplay');
+            cleanupEventListeners();
+          }
+        }
+      };
+      
+      const handleLoadedData = async () => {
+        console.log('📹 Video data loaded');
+        // Additional attempt to play
+        if (!hasStartedPlaying && video && video.readyState >= 2) {
+          const success = await ensureVideoPlay(video);
+          if (success) {
+            hasStartedPlaying = true;
+            streamRef.current = mediaStream;
+            setCameraState('active');
+            console.log('✅ Camera active and streaming from loadeddata');
+            cleanupEventListeners();
+          }
+        }
       };
       
       const handleError = (event: Event) => {
@@ -250,42 +326,52 @@ const PhotoboothPage: React.FC = () => {
         setCameraState('error');
         setError('Video playback error');
         mediaStream.getTracks().forEach(track => track.stop());
+        cleanupEventListeners();
       };
       
-      const handleCanPlay = () => {
-        console.log('📹 Video can play - attempting play if not already playing');
-        if (video && video.paused) {
-          video.play().catch(err => console.error('❌ CanPlay play failed:', err));
-        }
-      };
+      // Add event listeners - removed once: true to allow multiple attempts
+      addTrackedEventListener(video, 'loadedmetadata', handleLoadedMetadata);
+      addTrackedEventListener(video, 'canplay', handleCanPlay);
+      addTrackedEventListener(video, 'loadeddata', handleLoadedData);
+      addTrackedEventListener(video, 'error', handleError);
       
-      video.addEventListener('loadedmetadata', handleLoadedMetadata, { once: true });
-      video.addEventListener('error', handleError, { once: true });
-      video.addEventListener('canplay', handleCanPlay, { once: true });
-      
-      // Add additional debugging
-      video.addEventListener('loadstart', () => console.log('📹 Video load start'));
-      video.addEventListener('loadeddata', () => console.log('📹 Video data loaded'));
-      video.addEventListener('canplaythrough', () => console.log('📹 Video can play through'));
+      // Additional debugging events
+      addTrackedEventListener(video, 'loadstart', () => console.log('📹 Video load start'));
+      addTrackedEventListener(video, 'canplaythrough', () => console.log('📹 Video can play through'));
       
       console.log('📹 Video element setup complete, waiting for events...');
       
-      const timeoutId = setTimeout(() => {
-        if (cameraState === 'starting' && video) {
-          console.log('⏰ Camera start timeout, forcing play...');
-          video.play().catch(err => {
-            console.error('❌ Timeout play failed:', err);
-            setCameraState('error');
-            setError('Camera initialization timeout');
-            mediaStream.getTracks().forEach(track => track.stop());
-          });
-        }
-      }, 5000);
+      // Set the stream with a small delay to ensure event listeners are ready
+      await new Promise(resolve => setTimeout(resolve, 100));
+      video.srcObject = mediaStream;
       
+      // Force load and play if needed after a short delay
+      const forcePlayTimeout = setTimeout(async () => {
+        if (!hasStartedPlaying && video && video.readyState >= 1) {
+          console.log('⏰ Forcing video play after timeout...');
+          const success = await ensureVideoPlay(video);
+          if (success) {
+            hasStartedPlaying = true;
+            streamRef.current = mediaStream;
+            setCameraState('active');
+            console.log('✅ Camera active and streaming from force play');
+            cleanupEventListeners();
+          } else {
+            console.error('❌ Forced play failed');
+            setCameraState('error');
+            setError('Camera initialization timeout - try refreshing the page');
+            mediaStream.getTracks().forEach(track => track.stop());
+            cleanupEventListeners();
+          }
+        }
+      }, 3000);
+      
+      // Cleanup timeout when camera becomes active
       const checkActive = setInterval(() => {
-        if (cameraState === 'active') {
-          clearTimeout(timeoutId);
+        if (hasStartedPlaying || cameraState === 'active') {
+          clearTimeout(forcePlayTimeout);
           clearInterval(checkActive);
+          cleanupEventListeners();
         }
       }, 100);
       
@@ -755,11 +841,11 @@ const PhotoboothPage: React.FC = () => {
         setError('Photo uploaded successfully! Your photo will appear in the collage automatically.');
         setTimeout(() => setError(null), 3000);
         
-        // Increase the delay before restarting camera to ensure proper cleanup
-        setTimeout(() => {
-          console.log('🔄 Restarting camera after upload with increased delay...');
-          startCamera(selectedDevice);
-        }, 1500);
+        // Ensure camera restarts immediately after upload
+        console.log('🔄 Restarting camera after upload...');
+        await cleanupCamera();
+        await new Promise(resolve => setTimeout(resolve, 300));
+        startCamera(selectedDevice);
         
       } else {
         throw new Error('Failed to upload photo');
@@ -769,7 +855,7 @@ const PhotoboothPage: React.FC = () => {
     } finally {
       setUploading(false);
     }
-  }, [photo, currentCollage, uploadPhoto, startCamera, selectedDevice, textElements, renderTextToCanvas]);
+  }, [photo, currentCollage, uploadPhoto, startCamera, selectedDevice, textElements, renderTextToCanvas, cleanupCamera]);
 
   const downloadPhoto = useCallback(async () => {
     if (!photo) return;
@@ -798,12 +884,13 @@ const PhotoboothPage: React.FC = () => {
     setIsEditingText(false);
     setShowTextStylePanel(false);
     
-    // Increase the delay before restarting camera to ensure proper cleanup
+    // Ensure camera restarts properly
+    console.log('🔄 Restarting camera for retake...');
+    cleanupCamera();
     setTimeout(() => {
-      console.log('🔄 Restarting camera after retake with increased delay...');
       startCamera(selectedDevice);
-    }, 1000);
-  }, [startCamera, selectedDevice]);
+    }, 300);
+  }, [startCamera, selectedDevice, cleanupCamera]);
 
   // Render text elements on photo
   const renderTextElements = () => {
