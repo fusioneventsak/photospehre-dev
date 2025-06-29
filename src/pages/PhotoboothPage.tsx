@@ -510,7 +510,7 @@ const PhotoboothPage: React.FC = () => {
     document.addEventListener('mouseup', endHandler);
   }, [textElements, initialScale, updateTextElement]);
 
-  // Function to render text elements onto a canvas
+  // Function to render text elements onto a canvas with high-resolution scaling
   const renderTextToCanvas = useCallback((canvas: HTMLCanvasElement, imageData: string) => {
     return new Promise<string>((resolve) => {
       const context = canvas.getContext('2d');
@@ -521,28 +521,45 @@ const PhotoboothPage: React.FC = () => {
 
       const img = new Image();
       img.onload = () => {
-        const canvasWidth = 540;
-        const canvasHeight = 960;
-        canvas.width = canvasWidth;
-        canvas.height = canvasHeight;
+        // High-resolution output dimensions
+        const HIGH_RES_WIDTH = 1080;
+        const HIGH_RES_HEIGHT = 1920;
+        
+        // Calculate scaling factor based on preview container
+        let scaleFactor = 2; // Default scale factor
+        
+        if (photoContainerRef.current) {
+          const rect = photoContainerRef.current.getBoundingClientRect();
+          scaleFactor = HIGH_RES_WIDTH / rect.width;
+          console.log('📐 Preview container:', rect.width, 'x', rect.height);
+          console.log('📐 Scale factor:', scaleFactor);
+          console.log('📐 Output dimensions:', HIGH_RES_WIDTH, 'x', HIGH_RES_HEIGHT);
+        } else {
+          console.warn('⚠️ Preview container not found, using default scale factor:', scaleFactor);
+        }
+        
+        // Set high-resolution canvas dimensions
+        canvas.width = HIGH_RES_WIDTH;
+        canvas.height = HIGH_RES_HEIGHT;
 
-        // Clear and draw the original image
-        context.clearRect(0, 0, canvasWidth, canvasHeight);
-        context.drawImage(img, 0, 0, canvasWidth, canvasHeight);
+        // Clear and draw the original image at high resolution
+        context.clearRect(0, 0, HIGH_RES_WIDTH, HIGH_RES_HEIGHT);
+        context.drawImage(img, 0, 0, HIGH_RES_WIDTH, HIGH_RES_HEIGHT);
 
-        console.log('🎨 Rendering', textElements.length, 'text elements to final image');
+        console.log('🎨 Rendering', textElements.length, 'text elements to high-resolution image');
 
-        // Render all text elements
+        // Render all text elements with proper scaling
         textElements.forEach((element, index) => {
           if (!element.text || element.text.trim() === '') {
             return;
           }
 
-          console.log(`✏️ Rendering text element ${index}: "${element.text}"`);
+          console.log(`✏️ Rendering scaled text element ${index}: "${element.text}"`);
 
-          const x = (element.position.x / 100) * canvasWidth;
-          const y = (element.position.y / 100) * canvasHeight;
-          const fontSize = element.size * (element.scale || 1);
+          // Calculate scaled positions and dimensions
+          const x = (element.position.x / 100) * HIGH_RES_WIDTH;
+          const y = (element.position.y / 100) * HIGH_RES_HEIGHT;
+          const fontSize = (element.size * (element.scale || 1)) * scaleFactor;
 
           context.save();
           context.translate(x, y);
@@ -556,62 +573,65 @@ const PhotoboothPage: React.FC = () => {
           const lineHeight = fontSize * 1.2;
           const startY = -(lines.length - 1) * lineHeight / 2;
 
-          // Draw background if needed
+          // Draw background if needed with scaled padding
           if (element.style.backgroundColor && element.style.backgroundColor !== 'transparent' && element.style.padding > 0) {
-            const padding = element.style.padding;
+            const scaledPadding = element.style.padding * scaleFactor;
             const opacity = element.style.backgroundOpacity || 0.7;
             context.fillStyle = `${element.style.backgroundColor}${Math.round(opacity * 255).toString(16).padStart(2, '0')}`;
 
             lines.forEach((line, lineIndex) => {
               const lineY = startY + lineIndex * lineHeight;
               const metrics = context.measureText(line);
-              let bgX = -metrics.width/2 - padding;
-              if (element.style.align === 'left') bgX = -padding;
-              if (element.style.align === 'right') bgX = -metrics.width - padding;
+              let bgX = -metrics.width/2 - scaledPadding;
+              if (element.style.align === 'left') bgX = -scaledPadding;
+              if (element.style.align === 'right') bgX = -metrics.width - scaledPadding;
 
               context.fillRect(
                 bgX,
-                lineY - fontSize/2 - padding,
-                metrics.width + padding*2,
-                fontSize + padding*2
+                lineY - fontSize/2 - scaledPadding,
+                metrics.width + scaledPadding * 2,
+                fontSize + scaledPadding * 2
               );
             });
           }
 
-          // Draw each line
+          // Draw each line with scaled shadows and outlines
           lines.forEach((line, lineIndex) => {
             const lineY = startY + lineIndex * lineHeight;
 
-            // Enhanced 3D shadow and outline effects
+            // Enhanced shadows and outlines with proper scaling
             if (element.style.outline) {
+              // Primary shadow
               context.shadowColor = 'rgba(0,0,0,0.9)';
-              context.shadowBlur = 12;
-              context.shadowOffsetX = 4;
-              context.shadowOffsetY = 4;
+              context.shadowBlur = 12 * scaleFactor;
+              context.shadowOffsetX = 4 * scaleFactor;
+              context.shadowOffsetY = 4 * scaleFactor;
 
               context.strokeStyle = 'black';
               context.lineWidth = fontSize * 0.12;
               context.strokeText(line, 0, lineY);
 
+              // Secondary shadow
               context.shadowColor = 'rgba(0,0,0,0.8)';
-              context.shadowBlur = 6;
-              context.shadowOffsetX = 2;
-              context.shadowOffsetY = 2;
+              context.shadowBlur = 6 * scaleFactor;
+              context.shadowOffsetX = 2 * scaleFactor;
+              context.shadowOffsetY = 2 * scaleFactor;
               context.strokeStyle = 'rgba(0,0,0,0.8)';
               context.lineWidth = fontSize * 0.06;
               context.strokeText(line, 0, lineY);
             } else {
+              // Standard shadow for non-outline text
               context.shadowColor = 'rgba(0,0,0,0.8)';
-              context.shadowBlur = 8;
-              context.shadowOffsetX = 3;
-              context.shadowOffsetY = 3;
+              context.shadowBlur = 8 * scaleFactor;
+              context.shadowOffsetX = 3 * scaleFactor;
+              context.shadowOffsetY = 3 * scaleFactor;
             }
 
             // Draw main text
             context.fillStyle = element.color;
             context.fillText(line, 0, lineY);
 
-            // Reset shadow
+            // Reset shadow properties
             context.shadowColor = 'transparent';
             context.shadowBlur = 0;
             context.shadowOffsetX = 0;
@@ -621,15 +641,16 @@ const PhotoboothPage: React.FC = () => {
           context.restore();
         });
 
-        // Return the final image with text
+        // Return the final high-resolution image with text
         const finalImageData = canvas.toDataURL('image/jpeg', 1.0);
-        console.log('✅ Text rendered to final image');
+        console.log('✅ Text rendered to high-resolution image with proper scaling');
+        console.log('📊 Final image dimensions:', HIGH_RES_WIDTH, 'x', HIGH_RES_HEIGHT);
         resolve(finalImageData);
       };
 
       img.src = imageData;
     });
-  }, [textElements]);
+  }, [textElements, photoContainerRef]);
 
   const capturePhoto = useCallback(() => {
     if (!videoRef.current || !canvasRef.current || cameraState !== 'active') {
@@ -719,6 +740,7 @@ const PhotoboothPage: React.FC = () => {
         finalPhoto = await renderTextToCanvas(canvasRef.current, photo);
       }
 
+      // Upload the final photo WITH text rendered
       const response = await fetch(finalPhoto);
       const blob = await response.blob();
       const file = new File([blob], 'photobooth.jpg', { type: 'image/jpeg' });
