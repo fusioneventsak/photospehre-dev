@@ -596,6 +596,31 @@ const PhotoboothPage: React.FC = () => {
     document.addEventListener('mouseup', endHandler);
   }, [textElements, initialScale, updateTextElement]);
 
+  // Helper function to wrap text based on maximum width
+  const wrapText = useCallback((context: CanvasRenderingContext2D, text: string, maxWidth: number) => {
+    const words = text.split(' ');
+    const lines: string[] = [];
+    let currentLine = '';
+
+    for (let i = 0; i < words.length; i++) {
+      const testLine = currentLine + (currentLine ? ' ' : '') + words[i];
+      const metrics = context.measureText(testLine);
+      
+      if (metrics.width > maxWidth && currentLine) {
+        lines.push(currentLine);
+        currentLine = words[i];
+      } else {
+        currentLine = testLine;
+      }
+    }
+    
+    if (currentLine) {
+      lines.push(currentLine);
+    }
+    
+    return lines;
+  }, []);
+
   // Function to render text elements onto a canvas with high-resolution scaling
   const renderTextToCanvas = useCallback((canvas: HTMLCanvasElement, imageData: string) => {
     return new Promise<string>((resolve) => {
@@ -664,13 +689,29 @@ const PhotoboothPage: React.FC = () => {
           context.textAlign = element.style.align || 'center';
           context.textBaseline = 'middle';
 
-          // IMPORTANT: Split text into lines and handle each line separately
-          const lines = element.text.split('\n').filter(line => line.length > 0 || element.text.includes('\n'));
+          // Calculate maximum width for text wrapping (scale the 280px constraint)
+          const maxTextWidth = 280 * textScaleFactor;
+
+          // Process text - handle both manual line breaks and automatic wrapping
+          let allLines: string[] = [];
+          const manualLines = element.text.split('\n');
+          
+          manualLines.forEach(line => {
+            if (line.trim() === '') {
+              allLines.push(''); // Preserve empty lines
+            } else {
+              // Wrap each manual line if it's too long
+              const wrappedLines = wrapText(context, line, maxTextWidth);
+              allLines = allLines.concat(wrappedLines);
+            }
+          });
+
           const lineHeight = fontSize * 1.2;
-          const totalTextHeight = lines.length * lineHeight;
+          const totalTextHeight = allLines.length * lineHeight;
           const startY = -(totalTextHeight - lineHeight) / 2;
 
-          console.log(`📝 Element ${index}: ${lines.length} lines, lineHeight: ${lineHeight}px`);
+          console.log(`📝 Element ${index}: ${allLines.length} lines after wrapping, lineHeight: ${lineHeight}px`);
+          console.log(`📝 Lines: ${allLines.map((line, i) => `${i}: "${line}"`).join(', ')}`);
 
           // Draw background if needed with proportionally scaled padding
           if (element.style.backgroundColor && element.style.backgroundColor !== 'transparent' && element.style.padding > 0) {
@@ -680,9 +721,11 @@ const PhotoboothPage: React.FC = () => {
 
             // Calculate background for all lines combined
             let maxWidth = 0;
-            lines.forEach(line => {
-              const metrics = context.measureText(line);
-              maxWidth = Math.max(maxWidth, metrics.width);
+            allLines.forEach(line => {
+              if (line) {
+                const metrics = context.measureText(line);
+                maxWidth = Math.max(maxWidth, metrics.width);
+              }
             });
 
             let bgX = -maxWidth/2 - scaledPadding;
@@ -698,10 +741,13 @@ const PhotoboothPage: React.FC = () => {
           }
 
           // Draw each line separately with proportionally scaled shadows
-          lines.forEach((line, lineIndex) => {
+          allLines.forEach((line, lineIndex) => {
             const lineY = startY + lineIndex * lineHeight;
 
             console.log(`📝 Rendering line ${lineIndex}: "${line}" at y: ${lineY}`);
+
+            // Skip empty lines for rendering but preserve spacing
+            if (!line) return;
 
             // Scale shadow effects proportionally
             if (element.style.outline) {
@@ -747,14 +793,14 @@ const PhotoboothPage: React.FC = () => {
 
         // Return the final high-resolution image with text
         const finalImageData = canvas.toDataURL('image/jpeg', 1.0);
-        console.log('✅ Text rendered to high-resolution image with proper line handling');
+        console.log('✅ Text rendered to high-resolution image with proper wrapping');
         console.log('📊 Final image dimensions:', HIGH_RES_WIDTH, 'x', HIGH_RES_HEIGHT);
         resolve(finalImageData);
       };
 
       img.src = imageData;
     });
-  }, [textElements, photoContainerRef]);
+  }, [textElements, photoContainerRef, wrapText]);
 
   const capturePhoto = useCallback(() => {
     if (!videoRef.current || !canvasRef.current || cameraState !== 'active') {
