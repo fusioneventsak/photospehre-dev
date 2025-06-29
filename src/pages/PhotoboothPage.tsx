@@ -577,44 +577,92 @@ const PhotoboothPage: React.FC = () => {
             });
           }
 
-          // Draw each line
+          // Draw each line with enhanced effects that match the preview exactly
           lines.forEach((line, lineIndex) => {
             const lineY = startY + lineIndex * lineHeight;
-
-            // Enhanced 3D shadow and outline effects
+            
             if (element.style.outline) {
-              context.shadowColor = 'rgba(0,0,0,0.9)';
-              context.shadowBlur = 12;
+              // First pass: Draw the deep shadow (matches the 4px 4px 8px part)
+              context.shadowColor = 'rgba(0,0,0,0.6)';
+              context.shadowBlur = 8;
               context.shadowOffsetX = 4;
               context.shadowOffsetY = 4;
-
-              context.strokeStyle = 'black';
-              context.lineWidth = fontSize * 0.12;
-              context.strokeText(line, 0, lineY);
-
+              context.fillStyle = element.color;
+              context.fillText(line, 0, lineY);
+              
+              // Reset shadow for next passes
+              context.shadowColor = 'transparent';
+              context.shadowBlur = 0;
+              context.shadowOffsetX = 0;
+              context.shadowOffsetY = 0;
+              
+              // Second pass: Draw the black outline (matches the -2px -2px 0 #000 parts)
+              // We need to draw the text multiple times with offsets to create the outline effect
+              context.fillStyle = 'black';
+              
+              // Top-left outline
+              context.fillText(line, -2, lineY - 2);
+              // Top-right outline
+              context.fillText(line, 2, lineY - 2);
+              // Bottom-left outline
+              context.fillText(line, -2, lineY + 2);
+              // Bottom-right outline
+              context.fillText(line, 2, lineY + 2);
+              
+              // Third pass: Draw the 3px 3px 0px shadow
+              context.fillStyle = 'rgba(0,0,0,0.8)';
+              context.fillText(line, 3, lineY + 3);
+              
+              // Final pass: Draw the main text on top of everything
+              context.fillStyle = element.color;
+              context.fillText(line, 0, lineY);
+            } else {
+              // For non-outline style, we still need multiple passes to match the CSS text-shadow
+              
+              // First pass: Draw the deeper shadow (2px 2px 4px)
               context.shadowColor = 'rgba(0,0,0,0.8)';
-              context.shadowBlur = 6;
+              context.shadowBlur = 4;
               context.shadowOffsetX = 2;
               context.shadowOffsetY = 2;
-              context.strokeStyle = 'rgba(0,0,0,0.8)';
-              context.lineWidth = fontSize * 0.06;
-              context.strokeText(line, 0, lineY);
-            } else {
-              context.shadowColor = 'rgba(0,0,0,0.8)';
+              context.fillStyle = element.color;
+              context.fillText(line, 0, lineY);
+              
+              // Reset shadow
+              context.shadowColor = 'transparent';
+              context.shadowBlur = 0;
+              context.shadowOffsetX = 0;
+              context.shadowOffsetY = 0;
+              
+              // Second pass: Draw the closer shadow (1px 1px 2px)
+              context.shadowColor = 'rgba(0,0,0,0.9)';
+              context.shadowBlur = 2;
+              context.shadowOffsetX = 1;
+              context.shadowOffsetY = 1;
+              context.fillText(line, 0, lineY);
+              
+              // Reset shadow
+              context.shadowColor = 'transparent';
+              context.shadowBlur = 0;
+              context.shadowOffsetX = 0;
+              context.shadowOffsetY = 0;
+              
+              // Third pass: Draw the ambient shadow (0px 0px 8px)
+              context.shadowColor = 'rgba(0,0,0,0.5)';
               context.shadowBlur = 8;
-              context.shadowOffsetX = 3;
-              context.shadowOffsetY = 3;
+              context.shadowOffsetX = 0;
+              context.shadowOffsetY = 0;
+              context.fillText(line, 0, lineY);
+              
+              // Reset shadow
+              context.shadowColor = 'transparent';
+              context.shadowBlur = 0;
+              context.shadowOffsetX = 0;
+              context.shadowOffsetY = 0;
+              
+              // Final pass: Draw the main text
+              context.fillStyle = element.color;
+              context.fillText(line, 0, lineY);
             }
-
-            // Draw main text
-            context.fillStyle = element.color;
-            context.fillText(line, 0, lineY);
-
-            // Reset shadow
-            context.shadowColor = 'transparent';
-            context.shadowBlur = 0;
-            context.shadowOffsetX = 0;
-            context.shadowOffsetY = 0;
           });
 
           context.restore();
@@ -713,7 +761,15 @@ const PhotoboothPage: React.FC = () => {
     setError(null);
     setIsEditingText(false);
     
-    try {
+      // Render text to the photo before uploading
+      let finalPhoto = photo;
+      
+      if (textElements.length > 0 && canvasRef.current) {
+        console.log('🎨 Rendering text to photo before upload...');
+        finalPhoto = await renderTextToCanvas(canvasRef.current, photo);
+      }
+      
+      const response = await fetch(finalPhoto);
       // First render text onto the photo
       let finalPhoto = photo;
       if (textElements.length > 0 && canvasRef.current) {
