@@ -27,6 +27,26 @@ type TextStyle = {
 const PhotoboothPage: React.FC = () => {
   // ... [rest of the component code remains unchanged]
   
+  const uploadToCollage = useCallback(async () => {
+    if (!photo || !currentCollage) return;
+
+    let finalPhoto = photo;
+    setUploading(true);
+    setError(null);
+    setIsEditingText(false);
+    
+    try {
+      
+      // First render text onto the photo
+      if (textElements.length > 0 && canvasRef.current) {
+        console.log('🎨 Rendering text to photo before upload...');
+        finalPhoto = await renderTextToCanvas(canvasRef.current, photo);
+      }
+
+      const response = await fetch(finalPhoto);
+      const blob = await response.blob();
+      const file = new File([blob], 'photobooth.jpg', { type: 'image/jpeg' });
+  
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black text-white" style={{ paddingBottom: showTextStylePanel ? '300px' : '0' }}>
       {/* ... [rest of the JSX remains unchanged] */}
