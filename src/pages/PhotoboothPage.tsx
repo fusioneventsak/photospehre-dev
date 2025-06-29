@@ -616,14 +616,24 @@ const PhotoboothPage: React.FC = () => {
         
         if (photoContainerRef.current) {
           const rect = photoContainerRef.current.getBoundingClientRect();
-          // Calculate scale factor more accurately
+          // Calculate scale factor more accurately - use the smaller dimension to avoid overflow
+          const previewAspectRatio = rect.width / rect.height;
+          const outputAspectRatio = HIGH_RES_WIDTH / HIGH_RES_HEIGHT;
+          
+          // Use width-based scaling but constrain to prevent text overflow
           scaleFactor = HIGH_RES_WIDTH / rect.width;
+          
+          // If this would make text too large, constrain it
+          if (scaleFactor > 3) {
+            scaleFactor = 3; // Maximum 3x scaling
+          }
+          
           console.log('📐 Preview container:', rect.width, 'x', rect.height);
-          console.log('📐 Scale factor:', scaleFactor);
+          console.log('📐 Scale factor (constrained):', scaleFactor);
           console.log('📐 Output dimensions:', HIGH_RES_WIDTH, 'x', HIGH_RES_HEIGHT);
         } else {
-          // Fallback calculation - assume standard mobile width of ~360px
-          scaleFactor = HIGH_RES_WIDTH / 360;
+          // Fallback calculation - more conservative scaling
+          scaleFactor = 2.5;
           console.warn('⚠️ Preview container not found, using fallback scale factor:', scaleFactor);
         }
         
@@ -649,8 +659,11 @@ const PhotoboothPage: React.FC = () => {
           const x = (element.position.x / 100) * HIGH_RES_WIDTH;
           const y = (element.position.y / 100) * HIGH_RES_HEIGHT;
           
-          // Apply proper scaling: base size * element scale * resolution scale factor
-          const fontSize = element.size * (element.scale || 1) * scaleFactor;
+          // More conservative font scaling to match preview better
+          const baseFontSize = element.size * (element.scale || 1);
+          const fontSize = Math.min(baseFontSize * scaleFactor, baseFontSize * 3); // Cap at 3x
+          
+          console.log(`📝 Element ${index}: base size ${baseFontSize}px, scaled to ${fontSize}px`);
 
           context.save();
           context.translate(x, y);
@@ -666,7 +679,7 @@ const PhotoboothPage: React.FC = () => {
 
           // Draw background if needed with scaled padding
           if (element.style.backgroundColor && element.style.backgroundColor !== 'transparent' && element.style.padding > 0) {
-            const scaledPadding = element.style.padding * scaleFactor;
+            const scaledPadding = Math.min(element.style.padding * scaleFactor, element.style.padding * 3);
             const opacity = element.style.backgroundOpacity || 0.7;
             context.fillStyle = `${element.style.backgroundColor}${Math.round(opacity * 255).toString(16).padStart(2, '0')}`;
 
@@ -690,32 +703,32 @@ const PhotoboothPage: React.FC = () => {
           lines.forEach((line, lineIndex) => {
             const lineY = startY + lineIndex * lineHeight;
 
-            // Enhanced shadows and outlines with proper scaling
+            // Enhanced shadows and outlines with constrained scaling
             if (element.style.outline) {
-              // Primary shadow
+              // Primary shadow with constrained blur
               context.shadowColor = 'rgba(0,0,0,0.9)';
-              context.shadowBlur = 12 * scaleFactor;
-              context.shadowOffsetX = 4 * scaleFactor;
-              context.shadowOffsetY = 4 * scaleFactor;
+              context.shadowBlur = Math.min(12 * scaleFactor, 36); // Cap blur at 36px
+              context.shadowOffsetX = Math.min(4 * scaleFactor, 12); // Cap offset at 12px
+              context.shadowOffsetY = Math.min(4 * scaleFactor, 12);
 
               context.strokeStyle = 'black';
               context.lineWidth = fontSize * 0.12;
               context.strokeText(line, 0, lineY);
 
-              // Secondary shadow
+              // Secondary shadow with constrained blur
               context.shadowColor = 'rgba(0,0,0,0.8)';
-              context.shadowBlur = 6 * scaleFactor;
-              context.shadowOffsetX = 2 * scaleFactor;
-              context.shadowOffsetY = 2 * scaleFactor;
+              context.shadowBlur = Math.min(6 * scaleFactor, 18);
+              context.shadowOffsetX = Math.min(2 * scaleFactor, 6);
+              context.shadowOffsetY = Math.min(2 * scaleFactor, 6);
               context.strokeStyle = 'rgba(0,0,0,0.8)';
               context.lineWidth = fontSize * 0.06;
               context.strokeText(line, 0, lineY);
             } else {
-              // Standard shadow for non-outline text
+              // Standard shadow for non-outline text with constrained values
               context.shadowColor = 'rgba(0,0,0,0.8)';
-              context.shadowBlur = 8 * scaleFactor;
-              context.shadowOffsetX = 3 * scaleFactor;
-              context.shadowOffsetY = 3 * scaleFactor;
+              context.shadowBlur = Math.min(8 * scaleFactor, 24);
+              context.shadowOffsetX = Math.min(3 * scaleFactor, 9);
+              context.shadowOffsetY = Math.min(3 * scaleFactor, 9);
             }
 
             // Draw main text
@@ -734,7 +747,7 @@ const PhotoboothPage: React.FC = () => {
 
         // Return the final high-resolution image with text
         const finalImageData = canvas.toDataURL('image/jpeg', 1.0);
-        console.log('✅ Text rendered to high-resolution image with proper scaling');
+        console.log('✅ Text rendered to high-resolution image with constrained scaling');
         console.log('📊 Final image dimensions:', HIGH_RES_WIDTH, 'x', HIGH_RES_HEIGHT);
         resolve(finalImageData);
       };
