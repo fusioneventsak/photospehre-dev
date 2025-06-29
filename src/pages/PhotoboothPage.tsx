@@ -664,9 +664,13 @@ const PhotoboothPage: React.FC = () => {
           context.textAlign = element.style.align || 'center';
           context.textBaseline = 'middle';
 
-          const lines = element.text.split('\n');
+          // IMPORTANT: Split text into lines and handle each line separately
+          const lines = element.text.split('\n').filter(line => line.length > 0 || element.text.includes('\n'));
           const lineHeight = fontSize * 1.2;
-          const startY = -(lines.length - 1) * lineHeight / 2;
+          const totalTextHeight = lines.length * lineHeight;
+          const startY = -(totalTextHeight - lineHeight) / 2;
+
+          console.log(`📝 Element ${index}: ${lines.length} lines, lineHeight: ${lineHeight}px`);
 
           // Draw background if needed with proportionally scaled padding
           if (element.style.backgroundColor && element.style.backgroundColor !== 'transparent' && element.style.padding > 0) {
@@ -674,25 +678,30 @@ const PhotoboothPage: React.FC = () => {
             const opacity = element.style.backgroundOpacity || 0.7;
             context.fillStyle = `${element.style.backgroundColor}${Math.round(opacity * 255).toString(16).padStart(2, '0')}`;
 
-            lines.forEach((line, lineIndex) => {
-              const lineY = startY + lineIndex * lineHeight;
+            // Calculate background for all lines combined
+            let maxWidth = 0;
+            lines.forEach(line => {
               const metrics = context.measureText(line);
-              let bgX = -metrics.width/2 - scaledPadding;
-              if (element.style.align === 'left') bgX = -scaledPadding;
-              if (element.style.align === 'right') bgX = -metrics.width - scaledPadding;
-
-              context.fillRect(
-                bgX,
-                lineY - fontSize/2 - scaledPadding,
-                metrics.width + scaledPadding * 2,
-                fontSize + scaledPadding * 2
-              );
+              maxWidth = Math.max(maxWidth, metrics.width);
             });
+
+            let bgX = -maxWidth/2 - scaledPadding;
+            if (element.style.align === 'left') bgX = -scaledPadding;
+            if (element.style.align === 'right') bgX = -maxWidth - scaledPadding;
+
+            context.fillRect(
+              bgX,
+              startY - fontSize/2 - scaledPadding,
+              maxWidth + scaledPadding * 2,
+              totalTextHeight + scaledPadding * 2
+            );
           }
 
-          // Draw each line with proportionally scaled shadows
+          // Draw each line separately with proportionally scaled shadows
           lines.forEach((line, lineIndex) => {
             const lineY = startY + lineIndex * lineHeight;
+
+            console.log(`📝 Rendering line ${lineIndex}: "${line}" at y: ${lineY}`);
 
             // Scale shadow effects proportionally
             if (element.style.outline) {
@@ -722,11 +731,11 @@ const PhotoboothPage: React.FC = () => {
               context.shadowOffsetY = 3 * textScaleFactor;
             }
 
-            // Draw main text
+            // Draw main text line by line
             context.fillStyle = element.color;
             context.fillText(line, 0, lineY);
 
-            // Reset shadow properties
+            // Reset shadow properties after each line
             context.shadowColor = 'transparent';
             context.shadowBlur = 0;
             context.shadowOffsetX = 0;
@@ -738,7 +747,7 @@ const PhotoboothPage: React.FC = () => {
 
         // Return the final high-resolution image with text
         const finalImageData = canvas.toDataURL('image/jpeg', 1.0);
-        console.log('✅ Text rendered to high-resolution image with proportional scaling');
+        console.log('✅ Text rendered to high-resolution image with proper line handling');
         console.log('📊 Final image dimensions:', HIGH_RES_WIDTH, 'x', HIGH_RES_HEIGHT);
         resolve(finalImageData);
       };
