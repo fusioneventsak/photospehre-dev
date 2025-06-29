@@ -32,7 +32,6 @@ const PhotoboothPage: React.FC = () => {
   const [devices, setDevices] = useState<VideoDevice[]>([]);
   const [selectedDevice, setSelectedDevice] = useState<string>('');
   const [photo, setPhoto] = useState<string | null>(null);
-  const [text, setText] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [showVideoRecorder, setShowVideoRecorder] = useState(false);
@@ -699,9 +698,6 @@ const PhotoboothPage: React.FC = () => {
     
     setPhoto(dataUrl);
     // Keep text elements for post-capture editing - DON'T reset them
-    // setTextElements([]); // Remove this line to keep text elements
-    setTextPosition({ x: 50, y: 50 });
-    setTextSize(24);
     cleanupCamera();
     
     console.log('✅ Photo capture complete, text elements preserved for editing');
@@ -715,14 +711,21 @@ const PhotoboothPage: React.FC = () => {
     setIsEditingText(false);
     
     try {
-      const response = await fetch(photo);
+      // Render text to the photo BEFORE uploading
+      let finalPhoto = photo;
+      
+      if (textElements.length > 0 && canvasRef.current) {
+        console.log('🎨 Rendering text to photo before upload...');
+        finalPhoto = await renderTextToCanvas(canvasRef.current, photo);
+      }
+
+      const response = await fetch(finalPhoto);
       const blob = await response.blob();
       const file = new File([blob], 'photobooth.jpg', { type: 'image/jpeg' });
 
       const result = await uploadPhoto(currentCollage.id, file);
       if (result) {        
         setPhoto(null);
-        setText('');
         setTextElements([]);
         setSelectedTextId(null);
         setShowTextStylePanel(false);
@@ -743,7 +746,7 @@ const PhotoboothPage: React.FC = () => {
     } finally {
       setUploading(false);
     }
-  }, [photo, currentCollage, uploadPhoto, startCamera, selectedDevice]);
+  }, [photo, currentCollage, uploadPhoto, startCamera, selectedDevice, textElements, renderTextToCanvas]);
 
   const downloadPhoto = useCallback(async () => {
     if (!photo) return;
@@ -767,7 +770,6 @@ const PhotoboothPage: React.FC = () => {
 
   const retakePhoto = useCallback(() => {
     setPhoto(null);
-    setText('');
     setTextElements([]);
     setSelectedTextId(null);
     setIsEditingText(false);
@@ -778,11 +780,6 @@ const PhotoboothPage: React.FC = () => {
       startCamera(selectedDevice);
     }, 100);
   }, [startCamera, selectedDevice]);
-
-  const toggleTextEditing = useCallback(() => {
-    setIsEditingText(prev => !prev);
-    if (!isEditingText) setText(text || 'Edit this text');
-  }, [isEditingText, text]);
 
   // Render text elements on photo
   const renderTextElements = () => {
@@ -1310,8 +1307,6 @@ const PhotoboothPage: React.FC = () => {
                     )}
                   </div>
                   
-
-                  
                   <div className="absolute bottom-4 left-4 right-4">
                     <div className="flex justify-center space-x-3">
                       <button
@@ -1385,45 +1380,6 @@ const PhotoboothPage: React.FC = () => {
                       </div>
                     </div>
                   )}
-                  
-                  {text.trim() && cameraState === 'active' && (
-                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none px-4">
-                      <div 
-                        className="text-white font-bold text-center px-4 py-3 bg-black/60 backdrop-blur-sm rounded-xl max-w-[90%] border border-white/20"
-                        style={{ 
-                          fontSize: `${Math.max(1.5, 4 - (text.length / 20))}rem`,
-                          textShadow: '3px 3px 6px rgba(0,0,0,0.9), 0 0 20px rgba(0,0,0,0.5)',
-                          lineHeight: '1.2'
-                        }}
-                      >
-                        {text}
-                      </div>
-                    </div>
-                  )}
-                  
-                  <div className="absolute bottom-28 sm:bottom-24 lg:bottom-20 left-2 right-2 px-2">
-                    <textarea
-                      value={text}
-                      onChange={(e) => setText(e.target.value)}
-                      placeholder="ADD TEXT BEFORE TAKING PICTURE:"
-                      className="w-full h-10 sm:h-12 bg-black/70 backdrop-blur-sm border border-white/30 rounded-lg px-3 py-2 text-white placeholder-gray-300 resize-none focus:outline-none focus:border-purple-400 focus:bg-black/80 transition-all"
-                      style={{ fontSize: '16px' }}
-                      maxLength={100}
-                    />
-                    <div className="flex justify-between items-center mt-1 px-1">
-                      <span className="text-xs text-gray-300">
-                        {text.length}/100
-                      </span>
-                      {text && (
-                        <button
-                          onClick={() => setText('')}
-                          className="text-xs text-red-300 hover:text-red-200 transition-colors px-2 py-1"
-                        >
-                          Clear
-                        </button>
-                      )}
-                    </div>
-                  </div>
                   
                   {cameraState === 'active' && (
                     <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2">
