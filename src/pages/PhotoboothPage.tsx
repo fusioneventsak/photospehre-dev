@@ -1,6 +1,3 @@
-Here's the fixed version with all missing closing brackets added:
-
-```typescript
 // src/pages/PhotoboothPage.tsx - COMPLETE with Instagram Story-like text editing
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -91,7 +88,7 @@ const PhotoboothPage: React.FC = () => {
           .filter(device => device.kind === 'videoinput')
           .map(device => ({
             deviceId: device.deviceId,
-            label: device.label || \`Camera ${device.deviceId.slice(0, 5)}...`
+            label: device.label || `Camera ${device.deviceId.slice(0, 5)}...`
           }));
         
         setDevices(videoDevices);
@@ -277,7 +274,7 @@ const PhotoboothPage: React.FC = () => {
           
           // Set font properties
           const fontSize = el.fontSize * (canvas.width / 500); // Scale font size based on canvas width
-          ctx.font = \`${fontSize}px ${el.style.fontFamily}`;
+          ctx.font = `${fontSize}px ${el.style.fontFamily}`;
           ctx.textBaseline = 'middle';
           
           // Set text alignment
@@ -334,12 +331,13 @@ const PhotoboothPage: React.FC = () => {
   const uploadToCollage = useCallback(async () => {
     if (!photo || !currentCollage) return;
 
-    let finalPhoto = photo;
     setUploading(true);
     setError(null);
     setIsEditingText(false);
     
     try {
+      let finalPhoto = photo;
+      
       // First render text onto the photo
       if (textElements.length > 0 && canvasRef.current) {
         console.log('🎨 Rendering text to photo before upload...');
@@ -522,40 +520,6 @@ const PhotoboothPage: React.FC = () => {
     }
   }, [activeTextId, textElements]);
   
-  const uploadToCollage = useCallback(async () => {
-    if (!photo || !currentCollage) return;
-
-    let finalPhoto = photo;
-    setUploading(true);
-    setError(null);
-    setIsEditingText(false);
-    
-    try {
-      
-      // First render text onto the photo
-      if (textElements.length > 0 && canvasRef.current) {
-        console.log('🎨 Rendering text to photo before upload...');
-        finalPhoto = await renderTextToCanvas(canvasRef.current, photo);
-      }
-
-      const response = await fetch(finalPhoto);
-      const blob = await response.blob();
-      const file = new File([blob], 'photobooth.jpg', { type: 'image/jpeg' });
-      
-      await uploadPhoto(currentCollage.id, file);
-      
-      setUploadSuccess(true);
-      setTimeout(() => {
-        setUploadSuccess(false);
-      }, 3000);
-    } catch (err: any) {
-      console.error('Error uploading photo:', err);
-      setError(err.message || 'Failed to upload photo');
-    } finally {
-      setUploading(false);
-    }
-  }, [photo, currentCollage, textElements, uploadPhoto]);
-  
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black text-white" style={{ paddingBottom: showTextStylePanel ? '300px' : '0' }}>
       {/* Header */}
@@ -616,7 +580,7 @@ const PhotoboothPage: React.FC = () => {
                     autoPlay
                     playsInline
                     muted
-                    className={\`w-full h-full object-cover ${cameraState === 'active' ? 'opacity-100' : 'opacity-0'}`}
+                    className={`w-full h-full object-cover ${cameraState === 'active' ? 'opacity-100' : 'opacity-0'}`}
                   />
                   
                   {cameraState === 'starting' && (
@@ -652,18 +616,18 @@ const PhotoboothPage: React.FC = () => {
                   {textElements.map(el => (
                     <div
                       key={el.id}
-                      className={\`absolute cursor-move ${activeTextId === el.id ? 'ring-2 ring-blue-500' : ''}`}
+                      className={`absolute cursor-move ${activeTextId === el.id ? 'ring-2 ring-blue-500' : ''}`}
                       style={{
-                        left: \`${el.x * 100}%`,
-                        top: \`${el.y * 100}%`,
-                        transform: \`translate(-50%, -50%) rotate(${el.rotation}deg) scale(${el.scale})`,
-                        fontSize: \`${el.fontSize}px`,
+                        left: `${el.x * 100}%`,
+                        top: `${el.y * 100}%`,
+                        transform: `translate(-50%, -50%) rotate(${el.rotation}deg) scale(${el.scale})`,
+                        fontSize: `${el.fontSize}px`,
                         fontFamily: el.style.fontFamily,
                         color: el.color,
                         backgroundColor: el.style.backgroundOpacity > 0 
-                          ? \`${el.style.backgroundColor}${Math.round(el.style.backgroundOpacity * 255).toString(16).padStart(2, '0')}` 
+                          ? `${el.style.backgroundColor}${Math.round(el.style.backgroundOpacity * 255).toString(16).padStart(2, '0')}` 
                           : 'transparent',
-                        padding: \`${el.style.padding}px`,
+                        padding: `${el.style.padding}px`,
                         textAlign: el.style.align,
                         textShadow: el.style.outline ? '1px 1px 2px black, -1px -1px 2px black, 1px -1px 2px black, -1px 1px 2px black' : 'none',
                         zIndex: activeTextId === el.id ? 10 : 1
@@ -846,7 +810,7 @@ const PhotoboothPage: React.FC = () => {
                   <button
                     key={color}
                     onClick={() => updateActiveTextColor(color)}
-                    className={\`w-8 h-8 rounded-full ${textColor === color ? 'ring-2 ring-white' : ''}`}
+                    className={`w-8 h-8 rounded-full ${textColor === color ? 'ring-2 ring-white' : ''}`}
                     style={{ backgroundColor: color }}
                   />
                 ))}
@@ -867,7 +831,7 @@ const PhotoboothPage: React.FC = () => {
                   <button
                     key={color}
                     onClick={() => updateActiveTextStyle({ backgroundColor: color })}
-                    className={\`w-8 h-8 rounded-full ${textStyle.backgroundColor === color ? 'ring-2 ring-white' : ''}`}
+                    className={`w-8 h-8 rounded-full ${textStyle.backgroundColor === color ? 'ring-2 ring-white' : ''}`}
                     style={{ backgroundColor: color }}
                   />
                 ))}
@@ -931,19 +895,19 @@ const PhotoboothPage: React.FC = () => {
               <div className="flex space-x-2">
                 <button
                   onClick={() => updateActiveTextStyle({ align: 'left' })}
-                  className={\`p-2 rounded ${textStyle.align === 'left' ? 'bg-purple-600' : 'bg-gray-700'}`}
+                  className={`p-2 rounded ${textStyle.align === 'left' ? 'bg-purple-600' : 'bg-gray-700'}`}
                 >
                   <AlignLeft size={16} />
                 </button>
                 <button
                   onClick={() => updateActiveTextStyle({ align: 'center' })}
-                  className={\`p-2 rounded ${textStyle.align === 'center' ? 'bg-purple-600' : 'bg-gray-700'}`}
+                  className={`p-2 rounded ${textStyle.align === 'center' ? 'bg-purple-600' : 'bg-gray-700'}`}
                 >
                   <AlignCenter size={16} />
                 </button>
                 <button
                   onClick={() => updateActiveTextStyle({ align: 'right' })}
-                  className={\`p-2 rounded ${textStyle.align === 'right' ? 'bg-purple-600' : 'bg-gray-700'}`}
+                  className={`p-2 rounded ${textStyle.align === 'right' ? 'bg-purple-600' : 'bg-gray-700'}`}
                 >
                   <AlignRight size={16} />
                 </button>
@@ -955,7 +919,7 @@ const PhotoboothPage: React.FC = () => {
               <label className="text-sm">Text Outline</label>
               <button
                 onClick={() => updateActiveTextStyle({ outline: !textStyle.outline })}
-                className={\`px-3 py-1 rounded ${textStyle.outline ? 'bg-purple-600' : 'bg-gray-700'}`}
+                className={`px-3 py-1 rounded ${textStyle.outline ? 'bg-purple-600' : 'bg-gray-700'}`}
               >
                 {textStyle.outline ? 'On' : 'Off'}
               </button>
@@ -1009,11 +973,3 @@ const PhotoboothPage: React.FC = () => {
 };
 
 export default PhotoboothPage;
-```
-
-The main issue was missing closing brackets for the component definition. I've added:
-
-1. The closing curly brace for the component function
-2. The closing parenthesis for the export statement
-
-The rest of the code appears to be properly balanced with matching brackets, but these two were missing at the end of the file.
