@@ -345,10 +345,33 @@ const PhotoboothPage: React.FC = () => {
       await new Promise(resolve => setTimeout(resolve, 100));
       video.srcObject = mediaStream;
       
+      // Force a manual check after setting srcObject
+      setTimeout(() => {
+        if (!hasStartedPlaying && video && video.readyState >= 1) {
+          console.log('🔧 Manual video state check - readyState:', video.readyState);
+          console.log('🔧 Video dimensions:', video.videoWidth, 'x', video.videoHeight);
+          
+          if (video.videoWidth > 0 && video.videoHeight > 0) {
+            console.log('✅ Video has dimensions, attempting manual play...');
+            ensureVideoPlay(video).then(success => {
+              if (success) {
+                hasStartedPlaying = true;
+                streamRef.current = mediaStream;
+                setCameraState('active');
+                console.log('✅ Camera active via manual check');
+                cleanupEventListeners();
+              }
+            });
+          }
+        }
+      }, 500);
+      
       // Force load and play if needed after a short delay
       const forcePlayTimeout = setTimeout(async () => {
         if (!hasStartedPlaying && video && video.readyState >= 1) {
           console.log('⏰ Forcing video play after timeout...');
+          console.log('⏰ Video readyState:', video.readyState, 'dimensions:', video.videoWidth, 'x', video.videoHeight);
+          
           const success = await ensureVideoPlay(video);
           if (success) {
             hasStartedPlaying = true;
@@ -358,13 +381,22 @@ const PhotoboothPage: React.FC = () => {
             cleanupEventListeners();
           } else {
             console.error('❌ Forced play failed');
-            setCameraState('error');
-            setError('Camera initialization timeout - try refreshing the page');
-            mediaStream.getTracks().forEach(track => track.stop());
-            cleanupEventListeners();
+            // Still set to active if we have video dimensions
+            if (video.videoWidth > 0 && video.videoHeight > 0) {
+              console.log('📹 Video has dimensions, setting active anyway');
+              hasStartedPlaying = true;
+              streamRef.current = mediaStream;
+              setCameraState('active');
+              cleanupEventListeners();
+            } else {
+              setCameraState('error');
+              setError('Camera initialization timeout - try refreshing the page');
+              mediaStream.getTracks().forEach(track => track.stop());
+              cleanupEventListeners();
+            }
           }
         }
-      }, 3000);
+      }, 2000);
       
       // Cleanup timeout when camera becomes active
       const checkActive = setInterval(() => {
