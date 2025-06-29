@@ -612,16 +612,19 @@ const PhotoboothPage: React.FC = () => {
         const HIGH_RES_HEIGHT = 1920;
         
         // Calculate scaling factor based on preview container
-        let scaleFactor = 2; // Default scale factor
+        let scaleFactor = 1;
         
         if (photoContainerRef.current) {
           const rect = photoContainerRef.current.getBoundingClientRect();
+          // Calculate scale factor more accurately
           scaleFactor = HIGH_RES_WIDTH / rect.width;
           console.log('📐 Preview container:', rect.width, 'x', rect.height);
           console.log('📐 Scale factor:', scaleFactor);
           console.log('📐 Output dimensions:', HIGH_RES_WIDTH, 'x', HIGH_RES_HEIGHT);
         } else {
-          console.warn('⚠️ Preview container not found, using default scale factor:', scaleFactor);
+          // Fallback calculation - assume standard mobile width of ~360px
+          scaleFactor = HIGH_RES_WIDTH / 360;
+          console.warn('⚠️ Preview container not found, using fallback scale factor:', scaleFactor);
         }
         
         // Set high-resolution canvas dimensions
@@ -645,7 +648,9 @@ const PhotoboothPage: React.FC = () => {
           // Calculate scaled positions and dimensions
           const x = (element.position.x / 100) * HIGH_RES_WIDTH;
           const y = (element.position.y / 100) * HIGH_RES_HEIGHT;
-          const fontSize = (element.size * (element.scale || 1)) * scaleFactor;
+          
+          // Apply proper scaling: base size * element scale * resolution scale factor
+          const fontSize = element.size * (element.scale || 1) * scaleFactor;
 
           context.save();
           context.translate(x, y);
@@ -1398,8 +1403,6 @@ const PhotoboothPage: React.FC = () => {
                     >
                       <Download className="w-6 h-6" />
                     </button>
-                    
-                    {/* Remove the palette button - text settings show automatically */}
                     
                     {/* Delete All Text Button */}
                     {textElements.length > 0 && (
