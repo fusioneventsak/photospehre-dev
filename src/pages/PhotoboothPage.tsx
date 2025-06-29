@@ -611,6 +611,23 @@ const PhotoboothPage: React.FC = () => {
         const HIGH_RES_WIDTH = 1080;
         const HIGH_RES_HEIGHT = 1920;
         
+        // Calculate proper scaling factor to match preview appearance
+        let textScaleFactor = 1;
+        
+        if (photoContainerRef.current) {
+          const rect = photoContainerRef.current.getBoundingClientRect();
+          // Scale text proportionally to how the image is scaled
+          textScaleFactor = HIGH_RES_WIDTH / rect.width;
+          
+          console.log('📐 Preview container:', rect.width, 'x', rect.height);
+          console.log('📐 Text scale factor:', textScaleFactor);
+          console.log('📐 Output dimensions:', HIGH_RES_WIDTH, 'x', HIGH_RES_HEIGHT);
+        } else {
+          // Fallback: assume typical mobile preview width
+          textScaleFactor = HIGH_RES_WIDTH / 360;
+          console.warn('⚠️ Preview container not found, using fallback text scale factor:', textScaleFactor);
+        }
+        
         // Set high-resolution canvas dimensions
         canvas.width = HIGH_RES_WIDTH;
         canvas.height = HIGH_RES_HEIGHT;
@@ -621,7 +638,7 @@ const PhotoboothPage: React.FC = () => {
 
         console.log('🎨 Rendering', textElements.length, 'text elements to high-resolution image');
 
-        // Render all text elements WITHOUT additional scaling - keep the same size as preview
+        // Render all text elements with proportional scaling to match preview
         textElements.forEach((element, index) => {
           if (!element.text || element.text.trim() === '') {
             return;
@@ -633,10 +650,11 @@ const PhotoboothPage: React.FC = () => {
           const x = (element.position.x / 100) * HIGH_RES_WIDTH;
           const y = (element.position.y / 100) * HIGH_RES_HEIGHT;
           
-          // Use the EXACT same font size as in the preview - no additional scaling
-          const fontSize = element.size * (element.scale || 1);
+          // Scale font size proportionally to match preview appearance
+          const baseFontSize = element.size * (element.scale || 1);
+          const fontSize = baseFontSize * textScaleFactor;
           
-          console.log(`📝 Element ${index}: using original size ${fontSize}px`);
+          console.log(`📝 Element ${index}: preview size ${baseFontSize}px, final size ${fontSize}px (scale: ${textScaleFactor})`);
 
           context.save();
           context.translate(x, y);
@@ -650,39 +668,39 @@ const PhotoboothPage: React.FC = () => {
           const lineHeight = fontSize * 1.2;
           const startY = -(lines.length - 1) * lineHeight / 2;
 
-          // Draw background if needed with original padding (no scaling)
+          // Draw background if needed with proportionally scaled padding
           if (element.style.backgroundColor && element.style.backgroundColor !== 'transparent' && element.style.padding > 0) {
-            const padding = element.style.padding; // Use original padding
+            const scaledPadding = element.style.padding * textScaleFactor;
             const opacity = element.style.backgroundOpacity || 0.7;
             context.fillStyle = `${element.style.backgroundColor}${Math.round(opacity * 255).toString(16).padStart(2, '0')}`;
 
             lines.forEach((line, lineIndex) => {
               const lineY = startY + lineIndex * lineHeight;
               const metrics = context.measureText(line);
-              let bgX = -metrics.width/2 - padding;
-              if (element.style.align === 'left') bgX = -padding;
-              if (element.style.align === 'right') bgX = -metrics.width - padding;
+              let bgX = -metrics.width/2 - scaledPadding;
+              if (element.style.align === 'left') bgX = -scaledPadding;
+              if (element.style.align === 'right') bgX = -metrics.width - scaledPadding;
 
               context.fillRect(
                 bgX,
-                lineY - fontSize/2 - padding,
-                metrics.width + padding * 2,
-                fontSize + padding * 2
+                lineY - fontSize/2 - scaledPadding,
+                metrics.width + scaledPadding * 2,
+                fontSize + scaledPadding * 2
               );
             });
           }
 
-          // Draw each line with original shadow sizes (no scaling)
+          // Draw each line with proportionally scaled shadows
           lines.forEach((line, lineIndex) => {
             const lineY = startY + lineIndex * lineHeight;
 
-            // Use original shadow sizes
+            // Scale shadow effects proportionally
             if (element.style.outline) {
               // Primary shadow
               context.shadowColor = 'rgba(0,0,0,0.9)';
-              context.shadowBlur = 12;
-              context.shadowOffsetX = 4;
-              context.shadowOffsetY = 4;
+              context.shadowBlur = 12 * textScaleFactor;
+              context.shadowOffsetX = 4 * textScaleFactor;
+              context.shadowOffsetY = 4 * textScaleFactor;
 
               context.strokeStyle = 'black';
               context.lineWidth = fontSize * 0.12;
@@ -690,18 +708,18 @@ const PhotoboothPage: React.FC = () => {
 
               // Secondary shadow
               context.shadowColor = 'rgba(0,0,0,0.8)';
-              context.shadowBlur = 6;
-              context.shadowOffsetX = 2;
-              context.shadowOffsetY = 2;
+              context.shadowBlur = 6 * textScaleFactor;
+              context.shadowOffsetX = 2 * textScaleFactor;
+              context.shadowOffsetY = 2 * textScaleFactor;
               context.strokeStyle = 'rgba(0,0,0,0.8)';
               context.lineWidth = fontSize * 0.06;
               context.strokeText(line, 0, lineY);
             } else {
               // Standard shadow for non-outline text
               context.shadowColor = 'rgba(0,0,0,0.8)';
-              context.shadowBlur = 8;
-              context.shadowOffsetX = 3;
-              context.shadowOffsetY = 3;
+              context.shadowBlur = 8 * textScaleFactor;
+              context.shadowOffsetX = 3 * textScaleFactor;
+              context.shadowOffsetY = 3 * textScaleFactor;
             }
 
             // Draw main text
@@ -720,7 +738,7 @@ const PhotoboothPage: React.FC = () => {
 
         // Return the final high-resolution image with text
         const finalImageData = canvas.toDataURL('image/jpeg', 1.0);
-        console.log('✅ Text rendered to high-resolution image with original sizing');
+        console.log('✅ Text rendered to high-resolution image with proportional scaling');
         console.log('📊 Final image dimensions:', HIGH_RES_WIDTH, 'x', HIGH_RES_HEIGHT);
         resolve(finalImageData);
       };
