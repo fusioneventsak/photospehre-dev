@@ -1130,7 +1130,7 @@ const PhotoboothPage: React.FC = () => {
       console.log('🚀 Initializing camera...');
       const timer = setTimeout(() => {
         startCamera(selectedDevice);
-      }, 800);
+      }, 500); // Reduced delay
       
       return () => clearTimeout(timer);
     }
@@ -1142,7 +1142,7 @@ const PhotoboothPage: React.FC = () => {
       const retryTimer = setTimeout(() => {
         console.log('🔄 Auto-retrying camera initialization...');
         startCamera(selectedDevice);
-      }, 3000);
+      }, 2000); // Reduced retry delay
       
       return () => clearTimeout(retryTimer);
     }
@@ -1548,6 +1548,9 @@ const PhotoboothPage: React.FC = () => {
                             >
                               Start Camera
                             </button>
+                            <div className="mt-2 text-xs text-gray-400">
+                              Debug: State={cameraState}, Device={selectedDevice}
+                            </div>
                           </>
                         )}
                       </div>
