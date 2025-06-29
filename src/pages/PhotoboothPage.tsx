@@ -345,6 +345,23 @@ const PhotoboothPage: React.FC = () => {
       await new Promise(resolve => setTimeout(resolve, 100));
       video.srcObject = mediaStream;
       
+      // AGGRESSIVE FALLBACK: Force camera active after short delay
+      setTimeout(() => {
+        if (!hasStartedPlaying) {
+          console.log('🚨 FORCING camera active - video events not firing properly');
+          console.log('🚨 Video readyState:', video.readyState);
+          console.log('🚨 Video dimensions:', video.videoWidth, 'x', video.videoHeight);
+          console.log('🚨 Video paused:', video.paused);
+          
+          // Force the camera to active state regardless of events
+          hasStartedPlaying = true;
+          streamRef.current = mediaStream;
+          setCameraState('active');
+          console.log('✅ Camera FORCED to active state');
+          cleanupEventListeners();
+        }
+      }, 1000); // Force after 1 second
+      
       // Force a manual check after setting srcObject
       setTimeout(() => {
         if (!hasStartedPlaying && video && video.readyState >= 1) {
