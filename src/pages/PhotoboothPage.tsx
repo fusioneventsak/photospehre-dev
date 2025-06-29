@@ -755,10 +755,11 @@ const PhotoboothPage: React.FC = () => {
         setError('Photo uploaded successfully! Your photo will appear in the collage automatically.');
         setTimeout(() => setError(null), 3000);
         
+        // Increase the delay before restarting camera to ensure proper cleanup
         setTimeout(() => {
-          console.log('🔄 Restarting camera after upload...');
+          console.log('🔄 Restarting camera after upload with increased delay...');
           startCamera(selectedDevice);
-        }, 500);
+        }, 1500);
         
       } else {
         throw new Error('Failed to upload photo');
@@ -797,10 +798,11 @@ const PhotoboothPage: React.FC = () => {
     setIsEditingText(false);
     setShowTextStylePanel(false);
     
+    // Increase the delay before restarting camera to ensure proper cleanup
     setTimeout(() => {
-      console.log('🔄 Restarting camera after retake...');
+      console.log('🔄 Restarting camera after retake with increased delay...');
       startCamera(selectedDevice);
-    }, 100);
+    }, 1000);
   }, [startCamera, selectedDevice]);
 
   // Render text elements on photo
