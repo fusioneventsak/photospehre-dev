@@ -1128,9 +1128,17 @@ const PhotoboothPage: React.FC = () => {
   useEffect(() => {
     if (currentCollage && !photo && cameraState === 'idle' && !isInitializingRef.current) {
       console.log('🚀 Initializing camera...');
+      
+      // Try to start camera immediately without waiting for device selection
       const timer = setTimeout(() => {
-        startCamera(selectedDevice);
-      }, 500); // Reduced delay
+        if (!selectedDevice) {
+          console.log('📱 No device selected, starting with default camera...');
+          startCamera(); // Call without device ID to use default
+        } else {
+          console.log('📱 Starting with selected device:', selectedDevice);
+          startCamera(selectedDevice);
+        }
+      }, 500);
       
       return () => clearTimeout(timer);
     }
@@ -1542,14 +1550,21 @@ const PhotoboothPage: React.FC = () => {
                             <button
                               onClick={() => {
                                 console.log('🎥 Manual camera start requested');
-                                startCamera(selectedDevice);
+                                console.log('🎥 Current selectedDevice:', selectedDevice);
+                                console.log('🎥 Available devices:', devices);
+                                // Start camera with or without device
+                                if (selectedDevice) {
+                                  startCamera(selectedDevice);
+                                } else {
+                                  startCamera(); // Use default camera
+                                }
                               }}
                               className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded text-sm transition-colors"
                             >
                               Start Camera
                             </button>
                             <div className="mt-2 text-xs text-gray-400">
-                              Debug: State={cameraState}, Device={selectedDevice}
+                              Debug: State={cameraState}, Device={selectedDevice || 'none'}, Devices={devices.length}
                             </div>
                           </>
                         )}
