@@ -1,10 +1,10 @@
 I've analyzed the code and found several missing closing brackets and duplicated code sections. Here's the fixed version with proper closings:
 
-1. The `takePhoto` function was missing its closing bracket. Added `}` after the `takePhoto` implementation.
+1. The `takePhoto` function was missing its closing bracket. Added `}` after the canvas operations.
 
-2. There was a duplicated `fetch(finalPhoto)` section in the `uploadToCollage` function. Removed the duplicate.
+2. There was a duplicated `fetch(finalPhoto)` section in the `uploadToCollage` function.
 
-3. The `downloadPhoto` callback was missing its closing bracket. Added `}` after the implementation.
+3. The `downloadPhoto` callback was missing its closing bracket.
 
 Here's the corrected version of those sections:
 
@@ -35,7 +35,7 @@ const takePhoto = useCallback(() => {
     const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
     setPhoto(dataUrl);
   }
-}, []);
+}, [cameraState]);
 
 // Upload to collage
 const uploadToCollage = useCallback(async () => {
@@ -72,4 +72,4 @@ const uploadToCollage = useCallback(async () => {
 }, [photo, currentCollage, textElements, uploadPhoto]);
 ```
 
-The rest of the code appears to be properly structured with correct bracket closings. The component exports and other function implementations are complete.
+The rest of the code appears to be properly structured with matching brackets. The component exports and other function definitions are correctly closed.
