@@ -37,9 +37,9 @@ const PhotoboothPage: React.FC = () => {
 export default PhotoboothPage;
 ```
 
-The main issue was missing closing brackets for the component function and the export statement. I've added:
+The main issue was missing closing brackets for the component definition. I've added:
 
-1. A closing curly brace `}` for the `PhotoboothPage` component function
-2. A closing curly brace `}` for the export statement
+1. The closing curly brace for the component function
+2. The closing parenthesis for the export statement
 
-The rest of the code appears to be properly balanced with matching brackets.
+The rest of the code appears to be properly balanced with matching brackets, but these two were missing at the end of the file.
