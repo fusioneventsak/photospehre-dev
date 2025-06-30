@@ -47,7 +47,7 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
       };
     }
 
-    // Main cloud particles (distributed in a galaxy-like spiral)
+    // Main cloud particles (distributed in a galaxy-like spiral) - LOWERED
     const mainPositions = new Float32Array(MAIN_COUNT * 3);
     const mainColors = new Float32Array(MAIN_COUNT * 3);
     const mainSizes = new Float32Array(MAIN_COUNT);
@@ -62,14 +62,16 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
       const angle = armAngle + (distanceFromCenter * spiralTightness);
       
       const noise = (Math.random() - 0.5) * (8 + distanceFromCenter * 0.1);
-      const heightNoise = (Math.random() - 0.5) * (2 + distanceFromCenter * 0.05);
+      // REDUCED height variation and lowered overall Y position
+      const heightNoise = (Math.random() - 0.5) * (1 + distanceFromCenter * 0.02);
       
       mainPositions[i * 3] = Math.cos(angle) * distanceFromCenter + noise;
-      mainPositions[i * 3 + 1] = heightNoise + Math.sin(angle * 0.1) * (distanceFromCenter * 0.02);
+      // LOWERED: Changed from heightNoise + Math.sin(...) * (...) to much lower values
+      mainPositions[i * 3 + 1] = heightNoise + Math.sin(angle * 0.1) * (distanceFromCenter * 0.01) - 5;
       mainPositions[i * 3 + 2] = Math.sin(angle) * distanceFromCenter + noise;
       
       mainVelocities[i * 3] = (Math.random() - 0.5) * 0.002;
-      mainVelocities[i * 3 + 1] = (Math.random() - 0.5) * 0.001;
+      mainVelocities[i * 3 + 1] = (Math.random() - 0.5) * 0.0005; // Reduced Y velocity
       mainVelocities[i * 3 + 2] = (Math.random() - 0.5) * 0.002;
       
       const sizeRandom = Math.random();
@@ -82,7 +84,7 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
       }
     }
     
-    // Dust cloud particles
+    // Dust cloud particles - LOWERED
     const dustPositions = new Float32Array(DUST_COUNT * 3);
     const dustColors = new Float32Array(DUST_COUNT * 3);
     const dustSizes = new Float32Array(DUST_COUNT);
@@ -91,25 +93,27 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
     for (let i = 0; i < DUST_COUNT; i++) {
       const radius = Math.pow(Math.random(), 2) * 50 + 10;
       const angle = Math.random() * Math.PI * 2;
-      const height = (Math.random() - 0.5) * 30 + 15;
+      // LOWERED: Changed height range from 30 to 10, and base from 15 to -5
+      const height = (Math.random() - 0.5) * 10 - 5;
       
       dustPositions[i * 3] = Math.cos(angle) * radius + (Math.random() - 0.5) * 15;
       dustPositions[i * 3 + 1] = height;
       dustPositions[i * 3 + 2] = Math.sin(angle) * radius + (Math.random() - 0.5) * 15;
       
       dustVelocities[i * 3] = (Math.random() - 0.5) * 0.003;
-      dustVelocities[i * 3 + 1] = Math.random() * 0.002 + 0.001;
+      dustVelocities[i * 3 + 1] = Math.random() * 0.001 + 0.0005; // Reduced upward velocity
       dustVelocities[i * 3 + 2] = (Math.random() - 0.5) * 0.003;
       
       dustSizes[i] = 0.3 + Math.random() * 1.2;
     }
     
-    // Create star clusters
+    // Create star clusters - LOWERED
     const clusterData = [];
     for (let c = 0; c < CLUSTER_COUNT; c++) {
       const clusterDistance = 30 + Math.random() * 100;
       const clusterAngle = Math.random() * Math.PI * 2;
-      const clusterHeight = (Math.random() - 0.5) * 60 + 20;
+      // LOWERED: Changed height range from 60 to 20, and base from 20 to -10
+      const clusterHeight = (Math.random() - 0.5) * 20 - 10;
       
       const clusterCenter = {
         x: Math.cos(clusterAngle) * clusterDistance,
@@ -136,7 +140,7 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
         clusterPositions[i * 3 + 2] = clusterCenter.z + r * Math.sin(theta) * Math.sin(phi);
         
         clusterVelocities[i * 3] = (Math.random() - 0.5) * 0.001;
-        clusterVelocities[i * 3 + 1] = (Math.random() - 0.5) * 0.001;
+        clusterVelocities[i * 3 + 1] = (Math.random() - 0.5) * 0.0005; // Reduced Y velocity
         clusterVelocities[i * 3 + 2] = (Math.random() - 0.5) * 0.001;
         
         clusterSizes[i] = 0.8 + Math.random() * 2.5;
@@ -279,7 +283,8 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
         
         const parallaxFreq = time * 0.02 + i * 0.001;
         mainPositions[i3] += Math.sin(parallaxFreq) * 0.001;
-        mainPositions[i3 + 1] += Math.cos(parallaxFreq * 0.7) * 0.0005;
+        // REDUCED Y movement amplitude
+        mainPositions[i3 + 1] += Math.cos(parallaxFreq * 0.7) * 0.0002;
         mainPositions[i3 + 2] += Math.sin(parallaxFreq * 1.3) * 0.001;
       }
       
@@ -300,11 +305,13 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
         
         const turbulenceFreq = time * 0.1 + i * 0.05;
         dustPositions[i3] += Math.sin(turbulenceFreq) * 0.002;
-        dustPositions[i3 + 1] += Math.cos(turbulenceFreq * 1.3) * 0.001;
+        // REDUCED Y turbulence
+        dustPositions[i3 + 1] += Math.cos(turbulenceFreq * 1.3) * 0.0005;
         dustPositions[i3 + 2] += Math.sin(turbulenceFreq * 0.8) * 0.002;
         
-        if (dustPositions[i3 + 1] > 60) {
-          dustPositions[i3 + 1] = -10;
+        // LOWERED recycling boundaries
+        if (dustPositions[i3 + 1] > 15) {
+          dustPositions[i3 + 1] = -15;
           dustPositions[i3] = (Math.random() - 0.5) * 70;
           dustPositions[i3 + 2] = (Math.random() - 0.5) * 70;
         }
@@ -352,7 +359,8 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
               
               const clusterWave = time * 0.03 + clusterIndex + i * 0.1;
               positions[i3] += Math.sin(clusterWave) * 0.0005;
-              positions[i3 + 1] += Math.cos(clusterWave * 0.8) * 0.0003;
+              // REDUCED Y wave amplitude
+              positions[i3 + 1] += Math.cos(clusterWave * 0.8) * 0.0001;
               positions[i3 + 2] += Math.sin(clusterWave * 1.2) * 0.0005;
             }
             
