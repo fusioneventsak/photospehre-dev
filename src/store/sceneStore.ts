@@ -4,6 +4,11 @@ import { create } from 'zustand';
 export type SceneSettings = {
   animationPattern: 'float' | 'wave' | 'spiral' | 'grid';
   gridAspectRatioPreset: '1:1' | '4:3' | '16:9' | '21:9' | 'custom';
+  particles: {
+    enabled: boolean;
+    theme: string; // Will store the theme name
+    intensity: number; // 0-1 for particle density
+  };
   patterns: {
     grid: {
       enabled: boolean;
@@ -139,6 +144,11 @@ const defaultSettings: SceneSettings = {
   wallHeight: 0,
   gridAspectRatio: 1.77778,
   photoBrightness: 1.0, // 1.0 = natural photo brightness (100%)
+  particles: {
+    enabled: true,
+    theme: 'Purple Magic', // Default theme name
+    intensity: 0.7 // 70% intensity by default
+  },
   patterns: {
     grid: {
       enabled: true,
