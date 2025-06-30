@@ -369,8 +369,11 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
     return null;
   }
 
+  // Create a key that changes when the particle counts change
+  const particleKey = `particles-${enabled ? 1 : 0}-${intensity.toFixed(1)}`;
+
   return (
-    <group>
+    <group key={particleKey}>
       {/* Main Milky Way Cloud */}
       <points ref={mainCloudRef}>
         <bufferGeometry>
@@ -488,7 +491,7 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
       {/* Star clusters */}
       <group ref={clustersRef}>
         {particleData.clusters.map((cluster, index) => (
-          <points key={index}>
+          <points key={`${particleKey}-cluster-${index}`}>
             <bufferGeometry>
               <bufferAttribute
                 attach="attributes-position"
