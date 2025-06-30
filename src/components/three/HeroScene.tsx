@@ -4,6 +4,7 @@ import { OrbitControls } from '@react-three/drei';
 import { Suspense } from 'react';
 import * as THREE from 'three';
 import { Palette } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 // Mobile detection hook
 const useIsMobile = () => {
@@ -22,60 +23,103 @@ const useIsMobile = () => {
   return isMobile;
 };
 
-// 100 Fun party and event photos - groups celebrating, dancing, parties, events, photobooths, selfies (vertical format)
-const DEMO_PHOTOS = [
-  'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?w=400&h=600&fit=crop&crop=center', // group celebration
-  'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=400&h=600&fit=crop&crop=center', // party dancing
-  'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400&h=600&fit=crop&crop=center', // concert crowd
-  'https://images.unsplash.com/photo-1566492031773-4f4e44671d66?w=400&h=600&fit=crop&crop=center', // group selfie
-  'https://images.unsplash.com/photo-1574391884720-bbc049ec09ad?w=400&h=600&fit=crop&crop=center', // party celebration
-  'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&h=600&fit=crop&crop=center', // nightlife party
-  'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400&h=600&fit=crop&crop=center', // concert audience
-  'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=600&fit=crop&crop=center', // group celebration
-  'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=400&h=600&fit=crop&crop=center', // party fun
-  'https://images.unsplash.com/photo-1528605248644-14dd04022da1?w=400&h=600&fit=crop&crop=center', // group celebration
-  'https://images.unsplash.com/photo-1587825140708-dfaf72ae4b04?w=400&h=600&fit=crop&crop=center', // party dancing
-  'https://images.unsplash.com/photo-1520637836862-4d197d17c13a?w=400&h=600&fit=crop&crop=center', // nightclub party
-  'https://images.unsplash.com/photo-1492447166138-50c3889fccb1?w=400&h=600&fit=crop&crop=center', // friends celebrating
-  'https://images.unsplash.com/photo-1543269865-cbf427effbad?w=400&h=600&fit=crop&crop=center', // group party
-  'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=400&h=600&fit=crop&crop=center', // celebration cheers
-  'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=400&h=600&fit=crop&crop=center', // party dancing
-  'https://images.unsplash.com/photo-1516307365426-bea591f05011?w=400&h=600&fit=crop&crop=center', // concert party
-  'https://images.unsplash.com/photo-1515187029135-18ee286d815b?w=400&h=600&fit=crop&crop=center', // group celebration
-  'https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=400&h=600&fit=crop&crop=center', // party crowd
-  'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=400&h=600&fit=crop&crop=center', // celebration event
-  'https://images.unsplash.com/photo-1547036967-23d11aacaee0?w=400&h=600&fit=crop&crop=center', // birthday party
-  'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=600&fit=crop&crop=center', // party celebration
-  'https://images.unsplash.com/photo-1485872299829-c673f5194813?w=400&h=600&fit=crop&crop=center', // group fun
-  'https://images.unsplash.com/photo-1511632765486-a01980e01a18?w=400&h=600&fit=crop&crop=center', // celebration party
-  'https://images.unsplash.com/photo-1551818255-e6e10975bc17?w=400&h=600&fit=crop&crop=center', // nightlife party
-  'https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=400&h=600&fit=crop&crop=center', // party celebration
-  'https://images.unsplash.com/photo-1582213782179-e0d53f98f2ca?w=400&h=600&fit=crop&crop=center', // group celebration
-  'https://images.unsplash.com/photo-1530023367847-a683933f4172?w=400&h=600&fit=crop&crop=center', // birthday party
-  'https://images.unsplash.com/photo-1519214605650-76a613ee3245?w=400&h=600&fit=crop&crop=center', // wedding celebration
-  'https://images.unsplash.com/photo-1524159179951-0145ebc03e42?w=400&h=600&fit=crop&crop=center', // party fun
-  'https://images.unsplash.com/photo-1506157786151-b8491531f063?w=400&h=600&fit=crop&crop=center', // concert lights
-  'https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?w=400&h=600&fit=crop&crop=center', // party celebration
-  'https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=400&h=600&fit=crop&crop=center', // people cheering
-  'https://images.unsplash.com/photo-1564865878688-9a244444042a?w=400&h=600&fit=crop&crop=center', // group selfie
-  'https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=400&h=600&fit=crop&crop=center', // food party
-  'https://images.unsplash.com/photo-1567446537708-ac4aa75c9c28?w=400&h=600&fit=crop&crop=center', // group celebration
-  'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=400&h=600&fit=crop&crop=center', // graduation party
-  'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&h=600&fit=crop&crop=center', // business celebration
-  'https://images.unsplash.com/photo-1478145046317-39f10e56b5e9?w=400&h=600&fit=crop&crop=center', // outdoor party
-  'https://images.unsplash.com/photo-1496843916299-590492c751f4?w=400&h=600&fit=crop&crop=center', // festival crowd
-  'https://images.unsplash.com/photo-1519741497674-611481863552?w=400&h=600&fit=crop&crop=center', // wedding party
-  'https://images.unsplash.com/photo-1583394838340-0c5c0d6d7d5b?w=400&h=600&fit=crop&crop=center', // party celebration
-  'https://images.unsplash.com/photo-1584646098378-0874589d76b1?w=400&h=600&fit=crop&crop=center', // group selfie
-  'https://images.unsplash.com/photo-1585776245991-cf89dd7fc73a?w=400&h=600&fit=crop&crop=center', // celebration
-  'https://images.unsplash.com/photo-1520986734961-6a681fdd0c9f?w=400&h=600&fit=crop&crop=center', // party friends
-  'https://images.unsplash.com/photo-1588392382834-a891154bca4d?w=400&h=600&fit=crop&crop=center', // group celebration
-  'https://images.unsplash.com/photo-1589652717406-1c69efaf1ff8?w=400&h=600&fit=crop&crop=center', // party celebration
-  'https://images.unsplash.com/photo-1590736969955-71cc94901144?w=400&h=600&fit=crop&crop=center', // group selfie
-  'https://images.unsplash.com/photo-1592650450938-4d8b4b8c7c3b?w=400&h=600&fit=crop&crop=center', // celebration
-  'https://images.unsplash.com/photo-1594736797933-d0401ba5f9e4?w=400&h=600&fit=crop&crop=center', // party fun
-  'https://images.unsplash.com/photo-1596178065887-1198b6148b2b?w=400&h=600&fit=crop&crop=center', // group celebration
-];
+// Hook to fetch photos from Supabase storage
+const useSupabasePhotos = () => {
+  const [photos, setPhotos] = React.useState<string[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    const fetchPhotos = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        // Try to list files from stock-photos bucket
+        const { data: stockPhotos, error: stockError } = await supabase.storage
+          .from('stock-photos')
+          .list('', {
+            limit: 100,
+            sortBy: { column: 'name', order: 'asc' }
+          });
+
+        let photoFiles = stockPhotos;
+        let bucketName = 'stock-photos';
+
+        // If stock-photos bucket doesn't exist or is empty, fall back to photos bucket
+        if (stockError || !stockPhotos || stockPhotos.length === 0) {
+          console.warn('Stock-photos bucket not available, falling back to photos bucket');
+          const { data: fallbackPhotos, error: fallbackError } = await supabase.storage
+            .from('photos')
+            .list('', {
+              limit: 100,
+              sortBy: { column: 'name', order: 'asc' }
+            });
+
+          if (fallbackError) {
+            throw new Error(`Failed to fetch from both buckets: ${stockError?.message || 'Unknown error'}, ${fallbackError.message}`);
+          }
+
+          photoFiles = fallbackPhotos;
+          bucketName = 'photos';
+        }
+
+        if (!photoFiles || photoFiles.length === 0) {
+          // If no photos in Supabase, use a few fallback stock photos
+          console.warn('No photos found in Supabase storage, using fallback images');
+          setPhotos([
+            'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?w=400&h=600&fit=crop&crop=center',
+            'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=400&h=600&fit=crop&crop=center',
+            'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400&h=600&fit=crop&crop=center',
+            'https://images.unsplash.com/photo-1566492031773-4f4e44671d66?w=400&h=600&fit=crop&crop=center',
+            'https://images.unsplash.com/photo-1574391884720-bbc049ec09ad?w=400&h=600&fit=crop&crop=center'
+          ]);
+          setLoading(false);
+          return;
+        }
+
+        // Filter for image files only
+        const imageFiles = photoFiles.filter(file => {
+          const ext = file.name.toLowerCase();
+          return ext.endsWith('.jpg') || 
+                 ext.endsWith('.jpeg') || 
+                 ext.endsWith('.png') || 
+                 ext.endsWith('.gif') || 
+                 ext.endsWith('.webp');
+        });
+
+        // Generate public URLs for the images
+        const imageUrls = imageFiles.map(file => {
+          const { data } = supabase.storage
+            .from(bucketName)
+            .getPublicUrl(file.name);
+          return data.publicUrl;
+        });
+
+        console.log(`Loaded ${imageUrls.length} photos from ${bucketName} bucket`);
+        setPhotos(imageUrls);
+      } catch (err) {
+        console.error('Error fetching photos from Supabase:', err);
+        setError(err instanceof Error ? err.message : 'Unknown error');
+        
+        // Use fallback photos on error
+        setPhotos([
+          'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?w=400&h=600&fit=crop&crop=center',
+          'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=400&h=600&fit=crop&crop=center',
+          'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400&h=600&fit=crop&crop=center',
+          'https://images.unsplash.com/photo-1566492031773-4f4e44671d66?w=400&h=600&fit=crop&crop=center',
+          'https://images.unsplash.com/photo-1574391884720-bbc049ec09ad?w=400&h=600&fit=crop&crop=center'
+        ]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPhotos();
+  }, []);
+
+  return { photos, loading, error };
+};
 
 // Fun comments that might appear on photos in a real collage
 const PHOTO_COMMENTS = [
@@ -125,6 +169,8 @@ const FloatingPhoto: React.FC<PhotoProps> = ({ position, rotation, imageUrl, ind
   
   // Load texture with error handling - only show if successfully loaded
   React.useEffect(() => {
+    if (!imageUrl) return;
+    
     const loader = new THREE.TextureLoader();
     loader.load(
       imageUrl,
@@ -874,7 +920,7 @@ const GradientBackground: React.FC = () => {
   );
 };
 
-// FIXED: Smart camera controls - ALWAYS INTERACTIVE on all devices
+// Smart camera controls - ALWAYS INTERACTIVE on all devices
 const SmartCameraControls: React.FC = () => {
   const controlsRef = useRef<any>();
   const { camera } = useThree();
@@ -901,7 +947,6 @@ const SmartCameraControls: React.FC = () => {
     // Always rotate, but pause during active interaction
     const shouldAutoRotate = !isUserInteracting.current || timeSinceInteraction > 1000;
     
-    // FIXED: Remove mobile special case - same logic for all devices
     if (shouldAutoRotate) {
       // Continuous rotation around the scene - slower speed
       rotationAngle.current += 0.002;
@@ -918,14 +963,13 @@ const SmartCameraControls: React.FC = () => {
       camera.lookAt(0, 0, 0);
     }
     
-    // FIXED: Update controls for all devices
+    // Update controls for all devices
     if (controlsRef.current) {
       controlsRef.current.update();
     }
   });
 
   React.useEffect(() => {
-    // FIXED: Remove mobile restriction - allow controls on all devices
     if (!controlsRef.current) return;
 
     const controls = controlsRef.current;
@@ -964,20 +1008,18 @@ const SmartCameraControls: React.FC = () => {
       controls.removeEventListener('end', handleEnd);
       controls.removeEventListener('change', handleChange);
     };
-  }, [camera, isReady]); // FIXED: Remove isMobile dependency
+  }, [camera, isReady]);
 
-  // FIXED: Only prevent rendering if camera isn't ready, allow mobile
   if (!isReady) {
     return null;
   }
 
-  // FIXED: Always render OrbitControls - no mobile restriction
   return (
     <OrbitControls
       ref={controlsRef}
       enablePan={false}
       enableZoom={false}
-      enableRotate={true}        // FIXED: Always true, no mobile restriction
+      enableRotate={true}
       rotateSpeed={0.6}
       minDistance={8}
       maxDistance={25}
@@ -991,8 +1033,8 @@ const SmartCameraControls: React.FC = () => {
 };
 
 // Scene component that brings everything together - ONLY 3D objects
-const Scene: React.FC<{ particleTheme: typeof PARTICLE_THEMES[0] }> = ({ particleTheme }) => {
-  // Generate photo positions for 100 photos covering the entire floor plane
+const Scene: React.FC<{ particleTheme: typeof PARTICLE_THEMES[0]; photos: string[] }> = ({ particleTheme, photos }) => {
+  // Generate photo positions for all available photos
   const photoPositions = useMemo(() => {
     const positions: Array<{
       position: [number, number, number];
@@ -1000,21 +1042,21 @@ const Scene: React.FC<{ particleTheme: typeof PARTICLE_THEMES[0] }> = ({ particl
       imageUrl: string;
     }> = [];
 
-    // Floor is 35x35 units, we want to cover it evenly
-    // Let's create a 10x10 grid to get exactly 100 photos
-    const gridSize = 10;
-    const floorSize = 30; // Slightly smaller than floor to have margin
+    // Create a dynamic grid based on number of photos
+    const totalPhotos = Math.min(photos.length, 100); // Limit to 100 photos max
+    const gridSize = Math.ceil(Math.sqrt(totalPhotos));
+    const floorSize = 30; // Floor coverage area
     const spacing = floorSize / (gridSize - 1); // Even spacing
     
     let photoIndex = 0;
     
-    for (let row = 0; row < gridSize; row++) {
-      for (let col = 0; col < gridSize; col++) {
+    for (let row = 0; row < gridSize && photoIndex < totalPhotos; row++) {
+      for (let col = 0; col < gridSize && photoIndex < totalPhotos; col++) {
         // Calculate position to center the grid on the floor
         const x = (col - (gridSize - 1) / 2) * spacing;
         const z = (row - (gridSize - 1) / 2) * spacing;
         
-        // Add small random offset for organic feel (but keep photos in their grid positions)
+        // Add small random offset for organic feel
         const xOffset = (Math.random() - 0.5) * 0.5;
         const zOffset = (Math.random() - 0.5) * 0.5;
         
@@ -1029,21 +1071,22 @@ const Scene: React.FC<{ particleTheme: typeof PARTICLE_THEMES[0] }> = ({ particl
         const rotationY = (Math.random() - 0.5) * 0.6;
         const rotationZ = (Math.random() - 0.5) * 0.2;
         
-        // Cycle through party photos
-        const imageUrl = DEMO_PHOTOS[photoIndex % DEMO_PHOTOS.length];
-        photoIndex++;
+        // Use the photo from our Supabase storage
+        const imageUrl = photos[photoIndex];
         
         positions.push({
           position: [x + xOffset, y, z + zOffset] as [number, number, number],
           rotation: [rotationX, rotationY, rotationZ] as [number, number, number],
           imageUrl: imageUrl,
         });
+        
+        photoIndex++;
       }
     }
     
-    console.log(`Generated ${positions.length} photo positions in ${gridSize}x${gridSize} grid`);
+    console.log(`Generated ${positions.length} photo positions from ${photos.length} available photos`);
     return positions;
-  }, []);
+  }, [photos]);
 
   return (
     <>
@@ -1159,7 +1202,7 @@ const Scene: React.FC<{ particleTheme: typeof PARTICLE_THEMES[0] }> = ({ particl
         castShadow={false}
       />
       
-      {/* FIXED: Smart Camera Controls - Always Interactive */}
+      {/* Smart Camera Controls - Always Interactive */}
       <SmartCameraControls />
       
       <ReflectiveFloor />
@@ -1169,7 +1212,7 @@ const Scene: React.FC<{ particleTheme: typeof PARTICLE_THEMES[0] }> = ({ particl
       {/* Milky Way Particle System */}
       <MilkyWayParticleSystem colorTheme={particleTheme} photoPositions={photoPositions} />
       
-      {/* Floating Photos */}
+      {/* Floating Photos from Supabase */}
       {photoPositions.map((photo, index) => (
         <FloatingPhoto
           key={index}
@@ -1217,8 +1260,11 @@ const LoadingFallback: React.FC = () => (
 );
 
 const HeroScene: React.FC<{ onThemeChange?: (theme: typeof PARTICLE_THEMES[0]) => void }> = ({ onThemeChange }) => {
-  // State for particle theme - moved to main component
+  // State for particle theme
   const [particleTheme, setParticleTheme] = React.useState(PARTICLE_THEMES[0]);
+  
+  // Fetch photos from Supabase
+  const { photos, loading, error } = useSupabasePhotos();
 
   // Notify parent when theme changes
   const handleThemeChange = (newTheme: typeof PARTICLE_THEMES[0]) => {
@@ -1230,7 +1276,35 @@ const HeroScene: React.FC<{ onThemeChange?: (theme: typeof PARTICLE_THEMES[0]) =
 
   return (
     <ErrorBoundary>
-      {/* Particle Theme Controls - positioned OUTSIDE Canvas at better location */}
+      {/* Loading indicator */}
+      {loading && (
+        <div className="absolute top-4 left-4 z-50">
+          <div className="flex items-center gap-2 px-3 py-2 bg-black/30 backdrop-blur-md border border-white/20 rounded-lg text-white text-sm">
+            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+            Loading photos...
+          </div>
+        </div>
+      )}
+
+      {/* Error indicator */}
+      {error && (
+        <div className="absolute top-4 left-4 z-50">
+          <div className="flex items-center gap-2 px-3 py-2 bg-red-500/20 backdrop-blur-md border border-red-500/40 rounded-lg text-red-200 text-sm">
+            ⚠️ Using fallback images
+          </div>
+        </div>
+      )}
+
+      {/* Photo count indicator */}
+      {!loading && !error && photos.length > 0 && (
+        <div className="absolute top-4 left-4 z-50">
+          <div className="flex items-center gap-2 px-3 py-2 bg-green-500/20 backdrop-blur-md border border-green-500/40 rounded-lg text-green-200 text-sm">
+            📸 {photos.length} photos loaded
+          </div>
+        </div>
+      )}
+
+      {/* Particle Theme Controls */}
       <div className="absolute top-4 right-4 z-50">
         <div className="relative">
           <button
@@ -1248,7 +1322,7 @@ const HeroScene: React.FC<{ onThemeChange?: (theme: typeof PARTICLE_THEMES[0]) =
         </div>
       </div>
 
-      {/* FIXED: Canvas - Now fully interactive */}
+      {/* Canvas - Now fully interactive */}
       <Canvas
         className="absolute inset-0 w-full h-full"
         camera={{ position: [15, 3, 15], fov: 45 }}
@@ -1261,8 +1335,8 @@ const HeroScene: React.FC<{ onThemeChange?: (theme: typeof PARTICLE_THEMES[0]) =
         }}
         style={{ 
           background: 'transparent',
-          pointerEvents: 'auto',          // FIXED: Changed from 'none' to 'auto'
-          touchAction: 'manipulation',    // FIXED: Changed from 'none' to 'manipulation'
+          pointerEvents: 'auto',
+          touchAction: 'manipulation',
           WebkitTouchCallout: 'none',
           WebkitUserSelect: 'none',
           userSelect: 'none',
@@ -1277,7 +1351,7 @@ const HeroScene: React.FC<{ onThemeChange?: (theme: typeof PARTICLE_THEMES[0]) =
         dpr={[1, 2]}
       >
         <Suspense fallback={<LoadingFallback />}>
-          <Scene particleTheme={particleTheme} />
+          <Scene particleTheme={particleTheme} photos={photos} />
         </Suspense>
       </Canvas>
     </ErrorBoundary>
