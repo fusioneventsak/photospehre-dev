@@ -30,12 +30,20 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
   const mainCloudRef = useRef<THREE.Points>(null);
   const dustCloudRef = useRef<THREE.Points>(null);
   const clustersRef = useRef<THREE.Group>(null);
+  // NEW: Additional refs for atmospheric and distant particles
+  const atmosphericRef = useRef<THREE.Points>(null);
+  const distantSwirlRef = useRef<THREE.Points>(null);
+  const bigSwirlsRef = useRef<THREE.Group>(null);
   
   // Adjust particle counts based on intensity
   const MAIN_COUNT = Math.floor(4000 * intensity);
   const DUST_COUNT = Math.floor(2500 * intensity);
   const CLUSTER_COUNT = Math.floor(8 * intensity);
   const PARTICLES_PER_CLUSTER = 300;
+  // NEW: Additional atmospheric and distant particles
+  const ATMOSPHERIC_COUNT = Math.floor(3000 * intensity);
+  const DISTANT_SWIRL_COUNT = Math.floor(1500 * intensity);
+  const BIG_SWIRLS_COUNT = Math.floor(4 * intensity);
   
   // Create realistic particle distribution
   const particleData = useMemo(() => {
@@ -43,7 +51,10 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
       return {
         main: { positions: new Float32Array(0), colors: new Float32Array(0), sizes: new Float32Array(0), velocities: new Float32Array(0), count: 0 },
         dust: { positions: new Float32Array(0), colors: new Float32Array(0), sizes: new Float32Array(0), velocities: new Float32Array(0), count: 0 },
-        clusters: []
+        clusters: [],
+        atmospheric: { positions: new Float32Array(0), colors: new Float32Array(0), sizes: new Float32Array(0), velocities: new Float32Array(0), count: 0 },
+        distantSwirl: { positions: new Float32Array(0), colors: new Float32Array(0), sizes: new Float32Array(0), velocities: new Float32Array(0), count: 0 },
+        bigSwirls: []
       };
     }
 
@@ -155,6 +166,107 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
       });
     }
     
+    // NEW: Atmospheric particles (floating through the scene at various heights)
+    const atmosphericPositions = new Float32Array(ATMOSPHERIC_COUNT * 3);
+    const atmosphericColors = new Float32Array(ATMOSPHERIC_COUNT * 3);
+    const atmosphericSizes = new Float32Array(ATMOSPHERIC_COUNT);
+    const atmosphericVelocities = new Float32Array(ATMOSPHERIC_COUNT * 3);
+    
+    for (let i = 0; i < ATMOSPHERIC_COUNT; i++) {
+      // Spread throughout the entire scene volume
+      atmosphericPositions[i * 3] = (Math.random() - 0.5) * 200;
+      atmosphericPositions[i * 3 + 1] = Math.random() * 80 + 5; // From 5 to 85 height
+      atmosphericPositions[i * 3 + 2] = (Math.random() - 0.5) * 200;
+      
+      atmosphericVelocities[i * 3] = (Math.random() - 0.5) * 0.001;
+      atmosphericVelocities[i * 3 + 1] = (Math.random() - 0.5) * 0.0008;
+      atmosphericVelocities[i * 3 + 2] = (Math.random() - 0.5) * 0.001;
+      
+      // Varied sizes for atmospheric depth
+      const sizeRandom = Math.random();
+      if (sizeRandom < 0.6) {
+        atmosphericSizes[i] = 0.2 + Math.random() * 0.8;
+      } else if (sizeRandom < 0.85) {
+        atmosphericSizes[i] = 1 + Math.random() * 1.5;
+      } else {
+        atmosphericSizes[i] = 2.5 + Math.random() * 2;
+      }
+    }
+    
+    // NEW: Distant swirl particles (large spiral formations in the background)
+    const distantSwirlPositions = new Float32Array(DISTANT_SWIRL_COUNT * 3);
+    const distantSwirlColors = new Float32Array(DISTANT_SWIRL_COUNT * 3);
+    const distantSwirlSizes = new Float32Array(DISTANT_SWIRL_COUNT);
+    const distantSwirlVelocities = new Float32Array(DISTANT_SWIRL_COUNT * 3);
+    
+    for (let i = 0; i < DISTANT_SWIRL_COUNT; i++) {
+      // Create large distant spiral
+      const swirlArm = Math.floor(Math.random() * 6); // 6 spiral arms
+      const armAngle = (swirlArm * Math.PI / 3) + (Math.random() - 0.5) * 0.3;
+      const distanceFromCenter = Math.pow(Math.random(), 0.3) * 150 + 80; // Further out
+      const spiralTightness = 0.15;
+      const angle = armAngle + (distanceFromCenter * spiralTightness);
+      
+      const noise = (Math.random() - 0.5) * 20;
+      const heightVariation = (Math.random() - 0.5) * 40 + 30; // Higher up
+      
+      distantSwirlPositions[i * 3] = Math.cos(angle) * distanceFromCenter + noise;
+      distantSwirlPositions[i * 3 + 1] = heightVariation + Math.sin(angle * 0.05) * 15;
+      distantSwirlPositions[i * 3 + 2] = Math.sin(angle) * distanceFromCenter + noise;
+      
+      distantSwirlVelocities[i * 3] = (Math.random() - 0.5) * 0.0008;
+      distantSwirlVelocities[i * 3 + 1] = (Math.random() - 0.5) * 0.0005;
+      distantSwirlVelocities[i * 3 + 2] = (Math.random() - 0.5) * 0.0008;
+      
+      // Larger particles for distant effect
+      distantSwirlSizes[i] = 1.5 + Math.random() * 3.5;
+    }
+    
+    // NEW: Big swirl formations (massive spiral structures)
+    const bigSwirlData = [];
+    for (let s = 0; s < BIG_SWIRLS_COUNT; s++) {
+      const swirlDistance = 120 + Math.random() * 100;
+      const swirlAngle = Math.random() * Math.PI * 2;
+      const swirlHeight = 40 + Math.random() * 60;
+      const particlesPerSwirl = 800;
+      
+      const swirlCenter = {
+        x: Math.cos(swirlAngle) * swirlDistance,
+        y: swirlHeight,
+        z: Math.sin(swirlAngle) * swirlDistance
+      };
+      
+      const swirlPositions = new Float32Array(particlesPerSwirl * 3);
+      const swirlColors = new Float32Array(particlesPerSwirl * 3);
+      const swirlSizes = new Float32Array(particlesPerSwirl);
+      const swirlVelocities = new Float32Array(particlesPerSwirl * 3);
+      
+      for (let i = 0; i < particlesPerSwirl; i++) {
+        // Create spiral pattern
+        const spiralRadius = Math.pow(Math.random(), 0.4) * 30;
+        const spiralAngle = Math.random() * Math.PI * 4 + (spiralRadius * 0.3);
+        const spiralHeight = (Math.random() - 0.5) * 25;
+        
+        swirlPositions[i * 3] = swirlCenter.x + Math.cos(spiralAngle) * spiralRadius;
+        swirlPositions[i * 3 + 1] = swirlCenter.y + spiralHeight;
+        swirlPositions[i * 3 + 2] = swirlCenter.z + Math.sin(spiralAngle) * spiralRadius;
+        
+        swirlVelocities[i * 3] = (Math.random() - 0.5) * 0.0005;
+        swirlVelocities[i * 3 + 1] = (Math.random() - 0.5) * 0.0003;
+        swirlVelocities[i * 3 + 2] = (Math.random() - 0.5) * 0.0005;
+        
+        swirlSizes[i] = 1.2 + Math.random() * 4;
+      }
+      
+      bigSwirlData.push({
+        positions: swirlPositions,
+        colors: swirlColors,
+        sizes: swirlSizes,
+        velocities: swirlVelocities,
+        center: swirlCenter
+      });
+    }
+    
     return {
       main: {
         positions: mainPositions,
@@ -170,13 +282,29 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
         velocities: dustVelocities,
         count: DUST_COUNT
       },
-      clusters: clusterData
+      clusters: clusterData,
+      atmospheric: {
+        positions: atmosphericPositions,
+        colors: atmosphericColors,
+        sizes: atmosphericSizes,
+        velocities: atmosphericVelocities,
+        count: ATMOSPHERIC_COUNT
+      },
+      distantSwirl: {
+        positions: distantSwirlPositions,
+        colors: distantSwirlColors,
+        sizes: distantSwirlSizes,
+        velocities: distantSwirlVelocities,
+        count: DISTANT_SWIRL_COUNT
+      },
+      bigSwirls: bigSwirlData
     };
-  }, [intensity, enabled, MAIN_COUNT, DUST_COUNT, CLUSTER_COUNT]);
+  }, [intensity, enabled, MAIN_COUNT, DUST_COUNT, CLUSTER_COUNT, ATMOSPHERIC_COUNT, DISTANT_SWIRL_COUNT, BIG_SWIRLS_COUNT]);
 
   // Update colors when theme changes
   React.useEffect(() => {
-    if (!enabled || !mainCloudRef.current || !dustCloudRef.current || !clustersRef.current) return;
+    if (!enabled || !mainCloudRef.current || !dustCloudRef.current || !clustersRef.current || 
+        !atmosphericRef.current || !distantSwirlRef.current || !bigSwirlsRef.current) return;
     
     // Update main cloud colors
     if (particleData.main.count > 0) {
@@ -249,6 +377,76 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
           clusterColors[i * 3 + 2] = particleColor.b;
         }
         cluster.geometry.attributes.color.needsUpdate = true;
+      }
+    });
+    
+    // NEW: Update atmospheric colors
+    if (particleData.atmospheric.count > 0) {
+      const atmosphericColors = atmosphericRef.current.geometry.attributes.color.array as Float32Array;
+      for (let i = 0; i < particleData.atmospheric.count; i++) {
+        const baseColor = new THREE.Color(colorTheme.accent);
+        const hsl = { h: 0, s: 0, l: 0 };
+        baseColor.getHSL(hsl);
+        
+        const particleColor = new THREE.Color();
+        particleColor.setHSL(
+          (hsl.h + (Math.random() - 0.5) * 0.2 + 1) % 1,
+          Math.min(1, hsl.s * (0.3 + Math.random() * 0.4)),
+          Math.min(1, hsl.l * (0.2 + Math.random() * 0.5))
+        );
+        
+        atmosphericColors[i * 3] = particleColor.r;
+        atmosphericColors[i * 3 + 1] = particleColor.g;
+        atmosphericColors[i * 3 + 2] = particleColor.b;
+      }
+      atmosphericRef.current.geometry.attributes.color.needsUpdate = true;
+    }
+    
+    // NEW: Update distant swirl colors
+    if (particleData.distantSwirl.count > 0) {
+      const distantColors = distantSwirlRef.current.geometry.attributes.color.array as Float32Array;
+      for (let i = 0; i < particleData.distantSwirl.count; i++) {
+        const baseColor = new THREE.Color(colorTheme.primary);
+        const hsl = { h: 0, s: 0, l: 0 };
+        baseColor.getHSL(hsl);
+        
+        const particleColor = new THREE.Color();
+        particleColor.setHSL(
+          (hsl.h + (Math.random() - 0.5) * 0.1 + 1) % 1,
+          Math.min(1, hsl.s * (0.6 + Math.random() * 0.4)),
+          Math.min(1, hsl.l * (0.4 + Math.random() * 0.4))
+        );
+        
+        distantColors[i * 3] = particleColor.r;
+        distantColors[i * 3 + 1] = particleColor.g;
+        distantColors[i * 3 + 2] = particleColor.b;
+      }
+      distantSwirlRef.current.geometry.attributes.color.needsUpdate = true;
+    }
+    
+    // NEW: Update big swirl colors
+    bigSwirlsRef.current.children.forEach((swirl, swirlIndex) => {
+      if (swirl instanceof THREE.Points && swirlIndex < particleData.bigSwirls.length) {
+        const swirlColors = swirl.geometry.attributes.color.array as Float32Array;
+        const swirlColorBase = [colorTheme.primary, colorTheme.secondary, colorTheme.accent][swirlIndex % 3];
+        
+        for (let i = 0; i < 800; i++) { // particlesPerSwirl
+          const baseColor = new THREE.Color(swirlColorBase);
+          const hsl = { h: 0, s: 0, l: 0 };
+          baseColor.getHSL(hsl);
+          
+          const particleColor = new THREE.Color();
+          particleColor.setHSL(
+            (hsl.h + (Math.random() - 0.5) * 0.15 + 1) % 1,
+            Math.min(1, hsl.s * (0.5 + Math.random() * 0.5)),
+            Math.min(1, hsl.l * (0.3 + Math.random() * 0.4))
+          );
+          
+          swirlColors[i * 3] = particleColor.r;
+          swirlColors[i * 3 + 1] = particleColor.g;
+          swirlColors[i * 3 + 2] = particleColor.b;
+        }
+        swirl.geometry.attributes.color.needsUpdate = true;
       }
     });
   }, [colorTheme, particleData, enabled]);
@@ -368,6 +566,114 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
             cluster.rotation.x = time * 0.001 * (clusterIndex % 2 ? 1 : -1);
             cluster.rotation.z = time * 0.0015 * (clusterIndex % 3 ? 1 : -1);
           }
+        }
+      });
+    }
+    
+    // NEW: Animate atmospheric particles
+    if (atmosphericRef.current && particleData.atmospheric.count > 0) {
+      const atmosphericPositions = atmosphericRef.current.geometry.attributes.position.array as Float32Array;
+      
+      for (let i = 0; i < particleData.atmospheric.count; i++) {
+        const i3 = i * 3;
+        
+        atmosphericPositions[i3] += particleData.atmospheric.velocities[i3];
+        atmosphericPositions[i3 + 1] += particleData.atmospheric.velocities[i3 + 1];
+        atmosphericPositions[i3 + 2] += particleData.atmospheric.velocities[i3 + 2];
+        
+        // Gentle floating motion
+        const floatFreq = time * 0.05 + i * 0.02;
+        atmosphericPositions[i3] += Math.sin(floatFreq) * 0.001;
+        atmosphericPositions[i3 + 1] += Math.cos(floatFreq * 0.7) * 0.0008;
+        atmosphericPositions[i3 + 2] += Math.sin(floatFreq * 1.1) * 0.001;
+        
+        // Boundary wrapping
+        if (Math.abs(atmosphericPositions[i3]) > 120) {
+          atmosphericPositions[i3] = -Math.sign(atmosphericPositions[i3]) * 50;
+        }
+        if (atmosphericPositions[i3 + 1] > 90) {
+          atmosphericPositions[i3 + 1] = 5;
+        }
+        if (atmosphericPositions[i3 + 1] < -5) {
+          atmosphericPositions[i3 + 1] = 85;
+        }
+        if (Math.abs(atmosphericPositions[i3 + 2]) > 120) {
+          atmosphericPositions[i3 + 2] = -Math.sign(atmosphericPositions[i3 + 2]) * 50;
+        }
+      }
+      
+      atmosphericRef.current.geometry.attributes.position.needsUpdate = true;
+      atmosphericRef.current.rotation.y = time * 0.001;
+    }
+    
+    // NEW: Animate distant swirl
+    if (distantSwirlRef.current && particleData.distantSwirl.count > 0) {
+      const distantPositions = distantSwirlRef.current.geometry.attributes.position.array as Float32Array;
+      
+      for (let i = 0; i < particleData.distantSwirl.count; i++) {
+        const i3 = i * 3;
+        
+        distantPositions[i3] += particleData.distantSwirl.velocities[i3];
+        distantPositions[i3 + 1] += particleData.distantSwirl.velocities[i3 + 1];
+        distantPositions[i3 + 2] += particleData.distantSwirl.velocities[i3 + 2];
+        
+        // Large scale orbital motion
+        const x = distantPositions[i3];
+        const z = distantPositions[i3 + 2];
+        const distanceFromCenter = Math.sqrt(x * x + z * z);
+        
+        const orbitalSpeed = distanceFromCenter > 0 ? 0.00005 / Math.sqrt(distanceFromCenter + 20) : 0;
+        const angle = Math.atan2(z, x);
+        const newAngle = angle + orbitalSpeed;
+        
+        distantPositions[i3] += Math.cos(newAngle) * orbitalSpeed * 0.05;
+        distantPositions[i3 + 2] += Math.sin(newAngle) * orbitalSpeed * 0.05;
+        
+        // Slow undulation
+        const waveFreq = time * 0.01 + i * 0.001;
+        distantPositions[i3 + 1] += Math.sin(waveFreq) * 0.002;
+      }
+      
+      distantSwirlRef.current.geometry.attributes.position.needsUpdate = true;
+      distantSwirlRef.current.rotation.y = time * 0.002;
+    }
+    
+    // NEW: Animate big swirls
+    if (bigSwirlsRef.current) {
+      bigSwirlsRef.current.children.forEach((swirl, swirlIndex) => {
+        if (swirl instanceof THREE.Points && swirlIndex < particleData.bigSwirls.length) {
+          const positions = swirl.geometry.attributes.position.array as Float32Array;
+          const velocities = particleData.bigSwirls[swirlIndex].velocities;
+          const swirlCenter = particleData.bigSwirls[swirlIndex].center;
+          
+          for (let i = 0; i < 800; i++) { // particlesPerSwirl
+            const i3 = i * 3;
+            
+            positions[i3] += velocities[i3];
+            positions[i3 + 1] += velocities[i3 + 1];
+            positions[i3 + 2] += velocities[i3 + 2];
+            
+            // Spiral motion around center
+            const dx = positions[i3] - swirlCenter.x;
+            const dz = positions[i3 + 2] - swirlCenter.z;
+            const radius = Math.sqrt(dx * dx + dz * dz);
+            
+            if (radius > 0.1) {
+              const swirlSpeed = 0.0002;
+              const currentAngle = Math.atan2(dz, dx);
+              const newAngle = currentAngle + swirlSpeed;
+              
+              positions[i3] = swirlCenter.x + Math.cos(newAngle) * radius;
+              positions[i3 + 2] = swirlCenter.z + Math.sin(newAngle) * radius;
+            }
+            
+            // Vertical oscillation
+            const oscillation = time * 0.02 + swirlIndex + i * 0.01;
+            positions[i3 + 1] += Math.sin(oscillation) * 0.001;
+          }
+          
+          swirl.geometry.attributes.position.needsUpdate = true;
+          swirl.rotation.y = time * 0.003 * (swirlIndex % 2 ? 1 : -1);
         }
       });
     }
@@ -550,6 +856,181 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
                   alpha = smoothstep(0.0, 1.0, alpha);
                   
                   gl_FragColor = vec4(vColor, alpha * vOpacity * 0.9);
+                }
+              `}
+            />
+          </points>
+        ))}
+      </group>
+      
+      {/* NEW: Atmospheric particles */}
+      <points ref={atmosphericRef}>
+        <bufferGeometry>
+          <bufferAttribute
+            attach="attributes-position"
+            array={particleData.atmospheric.positions}
+            count={particleData.atmospheric.count}
+            itemSize={3}
+          />
+          <bufferAttribute
+            attach="attributes-color"
+            array={particleData.atmospheric.colors}
+            count={particleData.atmospheric.count}
+            itemSize={3}
+          />
+          <bufferAttribute
+            attach="attributes-size"
+            array={particleData.atmospheric.sizes}
+            count={particleData.atmospheric.count}
+            itemSize={1}
+          />
+        </bufferGeometry>
+        <shaderMaterial
+          transparent
+          vertexColors
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+          vertexShader={`
+            attribute float size;
+            varying vec3 vColor;
+            varying float vOpacity;
+            void main() {
+              vColor = color;
+              vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+              gl_PointSize = size * (150.0 / -mvPosition.z);
+              gl_Position = projectionMatrix * mvPosition;
+              
+              float distance = length(mvPosition.xyz);
+              vOpacity = 1.0 - smoothstep(100.0, 400.0, distance);
+            }
+          `}
+          fragmentShader={`
+            varying vec3 vColor;
+            varying float vOpacity;
+            void main() {
+              float distanceToCenter = distance(gl_PointCoord, vec2(0.5));
+              if (distanceToCenter > 0.5) discard;
+              
+              float alpha = 1.0 - (distanceToCenter * 2.0);
+              alpha = smoothstep(0.0, 1.0, alpha);
+              
+              gl_FragColor = vec4(vColor, alpha * vOpacity * 0.3);
+            }
+          `}
+        />
+      </points>
+      
+      {/* NEW: Distant swirl particles */}
+      <points ref={distantSwirlRef}>
+        <bufferGeometry>
+          <bufferAttribute
+            attach="attributes-position"
+            array={particleData.distantSwirl.positions}
+            count={particleData.distantSwirl.count}
+            itemSize={3}
+          />
+          <bufferAttribute
+            attach="attributes-color"
+            array={particleData.distantSwirl.colors}
+            count={particleData.distantSwirl.count}
+            itemSize={3}
+          />
+          <bufferAttribute
+            attach="attributes-size"
+            array={particleData.distantSwirl.sizes}
+            count={particleData.distantSwirl.count}
+            itemSize={1}
+          />
+        </bufferGeometry>
+        <shaderMaterial
+          transparent
+          vertexColors
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+          vertexShader={`
+            attribute float size;
+            varying vec3 vColor;
+            varying float vOpacity;
+            void main() {
+              vColor = color;
+              vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+              gl_PointSize = size * (400.0 / -mvPosition.z);
+              gl_Position = projectionMatrix * mvPosition;
+              
+              float distance = length(mvPosition.xyz);
+              vOpacity = 1.0 - smoothstep(200.0, 600.0, distance);
+            }
+          `}
+          fragmentShader={`
+            varying vec3 vColor;
+            varying float vOpacity;
+            void main() {
+              float distanceToCenter = distance(gl_PointCoord, vec2(0.5));
+              if (distanceToCenter > 0.5) discard;
+              
+              float alpha = 1.0 - (distanceToCenter * 2.0);
+              alpha = smoothstep(0.0, 1.0, alpha);
+              
+              gl_FragColor = vec4(vColor, alpha * vOpacity * 0.5);
+            }
+          `}
+        />
+      </points>
+      
+      {/* NEW: Big swirls */}
+      <group ref={bigSwirlsRef}>
+        {particleData.bigSwirls.map((swirl, index) => (
+          <points key={`${particleKey}-bigswirl-${index}`}>
+            <bufferGeometry>
+              <bufferAttribute
+                attach="attributes-position"
+                array={swirl.positions}
+                count={800}
+                itemSize={3}
+              />
+              <bufferAttribute
+                attach="attributes-color"
+                array={swirl.colors}
+                count={800}
+                itemSize={3}
+              />
+              <bufferAttribute
+                attach="attributes-size"
+                array={swirl.sizes}
+                count={800}
+                itemSize={1}
+              />
+            </bufferGeometry>
+            <shaderMaterial
+              transparent
+              vertexColors
+              blending={THREE.AdditiveBlending}
+              depthWrite={false}
+              vertexShader={`
+                attribute float size;
+                varying vec3 vColor;
+                varying float vOpacity;
+                void main() {
+                  vColor = color;
+                  vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+                  gl_PointSize = size * (500.0 / -mvPosition.z);
+                  gl_Position = projectionMatrix * mvPosition;
+                  
+                  float distance = length(mvPosition.xyz);
+                  vOpacity = 1.0 - smoothstep(150.0, 500.0, distance);
+                }
+              `}
+              fragmentShader={`
+                varying vec3 vColor;
+                varying float vOpacity;
+                void main() {
+                  float distanceToCenter = distance(gl_PointCoord, vec2(0.5));
+                  if (distanceToCenter > 0.5) discard;
+                  
+                  float alpha = 1.0 - (distanceToCenter * 2.0);
+                  alpha = smoothstep(0.0, 1.0, alpha);
+                  
+                  gl_FragColor = vec4(vColor, alpha * vOpacity * 0.4);
                 }
               `}
             />
