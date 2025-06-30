@@ -2,6 +2,7 @@
 import React, { useEffect } from 'react';
 import { useCollageStore } from '../../store/collageStore';
 import PhotoUploader from './PhotoUploader'; // FIXED: Changed from named import to default import
+import { ImageOptimizer } from '../../lib/imageOptimization';
 
 interface CollagePhotosProps {
   collageId: string;
@@ -104,7 +105,7 @@ const CollagePhotos: React.FC<CollagePhotosProps> = ({ collageId, onManualRefres
           {photos.map((photo) => (
             <div key={photo.id} className="relative group">
               <img
-                src={photo.url}
+                src={ImageOptimizer.getOptimizedUrl(photo.url, { width: 300, height: 200, quality: 80 })}
                 alt={`Photo ${photo.id}`}
                 className="w-full h-32 object-cover rounded-lg shadow-sm border border-gray-600 hover:border-gray-500 transition-colors"
                 onError={(e) => {
