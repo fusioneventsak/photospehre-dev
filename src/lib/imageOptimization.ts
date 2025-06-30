@@ -143,8 +143,14 @@ export class ImageOptimizer {
   static addCacheBust(url: string): string {
     if (!url) return '';
     
-    const separator = url.includes('?') ? '&' : '?';
-    return `${url}${separator}t=${Date.now()}`;
+    try {
+      const urlObj = new URL(url);
+      urlObj.searchParams.set('t', Date.now().toString());
+      return urlObj.toString();
+    } catch (error) {
+      console.warn('Invalid URL in addCacheBust:', url);
+      return url;
+    }
   }
 
   static clearCache(): void {

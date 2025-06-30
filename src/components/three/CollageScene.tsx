@@ -5,6 +5,7 @@ import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
 import * as THREE from 'three';
 import { type SceneSettings } from '../../store/sceneStore';
 import { ImageOptimizer } from '../../lib/imageOptimization';
+import { ImageOptimizer } from '../../lib/imageOptimization';
 import { PatternFactory } from './patterns/PatternFactory';
 import { addCacheBustToUrl } from '../../lib/supabase';
 import { CameraAnimationController } from './CameraAnimationController';
@@ -669,6 +670,23 @@ const PhotoMesh: React.FC<{
   const currentPosition = useRef<THREE.Vector3>(new THREE.Vector3(...photo.targetPosition));
   const currentRotation = useRef<THREE.Euler>(new THREE.Euler(...photo.targetRotation));
 
+  // Use optimized image URL with fallback
+  const imageUrl = useMemo(() => {
+    if (!photo.url) return '';
+    
+    try {
+      // Try to get optimized URL but don't wait for async validation
+      return ImageOptimizer.getOptimizedUrl(photo.url, {
+        width: 512,
+        height: 512,
+        quality: 75,
+        format: 'webp'
+      });
+    } catch (error) {
+      console.warn('Error getting optimized URL, using original:', error);
+      return photo.url;
+    }
+  }, [photo.url]);
   // Use optimized image URL
   const optimizedUrl = useMemo(() => {
     if (!photo.url) return '';
@@ -687,8 +705,9 @@ const PhotoMesh: React.FC<{
   }, []);
 
   useEffect(() => {
-    if (!optimizedUrl) {
+    if (!imageUrl) {
       setIsLoading(false);
+      setHasError(false);
       return;
     }
 
@@ -697,26 +716,18 @@ const PhotoMesh: React.FC<{
     setHasError(false);
     
     const handleLoad = (loadedTexture: THREE.Texture) => {
-      // Optimize texture settings
+      // Optimize texture settings for better performance
       loadedTexture.generateMipmaps = false;
       loadedTexture.minFilter = THREE.LinearFilter;
       loadedTexture.magFilter = THREE.LinearFilter;
       loadedTexture.wrapS = THREE.ClampToEdgeWrapping;
       loadedTexture.wrapT = THREE.ClampToEdgeWrapping;
-      
-      setTexture(loadedTexture);
-      setIsLoading(false);
-    };
 
     const handleError = () => {
       setHasError(true);
       setIsLoading(false);
     };
 
-    loader.load(optimizedUrl, handleLoad, undefined, handleError);
-
-    return () => {
-      if (texture) {
         texture.dispose();
       }
     };
@@ -724,7 +735,7 @@ const PhotoMesh: React.FC<{
 
   // Camera facing logic
   useFrame(() => {
-    if (!meshRef.current || !shouldFaceCamera) return;
+  }, [imageUrl]);
 
     const mesh = meshRef.current;
     const currentPositionArray = mesh.position.toArray() as [number, number, number];

@@ -3,6 +3,7 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ChevronLeft, Shield, RefreshCw, Trash2, Eye, AlertCircle, Video } from 'lucide-react';
 import { useCollageStore } from '../store/collageStore';
+import { ImageOptimizer } from '../lib/imageOptimization';
 import PhotoModerationModal from '../components/collage/PhotoModerationModal';
 import Layout from '../components/layout/Layout';
 import { ImageOptimizer } from '../lib/imageOptimization';
@@ -318,7 +319,7 @@ const CollageModerationPage: React.FC = () => {
                       data-photo-id={photo.id}
                       onError={(e) => {
                         const target = e.target as HTMLImageElement;
-                        target.src = 'https://via.placeholder.com/400x400?text=Error+Loading+' + photo.id.slice(-4);
+                        target.src = 'https://placehold.co/400x400/333/white?text=Error+Loading+' + photo.id.slice(-4);
                       }}
                     />
                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center space-x-2">
@@ -372,7 +373,7 @@ const CollageModerationPage: React.FC = () => {
                   data-photo-id={selectedPhoto.id}
                   onError={(e) => {
                     const target = e.target as HTMLImageElement;
-                    target.src = 'https://via.placeholder.com/800x600?text=Error+Loading';
+                    target.src = 'https://placehold.co/800x600/333/white?text=Error+Loading';
                   }}
                 />
               </div>
