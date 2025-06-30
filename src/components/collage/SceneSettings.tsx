@@ -1,7 +1,8 @@
 // src/components/collage/SceneSettings.tsx - COMPLETE: Improved photo spacing control
 import React from 'react';
 import { type SceneSettings } from '../../store/sceneStore';
-import { Grid, Palette, CameraIcon, ImageIcon, Square, Sun, Lightbulb, RotateCw, Move, Eye, Camera } from 'lucide-react';
+import { Grid, Palette, CameraIcon, ImageIcon, Square, Sun, Lightbulb, RotateCw, Move, Eye, Camera, Sparkles } from 'lucide-react';
+import { PARTICLE_THEMES } from '../three/MilkyWayParticleSystem';
 
 const SceneSettings: React.FC<{
   settings: SceneSettings;
@@ -1175,6 +1176,117 @@ const SceneSettings: React.FC<{
                   }, true)}
                   className="w-full bg-gray-800"
                 />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Particle System Settings */}
+      <div>
+        <h4 className="flex items-center text-sm font-medium text-gray-200 mb-3">
+          <Sparkles className="h-4 w-4 mr-2" />
+          Particle Effects
+        </h4>
+        
+        <div className="space-y-4">
+          {/* Enable/Disable Particles */}
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              checked={settings.particles?.enabled ?? true}
+              onChange={(e) => onSettingsChange({
+                particles: {
+                  ...settings.particles,
+                  enabled: e.target.checked
+                }
+              })}
+              className="mr-2 bg-gray-800 border-gray-700"
+            />
+            <label className="text-sm text-gray-300">
+              Enable Particle Effects
+            </label>
+          </div>
+
+          {settings.particles?.enabled && (
+            <div className="space-y-4">
+              {/* Particle Theme Selector */}
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">
+                  Particle Theme
+                </label>
+                <select
+                  value={settings.particles?.theme ?? 'Purple Magic'}
+                  onChange={(e) => onSettingsChange({
+                    particles: {
+                      ...settings.particles,
+                      theme: e.target.value
+                    }
+                  })}
+                  className="w-full bg-gray-800 border border-gray-700 rounded-md py-2 px-3 text-white"
+                >
+                  {PARTICLE_THEMES.map((theme) => (
+                    <option key={theme.name} value={theme.name}>
+                      {theme.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Particle Intensity */}
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">
+                  Particle Intensity
+                  <span className="ml-2 text-xs text-gray-400">
+                    {Math.round((settings.particles?.intensity ?? 0.7) * 100)}%
+                  </span>
+                </label>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.1"
+                  value={settings.particles?.intensity ?? 0.7}
+                  onChange={(e) => onSettingsChange({
+                    particles: {
+                      ...settings.particles,
+                      intensity: parseFloat(e.target.value)
+                    }
+                  }, true)}
+                  className="w-full bg-gray-800"
+                />
+              </div>
+
+              {/* Theme Preview */}
+              <div className="p-3 bg-gray-800 rounded-lg">
+                <div className="text-xs text-gray-400 mb-2">Preview Colors:</div>
+                <div className="flex space-x-2">
+                  {PARTICLE_THEMES.find(t => t.name === (settings.particles?.theme ?? 'Purple Magic')) && (
+                    <>
+                      <div 
+                        className="w-4 h-4 rounded-full border border-gray-600"
+                        style={{ 
+                          backgroundColor: PARTICLE_THEMES.find(t => t.name === (settings.particles?.theme ?? 'Purple Magic'))?.primary 
+                        }}
+                        title="Primary"
+                      />
+                      <div 
+                        className="w-4 h-4 rounded-full border border-gray-600"
+                        style={{ 
+                          backgroundColor: PARTICLE_THEMES.find(t => t.name === (settings.particles?.theme ?? 'Purple Magic'))?.secondary 
+                        }}
+                        title="Secondary"
+                      />
+                      <div 
+                        className="w-4 h-4 rounded-full border border-gray-600"
+                        style={{ 
+                          backgroundColor: PARTICLE_THEMES.find(t => t.name === (settings.particles?.theme ?? 'Purple Magic'))?.accent 
+                        }}
+                        title="Accent"
+                      />
+                    </>
+                  )}
+                </div>
               </div>
             </div>
           )}
