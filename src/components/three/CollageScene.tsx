@@ -4,7 +4,6 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
 import * as THREE from 'three';
 import { type SceneSettings } from '../../store/sceneStore';
-import { ImageOptimizer } from '../../lib/imageOptimization';
 import { PatternFactory } from './patterns/PatternFactory';
 import { addCacheBustToUrl } from '../../lib/supabase';
 import { CameraAnimationController } from './CameraAnimationController';
@@ -658,7 +657,7 @@ const PhotoMesh: React.FC<{
   pattern: string;
   shouldFaceCamera: boolean;
   brightness: number;
-}> = React.memo(({ photo, size, emptySlotColor, pattern, shouldFaceCamera, brightness }) => {
+}> = React.memo(({ photo, size, emptySlotColor, pattern, shouldFaceCamera, brightness }) => { 
   const meshRef = useRef<THREE.Mesh>(null);
   const { camera, gl } = useThree();
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
@@ -669,17 +668,6 @@ const PhotoMesh: React.FC<{
   const currentPosition = useRef<THREE.Vector3>(new THREE.Vector3(...photo.targetPosition));
   const currentRotation = useRef<THREE.Euler>(new THREE.Euler(...photo.targetRotation));
 
-  // Use optimized image URL
-  const optimizedUrl = useMemo(() => {
-    if (!photo.url) return '';
-    return ImageOptimizer.getOptimizedUrl(photo.url, {
-      width: 512,
-      height: 512,
-      quality: 75,
-      format: 'webp'
-    });
-  }, [photo.url]);
-
   // Initialize position immediately to prevent jarring movements
   useEffect(() => {
     currentPosition.current.set(...photo.targetPosition);
@@ -687,7 +675,7 @@ const PhotoMesh: React.FC<{
   }, []);
 
   useEffect(() => {
-    if (!optimizedUrl) {
+    if (!photo.url) {
       setIsLoading(false);
       return;
     }
@@ -697,13 +685,17 @@ const PhotoMesh: React.FC<{
     setHasError(false);
     
     const handleLoad = (loadedTexture: THREE.Texture) => {
-      // Optimize texture settings
-      loadedTexture.generateMipmaps = false;
+      // Enable mipmaps for better texture quality at different distances
+      loadedTexture.generateMipmaps = true;
       loadedTexture.minFilter = THREE.LinearFilter;
       loadedTexture.magFilter = THREE.LinearFilter;
-      loadedTexture.wrapS = THREE.ClampToEdgeWrapping;
-      loadedTexture.wrapT = THREE.ClampToEdgeWrapping;
+      loadedTexture.format = THREE.RGBAFormat;
       
+      // Apply anisotropic filtering for better quality at oblique angles
+      if (gl && gl.capabilities.getMaxAnisotropy) {
+        loadedTexture.anisotropy = gl.capabilities.getMaxAnisotropy();
+      }
+
       setTexture(loadedTexture);
       setIsLoading(false);
     };
@@ -713,14 +705,18 @@ const PhotoMesh: React.FC<{
       setIsLoading(false);
     };
 
-    loader.load(optimizedUrl, handleLoad, undefined, handleError);
+    const imageUrl = photo.url.includes('?') 
+      ? `${photo.url}&t=${Date.now()}`
+      : `${photo.url}?t=${Date.now()}`;
+
+    loader.load(imageUrl, handleLoad, undefined, handleError);
 
     return () => {
       if (texture) {
         texture.dispose();
       }
     };
-  }, [optimizedUrl]);
+  }, [photo.url]);
 
   // Camera facing logic
   useFrame(() => {

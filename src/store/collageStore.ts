@@ -3,7 +3,6 @@ import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import { nanoid } from 'nanoid';
 import { RealtimeChannel } from '@supabase/supabase-js';
-import { UploadOptimizer } from '../lib/uploadOptimization';
 
 // Helper function to get file URL
 const getFileUrl = (bucket: string, path: string): string => {
@@ -696,7 +695,7 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
   // Enhanced upload with better error handling
   uploadPhoto: async (collageId: string, file: File) => {
     try {
-      console.log('📤 Starting photo upload:', file.name, 'for collage:', collageId, 'size:', (file.size / 1024 / 1024).toFixed(2) + 'MB');
+      console.log('📤 Starting photo upload:', file.name, 'for collage:', collageId);
       
       // Validation
       const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -709,26 +708,17 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
         throw new Error('Invalid file type. Only images are supported.');
       }
 
-      // COMPRESS IMAGE BEFORE UPLOAD
-      const compressedFile = await UploadOptimizer.compressImage(file);
-      console.log('📦 Compressed file:', {
-        original: `${(file.size / 1024 / 1024).toFixed(2)}MB`,
-        compressed: `${(compressedFile.size / 1024 / 1024).toFixed(2)}MB`,
-        savings: `${(((file.size - compressedFile.size) / file.size) * 100).toFixed(1)}%`
-      });
-
       // Generate unique filename
-      const fileExt = compressedFile.name.split('.').pop() || 'jpg';
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-      const filePath = `${collageId}/${fileName}`;
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${collageId}/${nanoid()}.${fileExt}`;
 
-      console.log('📤 Uploading to storage path:', filePath);
+      console.log('📤 Uploading to storage path:', fileName);
 
       // Upload to Supabase Storage
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('photos')
-        .upload(filePath, compressedFile, {
-          cacheControl: '31536000', // 1 year cache
+        .upload(fileName, file, {
+          cacheControl: '3600',
           upsert: false
         });
 
@@ -740,10 +730,7 @@ export const useCollageStore = create<CollageStore>((set, get) => ({
       console.log('✅ File uploaded to storage:', uploadData.path);
 
       // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('photos')
-        .getPublicUrl(uploadData.path);
-
+      const publicUrl = getFileUrl('photos', uploadData.path);
       console.log('🔗 Public URL:', publicUrl);
 
       // Insert photo record

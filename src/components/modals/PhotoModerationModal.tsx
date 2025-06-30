@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { X, Check, Trash2, Eye, AlertCircle } from 'lucide-react';
 import { useCollageStore } from '../../store/collageStore';
-import { ImageOptimizer } from '../../lib/imageOptimization';
 
 interface Photo {
   id: string;
@@ -103,7 +102,7 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({
                 >
                   {/* Photo with smart cropping for desktop images */}
                   <img
-                    src={ImageOptimizer.getOptimizedUrl(photo.url, { width: 300, height: 400, quality: 80 })}
+                    src={photo.url}
                     alt="Uploaded photo"
                     className="w-full h-full object-cover"
                     loading="lazy"
@@ -188,7 +187,7 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({
             {/* Photo preview modal image */}
             <div className="relative flex-1 flex items-center justify-center">
               <img
-                src={ImageOptimizer.getOptimizedUrl(selectedPhoto.url, { width: 1200, height: 1200, quality: 90 })}
+                src={selectedPhoto.url}
                 alt="Photo preview"
                 className="max-w-full max-h-[80vh] object-contain rounded-lg shadow-2xl"
                 style={{

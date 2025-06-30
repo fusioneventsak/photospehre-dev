@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { X, Trash2, AlertCircle, RefreshCw, Eye } from 'lucide-react';
 import { Photo } from '../../store/collageStore';
 import { addCacheBustToUrl } from '../../lib/supabase';
-import { ImageOptimizer } from '../../lib/imageOptimization';
 import { useCollageStore } from '../../store/collageStore';
 
 type PhotoModerationModalProps = {
@@ -129,7 +128,7 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
                 data-photo-id={photo.id}
               >
                 <img
-                  src={ImageOptimizer.getOptimizedUrl(photo.url, { width: 300, height: 450, quality: 80 })}
+                  src={addCacheBustToUrl(photo.url)}
                   alt="Collage photo"
                   className="w-full h-full object-cover"
                   onError={(e) => {
@@ -172,7 +171,7 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
           <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/90">
             <div className="relative max-w-4xl max-h-[90vh]">
               <img
-                src={ImageOptimizer.getOptimizedUrl(selectedPhoto.url, { width: 1200, height: 1200, quality: 90 })}
+                src={addCacheBustToUrl(selectedPhoto.url)}
                 alt={`Photo ${selectedPhoto.id}`}
                 className="max-w-full max-h-[80vh] object-contain rounded-lg"
                 onError={(e) => {

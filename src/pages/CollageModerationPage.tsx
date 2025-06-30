@@ -5,7 +5,6 @@ import { ChevronLeft, Shield, RefreshCw, Trash2, Eye, AlertCircle, Video } from 
 import { useCollageStore } from '../store/collageStore';
 import PhotoModerationModal from '../components/collage/PhotoModerationModal';
 import Layout from '../components/layout/Layout';
-import { ImageOptimizer } from '../lib/imageOptimization';
 import RealtimeStatus from '../components/debug/RealtimeStatus';
 import RealtimeDebugPanel from '../components/debug/RealtimeDebugPanel';
 import MobileVideoRecorder from '../components/video/MobileVideoRecorder';
@@ -311,7 +310,7 @@ const CollageModerationPage: React.FC = () => {
                 >
                   <div className="aspect-square relative">
                     <img
-                      src={ImageOptimizer.getOptimizedUrl(photo.url, { width: 400, height: 400, quality: 80 })}
+                      src={photo.url}
                       alt={`Photo ${photo.id?.slice(-6)}`}
                       className="w-full h-full object-cover cursor-pointer"
                       onClick={() => openPhotoPreview(photo)}
@@ -366,7 +365,7 @@ const CollageModerationPage: React.FC = () => {
               </div>
               <div className="relative">
                 <img
-                  src={ImageOptimizer.getOptimizedUrl(selectedPhoto.url, { width: 1200, height: 1200, quality: 90 })}
+                  src={selectedPhoto.url}
                   alt="Full size preview"
                   className="max-w-full max-h-[80vh] object-contain"
                   data-photo-id={selectedPhoto.id}

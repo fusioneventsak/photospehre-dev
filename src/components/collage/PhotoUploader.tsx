@@ -2,7 +2,6 @@
 import React, { useState, useRef } from 'react';
 import { Upload, X, Check, AlertCircle, RefreshCw, Image, FileImage } from 'lucide-react';
 import { useCollageStore } from '../../store/collageStore';
-import { UploadOptimizer } from '../../lib/uploadOptimization';
 
 type UploadStatus = 'pending' | 'uploading' | 'success' | 'error';
 
@@ -102,12 +101,8 @@ const PhotoUploader: React.FC<PhotoUploaderProps> = ({ collageId, onUploadComple
             ));
           }, 300);
 
-          // Compress the image before uploading
-          const compressedFile = await UploadOptimizer.compressImage(upload.file);
-          console.log(`Compressed ${upload.file.name}: ${(upload.file.size / 1024 / 1024).toFixed(2)}MB → ${(compressedFile.size / 1024 / 1024).toFixed(2)}MB (${(((upload.file.size - compressedFile.size) / upload.file.size) * 100).toFixed(1)}% reduction)`);
-
           // Upload the photo
-          await uploadPhoto(collageId, compressedFile);
+          await uploadPhoto(collageId, upload.file);
           
           // No need to wait for realtime - the store already adds the photo to state
           // This gives immediate feedback to the user
