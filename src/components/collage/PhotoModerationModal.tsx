@@ -3,7 +3,6 @@ import { X, Trash2, AlertCircle, RefreshCw, Eye } from 'lucide-react';
 import { Photo } from '../../store/collageStore';
 import { addCacheBustToUrl } from '../../lib/supabase';
 import { ImageOptimizer } from '../../lib/imageOptimization';
-import { ImageOptimizer } from '../../lib/imageOptimization';
 import { useCollageStore } from '../../store/collageStore';
 
 type PhotoModerationModalProps = {
@@ -135,7 +134,7 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
                   className="w-full h-full object-cover"
                   onError={(e) => {
                     const target = e.target as HTMLImageElement;
-                    target.src = `https://placehold.co/300x450/333/white?text=Error+${photo.id.slice(-4)}`;
+                    target.src = `https://via.placeholder.com/300x450?text=Error+${photo.id.slice(-4)}`; 
                   }}
                 />
                 <div className="absolute inset-0 bg-black/30 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -178,7 +177,7 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({ photos, onC
                 className="max-w-full max-h-[80vh] object-contain rounded-lg"
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;
-                  target.src = `https://placehold.co/800x1200/333/white?text=Error+${selectedPhoto.id.slice(-4)}`;
+                  target.src = `https://via.placeholder.com/800x1200?text=Error+${selectedPhoto.id.slice(-4)}`;
                 }}
               />
               

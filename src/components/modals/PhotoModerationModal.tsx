@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { X, Check, Trash2, Eye, AlertCircle } from 'lucide-react';
 import { useCollageStore } from '../../store/collageStore';
 import { ImageOptimizer } from '../../lib/imageOptimization';
-import { ImageOptimizer } from '../../lib/imageOptimization';
 
 interface Photo {
   id: string;
@@ -113,7 +112,7 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({
                     }}
                     onError={(e) => {
                       const target = e.target as HTMLImageElement;
-                      target.src = 'https://placehold.co/300x400/333/white?text=Load+Error';
+                      target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzMzMzMzMyIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmaWxsPSIjNjY2NjY2IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+TG9hZCBFcnJvcjwvdGV4dD48L3N2Zz4=';
                     }}
                   />
 
@@ -196,10 +195,6 @@ const PhotoModerationModal: React.FC<PhotoModerationModalProps> = ({
                   // For landscape images, crop to show portrait view to preserve text visibility
                   objectFit: 'cover',
                   aspectRatio: '9/16'
-                }}
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  target.src = 'https://placehold.co/800x1200/333/white?text=Load+Error';
                 }}
               />
             </div>

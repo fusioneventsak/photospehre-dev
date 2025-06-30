@@ -15,7 +15,6 @@ import DashboardPage from './pages/DashboardPage';
 import CollageEditorPage from './pages/CollageEditorPage';
 import CollageViewerPage from './pages/CollageViewerPage';
 import CollageModerationPage from './pages/CollageModerationPage';
-import StorageDebugPage from './pages/StorageDebugPage';
 import PhotoboothPage from './pages/PhotoboothPage';
 import JoinCollage from './pages/JoinCollage';
 
@@ -28,7 +27,6 @@ const router = createBrowserRouter(
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignupPage />} />
       <Route path="/join" element={<JoinCollage />} />
-      <Route path="/storage-debug" element={<StorageDebugPage />} />
       <Route path="/collage/:code" element={<CollageViewerPage />} />
       <Route path="/photobooth/:code" element={<PhotoboothPage />} />
       

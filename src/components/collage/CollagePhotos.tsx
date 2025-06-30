@@ -3,7 +3,6 @@ import React, { useEffect } from 'react';
 import { useCollageStore } from '../../store/collageStore';
 import PhotoUploader from './PhotoUploader'; // FIXED: Changed from named import to default import
 import { ImageOptimizer } from '../../lib/imageOptimization';
-import { ImageOptimizer } from '../../lib/imageOptimization';
 
 interface CollagePhotosProps {
   collageId: string;
@@ -112,7 +111,7 @@ const CollagePhotos: React.FC<CollagePhotosProps> = ({ collageId, onManualRefres
                 onError={(e) => {
                   console.error('Image failed to load:', photo.url);
                   const target = e.target as HTMLImageElement;
-                  target.src = 'https://placehold.co/300x200/333/white?text=Image+Error';
+                  target.src = 'https://via.placeholder.com/300x200?text=Image+Error';
                 }}
               />
               
