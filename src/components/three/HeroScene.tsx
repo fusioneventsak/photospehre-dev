@@ -4,7 +4,7 @@ import { OrbitControls } from '@react-three/drei';
 import { Suspense } from 'react';
 import * as THREE from 'three';
 import { Palette } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../../lib/supabase';
 
 // Mobile detection hook
 const useIsMobile = () => {
