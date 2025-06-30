@@ -35,13 +35,23 @@ const useSupabasePhotos = () => {
         setLoading(true);
         setError(null);
         
+        console.log('🔍 Starting photo fetch...');
+        console.log('📡 Supabase URL:', import.meta.env.VITE_SUPABASE_URL?.slice(0, 30) + '...');
+        
         // Try to list files from stock-photos bucket
+        console.log('📦 Trying stock-photos bucket...');
         const { data: stockPhotos, error: stockError } = await supabase.storage
           .from('stock-photos')
           .list('', {
             limit: 100,
             sortBy: { column: 'name', order: 'asc' }
           });
+
+        console.log('📦 Stock-photos result:', { 
+          error: stockError?.message, 
+          count: stockPhotos?.length,
+          files: stockPhotos?.slice(0, 3).map(f => f.name)
+        });
 
         let photoFiles = stockPhotos;
         let bucketName = 'stock-photos';
