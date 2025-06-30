@@ -39,9 +39,15 @@ export const normalizeFileExtension = (url: string): string => {
 
 export const addCacheBustToUrl = (url: string): string => {
   if (!url) return '';
-  const urlObj = new URL(url);
-  urlObj.searchParams.set('_t', Date.now().toString());
-  return urlObj.toString();
+  
+  try {
+    const urlObj = new URL(url);
+    urlObj.searchParams.set('_t', Date.now().toString());
+    return urlObj.toString();
+  } catch (error) {
+    console.warn('Invalid URL in addCacheBustToUrl:', url);
+    return url;
+  }
 };
 
 export const getFileUrl = (bucket: string, path: string): string => {
