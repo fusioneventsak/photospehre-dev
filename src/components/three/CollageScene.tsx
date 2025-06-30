@@ -7,6 +7,7 @@ import { type SceneSettings } from '../../store/sceneStore';
 import { PatternFactory } from './patterns/PatternFactory';
 import { addCacheBustToUrl } from '../../lib/supabase';
 import { CameraAnimationController } from './CameraAnimationController';
+import MilkyWayParticleSystem, { PARTICLE_THEMES } from './MilkyWayParticleSystem';
 
 type Photo = {
   id: string;
@@ -178,6 +179,12 @@ const Grid: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
   }, [settings.gridEnabled, settings.gridSize, settings.gridDivisions, settings.gridColor, settings.gridOpacity]);
 
   return <primitive object={gridHelper} />;
+};
+
+// Helper function to get the current particle theme
+const getCurrentParticleTheme = (settings: SceneSettings) => {
+  const themeName = settings.particles?.theme ?? 'Purple Magic';
+  return PARTICLE_THEMES.find(theme => theme.name === themeName) || PARTICLE_THEMES[0];
 };
 
 // CameraController component with FIXED controls
@@ -954,6 +961,17 @@ const CollageScene = forwardRef<HTMLCanvasElement, CollageSceneProps>(({ photos,
         <BackgroundRenderer settings={safeSettings} />
         <CameraController settings={safeSettings} />
         <CameraAnimationController config={safeSettings.cameraAnimation} />
+        
+        {/* Particle System */}
+        {safeSettings.particles?.enabled && (
+          <MilkyWayParticleSystem
+            colorTheme={getCurrentParticleTheme(safeSettings)}
+            intensity={safeSettings.particles?.intensity ?? 0.7}
+            enabled={safeSettings.particles?.enabled ?? true}
+            photoPositions={photosWithPositions.map(p => ({ position: p.targetPosition }))}
+          />
+        )}
+        
         <SceneLighting settings={safeSettings} />
         <Floor settings={safeSettings} />
         <Grid settings={safeSettings} />
