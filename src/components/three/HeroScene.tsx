@@ -35,11 +35,7 @@ const useSupabasePhotos = () => {
         setLoading(true);
         setError(null);
         
-        console.log('🔍 Starting photo fetch...');
-        console.log('📡 Supabase URL:', import.meta.env.VITE_SUPABASE_URL?.slice(0, 30) + '...');
-        
         // Try to list files from stock-photos bucket
-        console.log('📦 Trying stock-photos bucket...');
         const { data: stockPhotos, error: stockError } = await supabase.storage
           .from('stock-photos')
           .list('', {
@@ -47,18 +43,11 @@ const useSupabasePhotos = () => {
             sortBy: { column: 'name', order: 'asc' }
           });
 
-        console.log('📦 Stock-photos result:', { 
-          error: stockError?.message, 
-          count: stockPhotos?.length,
-          files: stockPhotos?.slice(0, 3).map(f => f.name)
-        });
-
         let photoFiles = stockPhotos;
         let bucketName = 'stock-photos';
 
         // If stock-photos bucket doesn't exist or is empty, fall back to photos bucket
         if (stockError || !stockPhotos || stockPhotos.length === 0) {
-          console.warn('Stock-photos bucket not available, falling back to photos bucket');
           const { data: fallbackPhotos, error: fallbackError } = await supabase.storage
             .from('photos')
             .list('', {
@@ -76,7 +65,6 @@ const useSupabasePhotos = () => {
 
         if (!photoFiles || photoFiles.length === 0) {
           // If no photos in Supabase, use a few fallback stock photos
-          console.warn('No photos found in Supabase storage, using fallback images');
           setPhotos([
             'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?w=400&h=600&fit=crop&crop=center',
             'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=400&h=600&fit=crop&crop=center',
@@ -106,10 +94,8 @@ const useSupabasePhotos = () => {
           return data.publicUrl;
         });
 
-        console.log(`Loaded ${imageUrls.length} photos from ${bucketName} bucket`);
         setPhotos(imageUrls);
       } catch (err) {
-        console.error('Error fetching photos from Supabase:', err);
         setError(err instanceof Error ? err.message : 'Unknown error');
         
         // Use fallback photos on error
@@ -1094,7 +1080,6 @@ const Scene: React.FC<{ particleTheme: typeof PARTICLE_THEMES[0]; photos: string
       }
     }
     
-    console.log(`Generated ${positions.length} photo positions from ${photos.length} available photos`);
     return positions;
   }, [photos]);
 
@@ -1286,7 +1271,7 @@ const HeroScene: React.FC<{ onThemeChange?: (theme: typeof PARTICLE_THEMES[0]) =
 
   return (
     <ErrorBoundary>
-      {/* Loading indicator */}
+      {/* Status indicators */}
       {loading && (
         <div className="absolute top-4 left-4 z-50">
           <div className="flex items-center gap-2 px-3 py-2 bg-black/30 backdrop-blur-md border border-white/20 rounded-lg text-white text-sm">
@@ -1296,20 +1281,10 @@ const HeroScene: React.FC<{ onThemeChange?: (theme: typeof PARTICLE_THEMES[0]) =
         </div>
       )}
 
-      {/* Error indicator */}
       {error && (
         <div className="absolute top-4 left-4 z-50">
           <div className="flex items-center gap-2 px-3 py-2 bg-red-500/20 backdrop-blur-md border border-red-500/40 rounded-lg text-red-200 text-sm">
             ⚠️ Using fallback images
-          </div>
-        </div>
-      )}
-
-      {/* Photo count indicator */}
-      {!loading && !error && photos.length > 0 && (
-        <div className="absolute top-4 left-4 z-50">
-          <div className="flex items-center gap-2 px-3 py-2 bg-green-500/20 backdrop-blur-md border border-green-500/40 rounded-lg text-green-200 text-sm">
-            📸 {photos.length} photos loaded
           </div>
         </div>
       )}
