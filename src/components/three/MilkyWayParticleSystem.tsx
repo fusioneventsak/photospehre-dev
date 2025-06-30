@@ -480,10 +480,14 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
         mainPositions[i3 + 2] += Math.sin(newAngle) * orbitalSpeed * 0.1;
         
         const parallaxFreq = time * 0.02 + i * 0.001;
-        mainPositions[i3] += Math.sin(parallaxFreq) * 0.001;
-        // REDUCED Y movement amplitude
-        mainPositions[i3 + 1] += Math.cos(parallaxFreq * 0.7) * 0.0002;
-        mainPositions[i3 + 2] += Math.sin(parallaxFreq * 1.3) * 0.001;
+        mainPositions[i3] += Math.sin(parallaxFreq) * 0.002; // INCREASED horizontal movement
+        // INCREASED Y movement amplitude for more noticeable hover
+        mainPositions[i3 + 1] += Math.cos(parallaxFreq * 0.7) * 0.0008;
+        mainPositions[i3 + 2] += Math.sin(parallaxFreq * 1.3) * 0.002; // INCREASED depth movement
+        
+        // NEW: Add gentle bobbing motion - individual particle hover
+        const bobFreq = time * 0.5 + i * 0.1;
+        mainPositions[i3 + 1] += Math.sin(bobFreq) * 0.003; // Gentle up-down bobbing
       }
       
       mainCloudRef.current.geometry.attributes.position.needsUpdate = true;
@@ -502,10 +506,15 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
         dustPositions[i3 + 2] += particleData.dust.velocities[i3 + 2];
         
         const turbulenceFreq = time * 0.1 + i * 0.05;
-        dustPositions[i3] += Math.sin(turbulenceFreq) * 0.002;
-        // REDUCED Y turbulence
-        dustPositions[i3 + 1] += Math.cos(turbulenceFreq * 1.3) * 0.0005;
-        dustPositions[i3 + 2] += Math.sin(turbulenceFreq * 0.8) * 0.002;
+        dustPositions[i3] += Math.sin(turbulenceFreq) * 0.003; // INCREASED horizontal movement
+        // INCREASED Y turbulence for more hover effect
+        dustPositions[i3 + 1] += Math.cos(turbulenceFreq * 1.3) * 0.002;
+        dustPositions[i3 + 2] += Math.sin(turbulenceFreq * 0.8) * 0.003; // INCREASED depth movement
+        
+        // NEW: Add dust-specific floating motion
+        const dustFloatFreq = time * 0.3 + i * 0.08;
+        dustPositions[i3] += Math.cos(dustFloatFreq) * 0.001; // Gentle side-to-side drift
+        dustPositions[i3 + 1] += Math.sin(dustFloatFreq * 0.6) * 0.002; // Floating up and down
         
         // LOWERED recycling boundaries
         if (dustPositions[i3 + 1] > 15) {
@@ -556,10 +565,14 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
               }
               
               const clusterWave = time * 0.03 + clusterIndex + i * 0.1;
-              positions[i3] += Math.sin(clusterWave) * 0.0005;
-              // REDUCED Y wave amplitude
-              positions[i3 + 1] += Math.cos(clusterWave * 0.8) * 0.0001;
-              positions[i3 + 2] += Math.sin(clusterWave * 1.2) * 0.0005;
+              positions[i3] += Math.sin(clusterWave) * 0.001; // INCREASED horizontal movement
+              // INCREASED Y wave amplitude for more hover
+              positions[i3 + 1] += Math.cos(clusterWave * 0.8) * 0.0008;
+              positions[i3 + 2] += Math.sin(clusterWave * 1.2) * 0.001; // INCREASED depth movement
+              
+              // NEW: Add cluster-specific gentle floating
+              const clusterFloatFreq = time * 0.4 + clusterIndex * 2 + i * 0.05;
+              positions[i3 + 1] += Math.sin(clusterFloatFreq) * 0.002; // Individual particle hover within cluster
             }
             
             cluster.geometry.attributes.position.needsUpdate = true;
@@ -583,9 +596,13 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
         
         // Gentle floating motion
         const floatFreq = time * 0.05 + i * 0.02;
-        atmosphericPositions[i3] += Math.sin(floatFreq) * 0.001;
-        atmosphericPositions[i3 + 1] += Math.cos(floatFreq * 0.7) * 0.0008;
-        atmosphericPositions[i3 + 2] += Math.sin(floatFreq * 1.1) * 0.001;
+        atmosphericPositions[i3] += Math.sin(floatFreq) * 0.002; // INCREASED horizontal drift
+        atmosphericPositions[i3 + 1] += Math.cos(floatFreq * 0.7) * 0.003; // INCREASED vertical float
+        atmosphericPositions[i3 + 2] += Math.sin(floatFreq * 1.1) * 0.002; // INCREASED depth movement
+        
+        // NEW: Add secondary layer of gentle bobbing for atmospheric particles
+        const atmosphericBobFreq = time * 0.8 + i * 0.15;
+        atmosphericPositions[i3 + 1] += Math.sin(atmosphericBobFreq) * 0.001; // Extra gentle bobbing
         
         // Boundary wrapping
         if (Math.abs(atmosphericPositions[i3]) > 120) {
@@ -631,7 +648,12 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
         
         // Slow undulation
         const waveFreq = time * 0.01 + i * 0.001;
-        distantPositions[i3 + 1] += Math.sin(waveFreq) * 0.002;
+        distantPositions[i3 + 1] += Math.sin(waveFreq) * 0.005; // INCREASED undulation amplitude
+        
+        // NEW: Add distant particle gentle drift
+        const distantDriftFreq = time * 0.02 + i * 0.003;
+        distantPositions[i3] += Math.cos(distantDriftFreq) * 0.001; // Gentle horizontal drift
+        distantPositions[i3 + 2] += Math.sin(distantDriftFreq * 1.3) * 0.001; // Gentle depth drift
       }
       
       distantSwirlRef.current.geometry.attributes.position.needsUpdate = true;
@@ -669,7 +691,12 @@ const MilkyWayParticleSystem: React.FC<MilkyWayParticleSystemProps> = ({
             
             // Vertical oscillation
             const oscillation = time * 0.02 + swirlIndex + i * 0.01;
-            positions[i3 + 1] += Math.sin(oscillation) * 0.001;
+            positions[i3 + 1] += Math.sin(oscillation) * 0.003; // INCREASED oscillation amplitude
+            
+            // NEW: Add big swirl gentle movement
+            const bigSwirlFloatFreq = time * 0.06 + swirlIndex * 3 + i * 0.02;
+            positions[i3] += Math.cos(bigSwirlFloatFreq) * 0.0008; // Gentle horizontal drift
+            positions[i3 + 2] += Math.sin(bigSwirlFloatFreq * 0.9) * 0.0008; // Gentle depth drift
           }
           
           swirl.geometry.attributes.position.needsUpdate = true;
