@@ -333,7 +333,7 @@ const LandingPage: React.FC = () => {
               <div className="space-y-6">
                 <div className="relative rounded-xl overflow-hidden shadow-2xl">
                   <img
-                    src="https://www.fusion-events.ca/wp-content/uploads/2025/06/3d-Selfies-1.png"
+                    src="https://www.fusion-events.ca/wp-content/uploads/2025/06/Untitled-512-x-512-px-3.png"
                     alt="3D Selfie Holosphere Setup"
                     className="w-full h-auto object-cover"
                   />
