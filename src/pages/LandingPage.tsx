@@ -373,7 +373,7 @@ const LandingPage: React.FC = () => {
                 </div>
                 <h3 className="text-lg font-semibold text-white mb-2">Moderation & Safety</h3>
                 <p className="text-gray-400 text-sm">Full moderation controls - you decide what images are displayed. Add text to images. Coming soon: AI photo generation!</p>
-              </div>
+                  Full moderation controls - you decide what images are displayed. Add text to images using our built-in mobile photobooth. Coming soon: AI photo generation!
 
               <div className="bg-gradient-to-br from-pink-900/30 to-black/50 backdrop-blur-sm p-6 rounded-lg border border-pink-500/20">
                 <div className="w-12 h-12 bg-gradient-to-r from-pink-600 to-purple-500 rounded-lg flex items-center justify-center mb-4">
