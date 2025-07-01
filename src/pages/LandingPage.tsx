@@ -598,6 +598,242 @@ const LandingPage: React.FC = () => {
           </div>
         </div>
 
+        {/* Comparison Section - PhotoSphere vs Traditional Photobooth */}
+        <div className="py-20 bg-gradient-to-b from-black/20 to-black/30 relative">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-16">
+              <div className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-900/50 text-purple-200 mb-4">
+                Event Technology Comparison
+              </div>
+              <h2 className="text-4xl font-bold text-white mb-4">
+                <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-blue-400">PhotoSphere</span> vs Traditional Photobooth
+              </h2>
+              <p className="text-xl text-gray-300 max-w-3xl mx-auto">
+                See how our technology enhances your event services with cutting-edge 3D visualization
+              </p>
+            </div>
+            
+            {/* Stats Grid */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8 mb-16">
+              <div className="bg-black/30 backdrop-blur-sm border border-white/10 rounded-lg p-4 text-center">
+                <div className="text-3xl md:text-4xl font-bold text-purple-400 mb-2">500+</div>
+                <div className="text-sm text-gray-400">Photos Per Event</div>
+              </div>
+              <div className="bg-black/30 backdrop-blur-sm border border-white/10 rounded-lg p-4 text-center">
+                <div className="text-3xl md:text-4xl font-bold text-blue-400 mb-2">&lt;1s</div>
+                <div className="text-sm text-gray-400">Real-time Display</div>
+              </div>
+              <div className="bg-black/30 backdrop-blur-sm border border-white/10 rounded-lg p-4 text-center">
+                <div className="text-3xl md:text-4xl font-bold text-green-400 mb-2">∞</div>
+                <div className="text-sm text-gray-400">Simultaneous Users</div>
+              </div>
+              <div className="bg-black/30 backdrop-blur-sm border border-white/10 rounded-lg p-4 text-center">
+                <div className="text-3xl md:text-4xl font-bold text-yellow-400 mb-2">0</div>
+                <div className="text-sm text-gray-400">Setup Time</div>
+              </div>
+            </div>
+
+            {/* Comparison Cards */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-16">
+              {/* Traditional Photobooth Card */}
+              <div className="bg-black/30 backdrop-blur-sm border border-white/10 rounded-lg p-6 hover:bg-black/40 transition-all duration-300">
+                <div className="text-center mb-6">
+                  <div className="w-16 h-16 bg-gradient-to-r from-blue-600 to-blue-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <span className="text-2xl">📸</span>
+                  </div>
+                  <h3 className="text-xl font-bold text-white mb-1">Traditional Photobooth</h3>
+                  <p className="text-gray-400 text-sm">Physical photo booth setup</p>
+                </div>
+                
+                <ul className="space-y-3">
+                  <li className="flex items-center">
+                    <div className="w-5 h-5 bg-gradient-to-r from-green-500 to-green-400 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
+                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                    <span className="text-gray-300 text-sm">Instant physical prints for guests</span>
+                  </li>
+                  <li className="flex items-center">
+                    <div className="w-5 h-5 bg-gradient-to-r from-green-500 to-green-400 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
+                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                    <span className="text-gray-300 text-sm">Professional props and backdrops</span>
+                  </li>
+                  <li className="flex items-center">
+                    <div className="w-5 h-5 bg-gradient-to-r from-green-500 to-green-400 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
+                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                    <span className="text-gray-300 text-sm">Familiar guest experience</span>
+                  </li>
+                  
+                  <div className="border-t border-white/10 my-4 pt-4">
+                    <li className="flex items-center">
+                      <div className="w-5 h-5 bg-gradient-to-r from-red-500 to-red-400 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
+                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </div>
+                      <span className="text-gray-400 text-sm">Long queues during peak times</span>
+                    </li>
+                    <li className="flex items-center mt-3">
+                      <div className="w-5 h-5 bg-gradient-to-r from-red-500 to-red-400 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
+                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </div>
+                      <span className="text-gray-400 text-sm">Limited to 50-100 photos per event</span>
+                    </li>
+                    <li className="flex items-center mt-3">
+                      <div className="w-5 h-5 bg-gradient-to-r from-red-500 to-red-400 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
+                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </div>
+                      <span className="text-gray-400 text-sm">Photos remain as individual prints</span>
+                    </li>
+                    <li className="flex items-center mt-3">
+                      <div className="w-5 h-5 bg-gradient-to-r from-red-500 to-red-400 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
+                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </div>
+                      <span className="text-gray-400 text-sm">Requires physical setup & breakdown</span>
+                    </li>
+                    <li className="flex items-center mt-3">
+                      <div className="w-5 h-5 bg-gradient-to-r from-red-500 to-red-400 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
+                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </div>
+                      <span className="text-gray-400 text-sm">No collective viewing experience</span>
+                    </li>
+                  </div>
+                </ul>
+              </div>
+              
+              {/* PhotoSphere Card */}
+              <div className="bg-gradient-to-br from-purple-900/20 to-blue-900/20 backdrop-blur-sm border border-purple-500/20 rounded-lg p-6 hover:bg-black/40 transition-all duration-300 relative">
+                <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-purple-600 to-blue-500 text-white text-xs font-bold px-4 py-1 rounded-full">
+                  Enhanced Experience
+                </div>
+                
+                <div className="text-center mb-6">
+                  <div className="w-16 h-16 bg-gradient-to-r from-purple-600 to-blue-500 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
+                    <span className="text-2xl">🌐</span>
+                  </div>
+                  <h3 className="text-xl font-bold text-white mb-1">PhotoSphere</h3>
+                  <p className="text-indigo-200 text-sm">Interactive 3D photo experience</p>
+                </div>
+                
+                <ul className="space-y-3">
+                  <li className="flex items-center">
+                    <div className="w-5 h-5 bg-gradient-to-r from-green-500 to-green-400 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
+                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                    <span className="text-white text-sm font-medium">Unlimited simultaneous uploads - no queues</span>
+                  </li>
+                  <li className="flex items-center">
+                    <div className="w-5 h-5 bg-gradient-to-r from-green-500 to-green-400 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
+                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                    <span className="text-white text-sm font-medium">Real-time 3D visualization for all guests</span>
+                  </li>
+                  <li className="flex items-center">
+                    <div className="w-5 h-5 bg-gradient-to-r from-green-500 to-green-400 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
+                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                    <span className="text-white text-sm font-medium">Up to 500 photos per event</span>
+                  </li>
+                  <li className="flex items-center">
+                    <div className="w-5 h-5 bg-gradient-to-r from-green-500 to-green-400 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
+                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                    <span className="text-white text-sm font-medium">Anonymous uploads - just need event code</span>
+                  </li>
+                  <li className="flex items-center">
+                    <div className="w-5 h-5 bg-gradient-to-r from-green-500 to-green-400 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
+                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                    <span className="text-white text-sm font-medium">Zero physical setup required</span>
+                  </li>
+                  <li className="flex items-center">
+                    <div className="w-5 h-5 bg-gradient-to-r from-green-500 to-green-400 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
+                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                    <span className="text-white text-sm font-medium">Works on any screen (TV, projector, mobile)</span>
+                  </li>
+                  <li className="flex items-center">
+                    <div className="w-5 h-5 bg-gradient-to-r from-green-500 to-green-400 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
+                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                    <span className="text-white text-sm font-medium">Professional moderation controls</span>
+                  </li>
+                  <li className="flex items-center">
+                    <div className="w-5 h-5 bg-gradient-to-r from-green-500 to-green-400 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
+                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                    <span className="text-white text-sm font-medium">Built-in mobile photobooth functionality</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+            
+            {/* CTA Box */}
+            <div className="bg-gradient-to-br from-purple-900/30 to-blue-900/30 backdrop-blur-sm border border-purple-500/20 rounded-xl p-8 text-center">
+              <h3 className="text-2xl font-bold text-white mb-4">The Perfect Addition to Your Event Services</h3>
+              <p className="text-gray-300 mb-6 max-w-3xl mx-auto">
+                PhotoSphere doesn't replace your photobooth - it enhances your entire event offering.
+                Give clients something truly unique while keeping all your existing services.
+              </p>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+                <div className="bg-black/30 backdrop-blur-sm border border-white/10 rounded-lg p-4 hover:bg-black/40 transition-all duration-300">
+                  <div className="w-12 h-12 bg-gradient-to-r from-purple-600 to-purple-500 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <span className="text-xl">💰</span>
+                  </div>
+                  <h4 className="text-lg font-semibold text-white mb-2">Additional Revenue</h4>
+                  <p className="text-gray-400 text-sm">Offer as premium add-on to existing packages</p>
+                </div>
+                <div className="bg-black/30 backdrop-blur-sm border border-white/10 rounded-lg p-4 hover:bg-black/40 transition-all duration-300">
+                  <div className="w-12 h-12 bg-gradient-to-r from-blue-600 to-blue-500 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <span className="text-xl">🎯</span>
+                  </div>
+                  <h4 className="text-lg font-semibold text-white mb-2">Competitive Edge</h4>
+                  <p className="text-gray-400 text-sm">Stand out with cutting-edge technology</p>
+                </div>
+                <div className="bg-black/30 backdrop-blur-sm border border-white/10 rounded-lg p-4 hover:bg-black/40 transition-all duration-300">
+                  <div className="w-12 h-12 bg-gradient-to-r from-green-600 to-green-500 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <span className="text-xl">⚡</span>
+                  </div>
+                  <h4 className="text-lg font-semibold text-white mb-2">Easy Implementation</h4>
+                  <p className="text-gray-400 text-sm">No equipment, no setup - just share a code</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Contact & CTA Section - More transparent background */}
         <div className="py-16 bg-gradient-to-b from-black/20 to-black/10 relative">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
