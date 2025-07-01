@@ -686,7 +686,7 @@ const LandingPage: React.FC = () => {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                         </svg>
                       </div>
-                      <span className="text-gray-400 text-sm">Limited to 50-100 photos per event</span>
+                      <span className="text-gray-400 text-sm">Limited photo prints per event</span>
                     </li>
                     <li className="flex items-center mt-3">
                       <div className="w-5 h-5 bg-gradient-to-r from-red-500 to-red-400 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
