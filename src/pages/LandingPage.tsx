@@ -753,7 +753,7 @@ const LandingPage: React.FC = () => {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                       </svg>
                     </div>
-                    <span className="text-white text-sm font-medium">Up to 500 photos per event</span>
+                    <span className="text-white text-sm font-medium">Display up to 500 photos per PhotoSphere</span>
                   </li>
                   <li className="flex items-center">
                     <div className="w-5 h-5 bg-gradient-to-r from-green-500 to-green-400 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
