@@ -201,14 +201,14 @@ const LandingPage: React.FC = () => {
                 <div className="relative">
                   <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6">
                     <span className="block bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-blue-400 drop-shadow-lg">
-                      Share Your Memories
+                      Transform Event Photos
                     </span>
-                    <span className="block drop-shadow-lg">In Beautiful 3D</span>
+                    <span className="block drop-shadow-lg">Into Immersive 3D Experiences</span>
                   </h1>
                   
                   <p className="text-lg md:text-xl text-gray-200 mb-8 drop-shadow-lg">
-                    Create stunning 3D photo collages and share them with friends and family.
-                    Easy to use - no technical skills required!
+                    Create a buzz at your next event with a live, interactive 3D photo collage
+                    that updates as guests share their memories.
                   </p>
                   
                   <div className="flex flex-col sm:flex-row justify-center lg:justify-start space-y-4 sm:space-y-0 sm:space-x-4 pointer-events-auto">
