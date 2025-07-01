@@ -1,390 +1,1004 @@
-import React, { useRef, useMemo, useEffect } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
-import { Suspense } from 'react';
+// src/components/three/CollageScene.tsx - COMPLETE FIX: Floor, Grid, Controls, and Stable Rendering
+import React, { useRef, useMemo, useEffect, useState, useCallback, forwardRef } from 'react';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { OrbitControls, PerspectiveCamera, Environment, useTexture } from '@react-three/drei';
 import * as THREE from 'three';
+import { type SceneSettings } from '../../store/sceneStore';
+import { PatternFactory } from './patterns/PatternFactory';
+import { addCacheBustToUrl } from '../../lib/supabase';
+import { CameraAnimationController } from './CameraAnimationController';
+import MilkyWayParticleSystem, { PARTICLE_THEMES } from './MilkyWayParticleSystem';
 
-// Particle color themes - matches HeroScene themes
-export const PARTICLE_THEMES = [
-  { name: 'Purple Magic', primary: '#8b5cf6', secondary: '#a855f7', accent: '#c084fc' },
-  { name: 'Ocean Breeze', primary: '#06b6d4', secondary: '#0891b2', accent: '#67e8f9' },
-  { name: 'Sunset Glow', primary: '#f59e0b', secondary: '#d97706', accent: '#fbbf24' },
-  { name: 'Forest Dream', primary: '#10b981', secondary: '#059669', accent: '#34d399' },
-  { name: 'Rose Petals', primary: '#ec4899', secondary: '#db2777', accent: '#f9a8d4' },
-  { name: 'Electric Blue', primary: '#3b82f6', secondary: '#2563eb', accent: '#93c5fd' },
-  { name: 'Cosmic Red', primary: '#ef4444', secondary: '#dc2626', accent: '#fca5a5' }
-];
+type Photo = {
+  id: string;
+  url: string;
+  collage_id?: string;
+  created_at?: string;
+};
 
-// Enhanced particle system for landing page background
-interface SubtleParticleSystemProps {
-  colorTheme: typeof PARTICLE_THEMES[0];
+type CollageSceneProps = {
+  photos: Photo[];
+  settings: SceneSettings;
+  width?: number;
+  height?: number;
+  width?: number;
+  height?: number;
+  onSettingsChange?: (settings: Partial<SceneSettings>, debounce?: boolean) => void;
+};
+
+type PhotoWithPosition = Photo & {
+  targetPosition: [number, number, number];
+  targetRotation: [number, number, number];
+  displayIndex?: number;
+  slotIndex: number;
+};
+
+// Adjusted smoothing values for float pattern
+const POSITION_SMOOTHING = 0.1;
+const ROTATION_SMOOTHING = 0.1;
+const TELEPORT_THRESHOLD = 30;
+
+// ENHANCED: Stable slot assignment system that preserves slots during uploads
+class SlotManager {
+  private slotAssignments = new Map<string, number>();
+  private occupiedSlots = new Set<number>();
+  private availableSlots: number[] = [];
+  private totalSlots = 0;
+
+  constructor(totalSlots: number) {
+    this.updateSlotCount(totalSlots);
+  }
+
+  updateSlotCount(newTotal: number) {
+    if (newTotal === this.totalSlots) return;
+    
+    this.totalSlots = newTotal;
+    
+    for (const [photoId, slotIndex] of this.slotAssignments.entries()) {
+      if (slotIndex >= newTotal) {
+        this.slotAssignments.delete(photoId);
+        this.occupiedSlots.delete(slotIndex);
+      }
+    }
+    
+    this.rebuildAvailableSlots();
+  }
+
+  private rebuildAvailableSlots() {
+    this.availableSlots = [];
+    for (let i = 0; i < this.totalSlots; i++) {
+      if (!this.occupiedSlots.has(i)) {
+        this.availableSlots.push(i);
+      }
+    }
+    // Sort available slots to ensure consistent assignment order
+    this.availableSlots.sort((a, b) => a - b);
+  }
+
+  // CRITICAL FIX: Only assign new slots to new photos, preserve existing assignments
+  assignSlots(photos: Photo[]): Map<string, number> {
+    const safePhotos = Array.isArray(photos) ? photos.filter(p => p && p.id) : [];
+    
+    // Remove assignments for photos that no longer exist
+    const currentPhotoIds = new Set(safePhotos.map(p => p.id));
+    for (const [photoId, slotIndex] of this.slotAssignments.entries()) {
+      if (!currentPhotoIds.has(photoId)) {
+        this.slotAssignments.delete(photoId);
+        this.occupiedSlots.delete(slotIndex);
+      }
+    }
+
+    // Rebuild available slots after cleanup
+    this.rebuildAvailableSlots();
+
+    // Sort photos for consistent assignment order
+    const sortedPhotos = [...safePhotos].sort((a, b) => {
+      if (a.created_at && b.created_at) {
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      }
+      return a.id.localeCompare(b.id);
+    });
+
+    // ONLY assign slots to NEW photos that don't have assignments yet
+    for (const photo of sortedPhotos) {
+      if (!this.slotAssignments.has(photo.id) && this.availableSlots.length > 0) {
+        const newSlot = this.availableSlots.shift()!;
+        this.slotAssignments.set(photo.id, newSlot);
+        this.occupiedSlots.add(newSlot);
+      }
+    }
+
+    return new Map(this.slotAssignments);
+  }
 }
 
-const SubtleParticleSystem: React.FC<SubtleParticleSystemProps> = ({ colorTheme }) => {
-  const mainParticlesRef = useRef<THREE.Points>(null);
-  const dustParticlesRef = useRef<THREE.Points>(null);
+// Floor component - FIXED to use all settings properly  
+const Floor: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
+  if (!settings.floorEnabled) return null;
   
-  // Increased particle counts for better visibility
-  const MAIN_COUNT = 1200;
-  const DUST_COUNT = 600;
+  // Create a more sophisticated floor material with better reflections
+  const floorMaterial = useMemo(() => {
+    return new THREE.MeshStandardMaterial({
+      color: settings.floorColor || '#1A1A1A',
+      transparent: (settings.floorOpacity || 1) < 1,
+      opacity: settings.floorOpacity || 1,
+      metalness: Math.min(settings.floorMetalness || 0.5, 0.9),
+      roughness: Math.max(settings.floorRoughness || 0.5, 0.1),
+      side: THREE.DoubleSide,
+      envMapIntensity: 1.2, // Increased for better reflections
+    });
+  }, [settings.floorColor, settings.floorOpacity, settings.floorMetalness, settings.floorRoughness]);
+
+  // Add subtle normal map for texture
+  const normalMap = useTexture('https://cdn.jsdelivr.net/gh/pmndrs/drei-assets@master/normal-maps/floor.jpg');
   
-  // Create enhanced particle distribution
-  const particleData = useMemo(() => {
-    // Main particles - distributed across a large area
-    const mainPositions = new Float32Array(MAIN_COUNT * 3);
-    const mainColors = new Float32Array(MAIN_COUNT * 3);
-    const mainSizes = new Float32Array(MAIN_COUNT);
-    const mainVelocities = new Float32Array(MAIN_COUNT * 3);
-    
-    for (let i = 0; i < MAIN_COUNT; i++) {
-      // Spread particles across a very wide area to cover the entire page
-      mainPositions[i * 3] = (Math.random() - 0.5) * 100; // x - reduced spread to keep in view
-      mainPositions[i * 3 + 1] = (Math.random() - 0.5) * 60; // y - reduced height
-      mainPositions[i * 3 + 2] = (Math.random() - 0.5) * 60; // z - reduced depth
-      
-      // Very slow movement
-      mainVelocities[i * 3] = (Math.random() - 0.5) * 0.005;
-      mainVelocities[i * 3 + 1] = Math.random() * 0.008 + 0.002; // gentle upward drift
-      mainVelocities[i * 3 + 2] = (Math.random() - 0.5) * 0.005;
-      
-      // Larger sizes for better visibility
-      mainSizes[i] = Math.random() * 2.0 + 0.5;
+  // Apply normal map to material if loaded
+  useEffect(() => {
+    if (normalMap) {
+      floorMaterial.normalMap = normalMap;
+      floorMaterial.normalScale.set(0.15, 0.15); // Subtle normal effect
     }
+  }, [normalMap, floorMaterial]);
+
+  return (
+    <mesh
+      rotation={[-Math.PI / 2, 0, 0]}
+      position={[0, -10, 0]}
+      receiveShadow
+    >
+      <planeGeometry args={[settings.floorSize || 200, settings.floorSize || 200, 64, 64]} />
+      <primitive object={floorMaterial} attach="material" />
+    </mesh>
+  );
+};
+
+// Grid component - FIXED to use all settings properly
+const Grid: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
+  if (!settings.gridEnabled) return null;
+
+  const gridHelper = useMemo(() => {
+    console.log('🔧 GRID: Creating grid with settings:', {
+      gridEnabled: settings.gridEnabled,
+      gridSize: settings.gridSize,
+      gridDivisions: settings.gridDivisions,
+      gridColor: settings.gridColor,
+      gridOpacity: settings.gridOpacity
+    });
+
+    const helper = new THREE.GridHelper(
+      settings.gridSize || 200,
+      settings.gridDivisions || 30,
+      settings.gridColor || '#444444',
+      settings.gridColor || '#444444'
+    );
     
-    // Dust particles - even more numerous for ambient effect
-    const dustPositions = new Float32Array(DUST_COUNT * 3);
-    const dustColors = new Float32Array(DUST_COUNT * 3);
-    const dustSizes = new Float32Array(DUST_COUNT);
-    const dustVelocities = new Float32Array(DUST_COUNT * 3);
+    const material = helper.material as THREE.LineBasicMaterial;
+    material.transparent = true;
+    material.opacity = Math.min(settings.gridOpacity || 1.0, 1.0);
+    material.color = new THREE.Color(settings.gridColor || '#444444');
     
-    for (let i = 0; i < DUST_COUNT; i++) {
-      dustPositions[i * 3] = (Math.random() - 0.5) * 80;
-      dustPositions[i * 3 + 1] = (Math.random() - 0.5) * 40;
-      dustPositions[i * 3 + 2] = (Math.random() - 0.5) * 40;
+    helper.position.y = -9.99; // Just above the floor
+    
+    console.log('🔧 GRID: Grid created and positioned');
+    return helper;
+  }, [settings.gridEnabled, settings.gridSize, settings.gridDivisions, settings.gridColor, settings.gridOpacity]);
+
+  return <primitive object={gridHelper} />;
+};
+
+// Helper function to get the current particle theme
+const getCurrentParticleTheme = (settings: SceneSettings) => {
+  const themeName = settings.particles?.theme ?? 'Purple Magic';
+  return PARTICLE_THEMES.find(theme => theme.name === themeName) || PARTICLE_THEMES[0];
+};
+
+// CameraController component with FIXED controls
+const CameraController: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
+  const { camera } = useThree();
+  const controlsRef = useRef<any>();
+  const userInteractingRef = useRef(false);
+  const lastInteractionTimeRef = useRef(0);
+  
+  // Initialize camera position
+  useEffect(() => {
+    if (camera && controlsRef.current) {
+      const initialDistance = settings.cameraDistance || 20;
+      const initialHeight = settings.cameraHeight || 0;
+      const initialPosition = new THREE.Vector3(
+        initialDistance,
+        initialHeight,
+        initialDistance
+      );
+      camera.position.copy(initialPosition);
       
-      dustVelocities[i * 3] = (Math.random() - 0.5) * 0.003;
-      dustVelocities[i * 3 + 1] = Math.random() * 0.005 + 0.001;
-      dustVelocities[i * 3 + 2] = (Math.random() - 0.5) * 0.003;
-      
-      // Larger dust particles
-      dustSizes[i] = Math.random() * 1.0 + 0.3;
+      const target = new THREE.Vector3(0, initialHeight * 0.3, 0);
+      controlsRef.current.target.copy(target);
+      controlsRef.current.update();
     }
-    
-    return {
-      main: {
-        positions: mainPositions,
-        colors: mainColors,
-        sizes: mainSizes,
-        velocities: mainVelocities,
-        count: MAIN_COUNT
-      },
-      dust: {
-        positions: dustPositions,
-        colors: dustColors,
-        sizes: dustSizes,
-        velocities: dustVelocities,
-        count: DUST_COUNT
-      }
+  }, [camera, settings.cameraDistance, settings.cameraHeight]);
+
+  // Handle user interaction detection
+  useEffect(() => {
+    if (!controlsRef.current) return;
+
+    const handleStart = () => {
+      userInteractingRef.current = true;
+      lastInteractionTimeRef.current = Date.now();
+    };
+
+    const handleEnd = () => {
+      lastInteractionTimeRef.current = Date.now();
+      setTimeout(() => {
+        userInteractingRef.current = false;
+      }, 500);
+    };
+
+    const controls = controlsRef.current;
+    controls.addEventListener('start', handleStart);
+    controls.addEventListener('end', handleEnd);
+
+    return () => {
+      controls.removeEventListener('start', handleStart);
+      controls.removeEventListener('end', handleEnd);
     };
   }, []);
 
-  // Update colors when theme changes
-  useEffect(() => {
-    if (!mainParticlesRef.current || !dustParticlesRef.current) return;
-    
-    // Update main particles colors
-    const mainColors = mainParticlesRef.current.geometry.attributes.color.array as Float32Array;
-    for (let i = 0; i < particleData.main.count; i++) {
-      const baseColor = new THREE.Color(colorTheme.primary);
-      const hsl = { h: 0, s: 0, l: 0 };
-      baseColor.getHSL(hsl);
-      
-      const particleColor = new THREE.Color();
-      particleColor.setHSL(
-        (hsl.h + (Math.random() - 0.5) * 0.1 + 1) % 1,
-        Math.min(1, hsl.s * (0.6 + Math.random() * 0.4)),
-        Math.min(1, hsl.l * (0.5 + Math.random() * 0.6))
-      );
-      
-      mainColors[i * 3] = particleColor.r;
-      mainColors[i * 3 + 1] = particleColor.g;
-      mainColors[i * 3 + 2] = particleColor.b;
-    }
-    mainParticlesRef.current.geometry.attributes.color.needsUpdate = true;
-    
-    // Update dust particles colors
-    const dustColors = dustParticlesRef.current.geometry.attributes.color.array as Float32Array;
-    for (let i = 0; i < particleData.dust.count; i++) {
-      const baseColor = new THREE.Color(colorTheme.secondary);
-      const hsl = { h: 0, s: 0, l: 0 };
-      baseColor.getHSL(hsl);
-      
-      const particleColor = new THREE.Color();
-      particleColor.setHSL(
-        (hsl.h + (Math.random() - 0.5) * 0.15 + 1) % 1,
-        Math.min(1, hsl.s * (0.4 + Math.random() * 0.5)),
-        Math.min(1, hsl.l * (0.3 + Math.random() * 0.5))
-      );
-      
-      dustColors[i * 3] = particleColor.r;
-      dustColors[i * 3 + 1] = particleColor.g;
-      dustColors[i * 3 + 2] = particleColor.b;
-    }
-    dustParticlesRef.current.geometry.attributes.color.needsUpdate = true;
-  }, [colorTheme, particleData]);
+  // Auto rotation when enabled
+  useFrame((state, delta) => {
+    if (!controlsRef.current) return;
 
-  // Subtle animation
-  useFrame((state) => {
-    const time = state.clock.getElapsedTime();
-    
-    // Animate main particles
-    if (mainParticlesRef.current) {
-      const mainPositions = mainParticlesRef.current.geometry.attributes.position.array as Float32Array;
+    // Only auto-rotate if camera rotation is enabled AND user isn't interacting
+    if (settings.cameraRotationEnabled && !userInteractingRef.current) {
+      const offset = new THREE.Vector3().copy(camera.position).sub(controlsRef.current.target);
+      const spherical = new THREE.Spherical().setFromVector3(offset);
       
-      for (let i = 0; i < particleData.main.count; i++) {
-        const i3 = i * 3;
-        
-        // Apply velocities
-        mainPositions[i3] += particleData.main.velocities[i3];
-        mainPositions[i3 + 1] += particleData.main.velocities[i3 + 1];
-        mainPositions[i3 + 2] += particleData.main.velocities[i3 + 2];
-        
-        // Add gentle floating motion
-        const floatFreq = time * 0.015 + i * 0.001;
-        mainPositions[i3] += Math.sin(floatFreq) * 0.001;
-        mainPositions[i3 + 1] += Math.cos(floatFreq * 0.7) * 0.0008;
-        mainPositions[i3 + 2] += Math.sin(floatFreq * 1.3) * 0.001;
-        
-        // Reset particles that drift too far up (smaller reset zone)
-        if (mainPositions[i3 + 1] > 40) {
-          mainPositions[i3 + 1] = -40;
-          mainPositions[i3] = (Math.random() - 0.5) * 100;
-          mainPositions[i3 + 2] = (Math.random() - 0.5) * 60;
-        }
-      }
+      spherical.theta += (settings.cameraRotationSpeed || 0.5) * delta;
       
-      mainParticlesRef.current.geometry.attributes.position.needsUpdate = true;
-    }
-    
-    // Animate dust particles
-    if (dustParticlesRef.current) {
-      const dustPositions = dustParticlesRef.current.geometry.attributes.position.array as Float32Array;
-      
-      for (let i = 0; i < particleData.dust.count; i++) {
-        const i3 = i * 3;
-        
-        // Apply velocities
-        dustPositions[i3] += particleData.dust.velocities[i3];
-        dustPositions[i3 + 1] += particleData.dust.velocities[i3 + 1];
-        dustPositions[i3 + 2] += particleData.dust.velocities[i3 + 2];
-        
-        // Add subtle floating motion
-        const floatFreq = time * 0.012 + i * 0.002;
-        dustPositions[i3] += Math.sin(floatFreq) * 0.0008;
-        dustPositions[i3 + 1] += Math.cos(floatFreq * 0.9) * 0.0005;
-        dustPositions[i3 + 2] += Math.sin(floatFreq * 1.1) * 0.0008;
-        
-        // Reset dust particles that drift too far
-        if (dustPositions[i3 + 1] > 30) {
-          dustPositions[i3 + 1] = -30;
-          dustPositions[i3] = (Math.random() - 0.5) * 80;
-          dustPositions[i3 + 2] = (Math.random() - 0.5) * 40;
-        }
-      }
-      
-      dustParticlesRef.current.geometry.attributes.position.needsUpdate = true;
+      const newPosition = new THREE.Vector3().setFromSpherical(spherical).add(controlsRef.current.target);
+      camera.position.copy(newPosition);
+      controlsRef.current.update();
     }
   });
 
+  console.log('🎥 CAMERA: Controls state:', {
+    cameraEnabled: settings.cameraEnabled,
+    cameraRotationEnabled: settings.cameraRotationEnabled,
+    cameraDistance: settings.cameraDistance,
+    cameraHeight: settings.cameraHeight
+  });
+
+  // FIXED: Always return controls but respect cameraEnabled setting
   return (
-    <group>
-      {/* Main particles - more visible */}
-      <points ref={mainParticlesRef}>
-        <bufferGeometry>
-          <bufferAttribute
-            attach="attributes-position"
-            array={particleData.main.positions}
-            count={particleData.main.count}
-            itemSize={3}
-          />
-          <bufferAttribute
-            attach="attributes-color"
-            array={particleData.main.colors}
-            count={particleData.main.count}
-            itemSize={3}
-          />
-          <bufferAttribute
-            attach="attributes-size"
-            array={particleData.main.sizes}
-            count={particleData.main.count}
-            itemSize={1}
-          />
-        </bufferGeometry>
-        <shaderMaterial
-          transparent
-          vertexColors
-          blending={THREE.AdditiveBlending}
-          depthWrite={false}
-          vertexShader={`
-            attribute float size;
-            varying vec3 vColor;
-            varying float vOpacity;
-            void main() {
-              vColor = color;
-              vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-              gl_PointSize = size * (300.0 / -mvPosition.z); // Much larger size multiplier
-              gl_Position = projectionMatrix * mvPosition;
-              
-              // Distance-based opacity - more visible
-              float distance = length(mvPosition.xyz);
-              vOpacity = 1.0 - smoothstep(10.0, 50.0, distance); // Closer range
-            }
-          `}
-          fragmentShader={`
-            varying vec3 vColor;
-            varying float vOpacity;
-            void main() {
-              float distanceToCenter = distance(gl_PointCoord, vec2(0.5));
-              if (distanceToCenter > 0.5) discard;
-              
-              // Soft falloff
-              float alpha = 1.0 - (distanceToCenter * 2.0);
-              alpha = smoothstep(0.0, 1.0, alpha);
-              
-              // Much higher opacity for visibility
-              gl_FragColor = vec4(vColor, alpha * vOpacity * 0.8);
-            }
-          `}
-        />
-      </points>
+    <OrbitControls
+      ref={controlsRef}
+      enabled={settings.cameraEnabled !== false} // Can be disabled via settings
+      enablePan={true}
+      enableZoom={true}
+      enableRotate={true}
+      minDistance={5}
+      maxDistance={200}
+      minPolarAngle={Math.PI / 6}
+      maxPolarAngle={Math.PI - Math.PI / 6}
+      enableDamping={true}
+      dampingFactor={0.05}
+      zoomSpeed={1.0}
+      rotateSpeed={1.0}
+      panSpeed={1.0}
+      // Enable touch controls for mobile
+      touches={{
+        ONE: THREE.TOUCH.ROTATE,
+        TWO: THREE.TOUCH.DOLLY_PAN
+      }}
+      mouseButtons={{
+        LEFT: THREE.MOUSE.ROTATE,
+        MIDDLE: THREE.MOUSE.DOLLY,
+        RIGHT: THREE.MOUSE.PAN
+      }}
+    />
+  );
+};
+
+// Scene Lighting component with WORKING spotlights and FIXED refs
+const SceneLighting: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
+  const groupRef = useRef<THREE.Group>(null);
+  const targetRefs = useRef<THREE.Object3D[]>([]);
+
+  const spotlights = useMemo(() => {
+    const lights = [];
+    const count = Math.min(settings.spotlightCount || 4, 4);
+    
+    // Ensure we have enough target refs
+    while (targetRefs.current.length < count) {
+      targetRefs.current.push(new THREE.Object3D());
+    }
+    
+    for (let i = 0; i < count; i++) {
+      const angle = (i / count) * Math.PI * 2;
       
-      {/* Dust particles - more ambient */}
-      <points ref={dustParticlesRef}>
-        <bufferGeometry>
-          <bufferAttribute
-            attach="attributes-position"
-            array={particleData.dust.positions}
-            count={particleData.dust.count}
-            itemSize={3}
-          />
-          <bufferAttribute
-            attach="attributes-color"
-            array={particleData.dust.colors}
-            count={particleData.dust.count}
-            itemSize={3}
-          />
-          <bufferAttribute
-            attach="attributes-size"
-            array={particleData.dust.sizes}
-            count={particleData.dust.count}
-            itemSize={1}
-          />
-        </bufferGeometry>
-        <shaderMaterial
-          transparent
-          vertexColors
-          blending={THREE.AdditiveBlending}
-          depthWrite={false}
-          vertexShader={`
-            attribute float size;
-            varying vec3 vColor;
-            varying float vOpacity;
-            void main() {
-              vColor = color;
-              vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-              gl_PointSize = size * (200.0 / -mvPosition.z); // Larger dust particles
-              gl_Position = projectionMatrix * mvPosition;
-              
-              // Distance-based opacity for dust
-              float distance = length(mvPosition.xyz);
-              vOpacity = 1.0 - smoothstep(8.0, 40.0, distance); // Closer range
-            }
-          `}
-          fragmentShader={`
-            varying vec3 vColor;
-            varying float vOpacity;
-            void main() {
-              float distanceToCenter = distance(gl_PointCoord, vec2(0.5));
-              if (distanceToCenter > 0.5) discard;
-              
-              // Soft falloff for dust
-              float alpha = 1.0 - (distanceToCenter * 2.0);
-              alpha = smoothstep(0.0, 1.0, alpha);
-              
-              // Higher opacity for dust visibility
-              gl_FragColor = vec4(vColor, alpha * vOpacity * 0.6);
-            }
-          `}
-        />
-      </points>
+      // Position spotlights CLOSER and HIGHER for better intensity
+      const distance = Math.max(20, settings.spotlightDistance || 30); // Minimum 20 units
+      const x = Math.cos(angle) * distance;
+      const z = Math.sin(angle) * distance;
+      const y = Math.max(15, settings.spotlightHeight || 25); // Minimum 15 units high
       
-      {/* Test: Add some simple visible particles to verify system works */}
-      <group>
-        {Array.from({ length: 50 }, (_, i) => (
-          <mesh key={i} position={[
-            (Math.random() - 0.5) * 40,
-            (Math.random() - 0.5) * 20,
-            (Math.random() - 0.5) * 20
-          ]}>
-            <sphereGeometry args={[0.02, 8, 8]} />
-            <meshBasicMaterial 
-              color={colorTheme.primary} 
-              transparent 
-              opacity={0.6}
-            />
-          </mesh>
-        ))}
-      </group>
+      // Set target position
+      const targetPos = [0, (settings.wallHeight || 0) / 2, 0];
+      targetRefs.current[i].position.set(...targetPos);
+      
+      lights.push({
+        key: `spotlight-${i}`,
+        position: [x, y, z] as [number, number, number],
+        target: targetRefs.current[i],
+      });
+    }
+    return lights;
+  }, [
+    settings.spotlightCount, 
+    settings.spotlightDistance, 
+    settings.spotlightHeight, 
+    settings.wallHeight
+  ]);
+
+  return (
+    <group ref={groupRef}>
+      {/* Reduced ambient light to make spotlights more prominent */}
+      <ambientLight 
+        intensity={(settings.ambientLightIntensity || 0.4) * 0.5} 
+        color="#ffffff" 
+      />
+      
+      {/* Reduced directional light */}
+      <directionalLight
+        position={[20, 30, 20]}
+        intensity={0.1}
+        color="#ffffff"
+        castShadow={settings.shadowsEnabled}
+        shadow-mapSize={[2048, 2048]}
+        shadow-camera-far={200}
+        shadow-camera-left={-100}
+        shadow-camera-right={100}
+        shadow-camera-top={100}
+        shadow-camera-bottom={-100}
+        shadow-bias={-0.0001}
+      />
+      
+      {/* INTENSE spotlights positioned closer to the scene */}
+      {spotlights.map((light, index) => (
+        <group key={light.key}>
+          <spotLight
+            position={light.position}
+            target={light.target}
+            angle={Math.max(0.2, Math.min(Math.PI / 3, settings.spotlightAngle || 0.8))}
+            penumbra={settings.spotlightPenumbra || 0.4}
+            intensity={((settings.spotlightIntensity || 150) / 100) * 8} // MUCH higher intensity
+            color={settings.spotlightColor || '#ffffff'}
+            distance={settings.spotlightDistance * 3 || 120}
+            decay={1}
+            castShadow={settings.shadowsEnabled}
+            shadow-mapSize={[1024, 1024]}
+            shadow-camera-near={0.5}
+            shadow-camera-far={settings.spotlightDistance * 2 || 100}
+            shadow-bias={-0.0001}
+          />
+          <primitive object={light.target} />
+        </group>
+      ))}
     </group>
   );
 };
 
-// Main particle background component - FIXED POSITIONING
-interface LandingParticleBackgroundProps {
-  particleTheme: typeof PARTICLE_THEMES[0];
-}
+// CRITICAL FIX: Animation Controller with stable updates
+const AnimationController: React.FC<{
+  settings: SceneSettings;
+  photos: Photo[];
+  onPositionsUpdate: (photos: PhotoWithPosition[]) => void;
+}> = ({ settings, photos, onPositionsUpdate }) => {
+  const slotManagerRef = useRef(new SlotManager(settings.photoCount || 100));
+  const lastPhotoCount = useRef(settings.photoCount || 100);
+  const lastPositionsRef = useRef<PhotoWithPosition[]>([]);
+  
+  const currentPhotoIds = useMemo(() => 
+    (photos || []).map(p => p.id).sort().join(','), 
+    [photos]
+  );
+  
+  const lastPhotoIds = useRef(currentPhotoIds);
+  const animationFrameRef = useRef<number>();
+  
+  const updatePositions = useCallback((time: number = 0) => {
+    try {
+      const safePhotos = Array.isArray(photos) ? photos.filter(p => p && p.id) : [];
+      const safeSettings = settings || {};
 
-export const LandingParticleBackground: React.FC<LandingParticleBackgroundProps> = ({ particleTheme }) => {
+      // Get STABLE slot assignments - only new photos get new slots
+      const slotAssignments = slotManagerRef.current.assignSlots(safePhotos);
+      
+      // Generate pattern positions with error handling
+      let patternState;
+      try {
+        const pattern = PatternFactory.createPattern(
+          safeSettings.animationPattern || 'grid', 
+          safeSettings, 
+          safePhotos
+        );
+        patternState = pattern.generatePositions(time);
+      } catch (error) {
+        console.error('Pattern generation error:', error);
+        // Fallback to simple grid
+        const positions = [];
+        const rotations = [];
+        for (let i = 0; i < (safeSettings.photoCount || 100); i++) {
+          const x = (i % 10) * 5 - 25;
+          const z = Math.floor(i / 10) * 5 - 25;
+          positions.push([x, 0, z]);
+          rotations.push([0, 0, 0]);
+        }
+        patternState = { positions, rotations };
+      }
+      
+      const photosWithPositions: PhotoWithPosition[] = [];
+      
+      // CRITICAL: Preserve existing photo positions, only add new photos to new slots
+      for (const photo of safePhotos) {
+        const slotIndex = slotAssignments.get(photo.id);
+        if (slotIndex !== undefined && slotIndex < (safeSettings.photoCount || 100)) {
+          photosWithPositions.push({
+            ...photo,
+            targetPosition: patternState.positions[slotIndex] || [0, 0, 0],
+            targetRotation: patternState.rotations?.[slotIndex] || [0, 0, 0],
+            displayIndex: slotIndex,
+            slotIndex,
+          });
+        }
+      }
+      
+      // Add empty slots for remaining positions - STABLE ORDER
+      for (let i = 0; i < (safeSettings.photoCount || 100); i++) {
+        const hasPhoto = photosWithPositions.some(p => p.slotIndex === i);
+        if (!hasPhoto) {
+          photosWithPositions.push({
+            id: `placeholder-${i}`, // Stable ID for empty slots
+            url: '',
+            targetPosition: patternState.positions[i] || [0, 0, 0],
+            targetRotation: patternState.rotations?.[i] || [0, 0, 0],
+            displayIndex: i,
+            slotIndex: i,
+          });
+        }
+      }
+      
+      // CRITICAL: Always sort by slot index for consistent order
+      photosWithPositions.sort((a, b) => a.slotIndex - b.slotIndex);
+      
+      // Only update if positions actually changed significantly
+      const positionsChanged = photosWithPositions.length !== lastPositionsRef.current.length ||
+        photosWithPositions.some((photo, index) => {
+          const lastPhoto = lastPositionsRef.current[index];
+          return !lastPhoto || 
+                 lastPhoto.id !== photo.id ||
+                 lastPhoto.targetPosition.some((pos, i) => Math.abs(pos - photo.targetPosition[i]) > 0.001);
+        });
+
+      if (positionsChanged) {
+        lastPositionsRef.current = photosWithPositions;
+        onPositionsUpdate(photosWithPositions);
+      }
+    } catch (error) {
+      console.error('Error in updatePositions:', error);
+    }
+  }, [photos, settings, onPositionsUpdate]);
+
+  // CRITICAL FIX: Only update immediately for photo count changes, not photo additions
+  useEffect(() => {
+    const photoCountChanged = (settings.photoCount || 100) !== lastPhotoCount.current;
+    
+    if (photoCountChanged) {
+      console.log('📊 PHOTO COUNT CHANGED: Force update');
+      slotManagerRef.current.updateSlotCount(settings.photoCount || 100);
+      lastPhotoCount.current = settings.photoCount || 100;
+      updatePositions(0);
+    }
+  }, [settings.photoCount, updatePositions]);
+
+  // ENHANCED: Handle photo changes without immediate position updates (prevents jumping)
+  useEffect(() => {
+    if (currentPhotoIds !== lastPhotoIds.current) {
+      console.log('📷 PHOTOS CHANGED: New upload detected - using gradual update');
+      console.log('📷 Old IDs:', lastPhotoIds.current);
+      console.log('📷 New IDs:', currentPhotoIds);
+      
+      // CRITICAL FIX: Don't force immediate position update
+      // Let the natural animation frame handle the change gradually
+      lastPhotoIds.current = currentPhotoIds;
+      
+      // Update slot assignments immediately but don't force position recalculation
+      const safePhotos = Array.isArray(photos) ? photos.filter(p => p && p.id) : [];
+      slotManagerRef.current.assignSlots(safePhotos);
+    }
+  }, [currentPhotoIds, photos]);
+
+  // Regular animation updates
+  useFrame((state) => {
+    const time = settings.animationEnabled ? 
+      state.clock.elapsedTime * ((settings.animationSpeed || 50) / 50) : 0;
+    
+    updatePositions(time);
+  });
+
+  // Cleanup animation frame on unmount
+  useEffect(() => {
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, []);
+
+  return null;
+};
+
+// Background renderer
+const BackgroundRenderer: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
+  const { scene, gl } = useThree();
+  
+  useEffect(() => {
+    try {
+      if (settings.backgroundGradient) {
+        scene.background = null;
+        gl.setClearColor('#000000', 0);
+      } else {
+        scene.background = new THREE.Color(settings.backgroundColor || '#000000');
+        gl.setClearColor(settings.backgroundColor || '#000000', 1);
+      }
+    } catch (error) {
+      console.error('Background render error:', error);
+    }
+  }, [
+    scene, 
+    gl, 
+    settings.backgroundColor, 
+    settings.backgroundGradient,
+    settings.backgroundGradientStart,
+    settings.backgroundGradientEnd,
+    settings.backgroundGradientAngle
+  ]);
+
+  return null;
+};
+
+// Enhanced PhotoMesh component for volumetric lighting
+const VolumetricSpotlight: React.FC<{
+  position: [number, number, number];
+  target: [number, number, number];
+  color: string;
+  intensity: number;
+  angle: number;
+  distance: number;
+  penumbra: number;
+}> = ({ position, target, color, intensity, angle, distance, penumbra }) => {
+  const lightRef = useRef<THREE.SpotLight>(null);
+  const targetRef = useRef<THREE.Object3D>(new THREE.Object3D());
+
+  useEffect(() => {
+    if (targetRef.current) {
+      targetRef.current.position.set(...target);
+    }
+  }, [target]);
+
+  useEffect(() => {
+    if (lightRef.current && targetRef.current) {
+      lightRef.current.target = targetRef.current;
+    }
+  }, []);
+
   return (
-    <div 
-      className="fixed inset-0 w-full h-full"
-      style={{ 
-        zIndex: 1, // Positive z-index but below content
-        pointerEvents: 'none',
-        touchAction: 'none',
-        userSelect: 'none'
-      }}
+    <group>
+      <spotLight
+        ref={lightRef}
+        position={position}
+        color={color}
+        intensity={intensity}
+        angle={angle}
+        distance={distance}
+        penumbra={penumbra}
+        castShadow={true}
+        shadow-mapSize={[1024, 1024]}
+        shadow-camera-near={0.1}
+        shadow-camera-far={distance}
+        shadow-camera-fov={angle * 180 / Math.PI}
+      />
+      <primitive object={targetRef.current} />
+    </group>
+  );
+};
+
+// Dynamic lighting system
+const DynamicLightingSystem: React.FC<{ settings: SceneSettings }> = ({ settings }) => {
+  const lights = useMemo(() => {
+    const lightCount = Math.min(settings.spotlightCount || 1, 4);
+    const lightArray = [];
+    
+    for (let i = 0; i < lightCount; i++) {
+      const angle = (i / lightCount) * Math.PI * 2;
+      const radius = 15 + Math.sin(i * 2.3) * 5;
+      const height = 10 + Math.cos(i * 1.7) * 5;
+      const intensityVariation = 0.8 + Math.sin(i * 3.1) * 0.2;
+      
+      lightArray.push({
+        position: [
+          Math.cos(angle) * radius,
+          height,
+          Math.sin(angle) * radius
+        ] as [number, number, number],
+        target: [0, 0, 0] as [number, number, number],
+        intensityVariation,
+      });
+    }
+    
+    return lightArray;
+  }, [settings.spotlightCount]);
+
+  return (
+    <group>
+      {lights.map((light, index) => {
+        const adjustedAngle = Math.max(0.1, Math.min(Math.PI / 3, (settings.spotlightAngle || 30) * Math.PI / 180));
+        
+        return (
+          <group key={index}>
+            <VolumetricSpotlight
+              position={light.position}
+              target={light.target}
+              angle={adjustedAngle}
+              color={settings.spotlightColor || '#ffffff'}
+              intensity={(settings.spotlightIntensity || 1) * light.intensityVariation}
+              distance={settings.spotlightDistance || 50}
+              penumbra={settings.spotlightPenumbra || 0.5}
+            />
+          </group>
+        );
+      })}
+    </group>
+  );
+};
+
+// ENHANCED: PhotoMesh with FIXED empty slot color
+const PhotoMesh: React.FC<{
+  photo: PhotoWithPosition;
+  size: number;
+  emptySlotColor: string;
+  pattern: string;
+  shouldFaceCamera: boolean;
+  brightness: number;
+}> = React.memo(({ photo, size, emptySlotColor, pattern, shouldFaceCamera, brightness }) => { 
+  const meshRef = useRef<THREE.Mesh>(null);
+  const { camera, gl } = useThree();
+  const [texture, setTexture] = useState<THREE.Texture | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
+  const isInitializedRef = useRef(false);
+  const lastPositionRef = useRef<[number, number, number]>([0, 0, 0]);
+  const currentPosition = useRef<THREE.Vector3>(new THREE.Vector3(...photo.targetPosition));
+  const currentRotation = useRef<THREE.Euler>(new THREE.Euler(...photo.targetRotation));
+
+  // Initialize position immediately to prevent jarring movements
+  useEffect(() => {
+    currentPosition.current.set(...photo.targetPosition);
+    currentRotation.current.set(...photo.targetRotation);
+  }, []);
+
+  useEffect(() => {
+    if (!photo.url) {
+      setIsLoading(false);
+      return;
+    }
+
+    const loader = new THREE.TextureLoader();
+    setIsLoading(true);
+    setHasError(false);
+    
+    const handleLoad = (loadedTexture: THREE.Texture) => {
+      // Enable mipmaps for better texture quality at different distances
+      loadedTexture.generateMipmaps = true;
+      loadedTexture.minFilter = THREE.LinearFilter;
+      loadedTexture.magFilter = THREE.LinearFilter;
+      loadedTexture.format = THREE.RGBAFormat;
+      
+      // Apply anisotropic filtering for better quality at oblique angles
+      if (gl && gl.capabilities.getMaxAnisotropy) {
+        loadedTexture.anisotropy = gl.capabilities.getMaxAnisotropy();
+      }
+
+      setTexture(loadedTexture);
+      setIsLoading(false);
+    };
+
+    const handleError = () => {
+      setHasError(true);
+      setIsLoading(false);
+    };
+
+    const imageUrl = photo.url.includes('?') 
+      ? `${photo.url}&t=${Date.now()}`
+      : `${photo.url}?t=${Date.now()}`;
+
+    loader.load(imageUrl, handleLoad, undefined, handleError);
+
+    return () => {
+      if (texture) {
+        texture.dispose();
+      }
+    };
+  }, [photo.url]);
+
+  // Camera facing logic
+  useFrame(() => {
+    if (!meshRef.current || !shouldFaceCamera) return;
+
+    const mesh = meshRef.current;
+    const currentPositionArray = mesh.position.toArray() as [number, number, number];
+    
+    const positionChanged = currentPositionArray.some((coord, index) => 
+      Math.abs(coord - lastPositionRef.current[index]) > 0.01
+    );
+
+    if (positionChanged || !isInitializedRef.current) {
+      mesh.lookAt(camera.position);
+      lastPositionRef.current = currentPositionArray;
+      isInitializedRef.current = true;
+    }
+  });
+
+  // ENHANCED: Smoother animation with better teleport detection
+  useFrame(() => {
+    if (!meshRef.current) return;
+
+    const targetPosition = new THREE.Vector3(...photo.targetPosition);
+    const targetRotation = new THREE.Euler(...photo.targetRotation);
+
+    const distance = currentPosition.current.distanceTo(targetPosition);
+    const isTeleport = distance > TELEPORT_THRESHOLD;
+
+    if (isTeleport) {
+      // Instant teleport for large movements
+      currentPosition.current.copy(targetPosition);
+      currentRotation.current.copy(targetRotation);
+    } else {
+      // Smooth interpolation for normal movement
+      currentPosition.current.lerp(targetPosition, POSITION_SMOOTHING);
+      currentRotation.current.x += (targetRotation.x - currentRotation.current.x) * ROTATION_SMOOTHING;
+      currentRotation.current.y += (targetRotation.y - currentRotation.current.y) * ROTATION_SMOOTHING;
+      currentRotation.current.z += (targetRotation.z - currentRotation.current.z) * ROTATION_SMOOTHING;
+    }
+
+    meshRef.current.position.copy(currentPosition.current);
+    if (!shouldFaceCamera) {
+      meshRef.current.rotation.copy(currentRotation.current);
+    }
+  });
+
+  // FIXED: Material with correct empty slot color handling
+  const material = useMemo(() => {
+    if (texture) {
+      const brightnessMaterial = new THREE.MeshStandardMaterial({
+        map: texture,
+        transparent: true,
+        side: THREE.DoubleSide,
+        toneMapped: false,
+      });
+      
+      // Apply brightness by modifying the material color - only for photos with textures
+      brightnessMaterial.color.setScalar(brightness || 1.0);
+      
+      // Enable high quality rendering for textures
+      brightnessMaterial.toneMapped = false;
+      brightnessMaterial.premultipliedAlpha = true;
+
+      return brightnessMaterial;
+    } else {
+      // FIXED: Empty slot material using EXACT emptySlotColor setting
+      const canvas = document.createElement('canvas');
+      canvas.width = 512;
+      canvas.height = 512;
+      const ctx = canvas.getContext('2d')!;
+      
+      // Use EXACT empty slot color from settings
+      ctx.fillStyle = emptySlotColor;
+      ctx.fillRect(0, 0, 512, 512);
+      
+      // Add pattern overlay
+      if (pattern === 'grid') {
+        ctx.strokeStyle = '#ffffff20';
+        ctx.lineWidth = 2;
+        for (let i = 0; i <= 512; i += 64) {
+          ctx.beginPath();
+          ctx.moveTo(i, 0);
+          ctx.lineTo(i, 512);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(0, i);
+          ctx.lineTo(512, i);
+          ctx.stroke();
+        }
+      }
+      
+      const emptyTexture = new THREE.CanvasTexture(canvas);
+      return new THREE.MeshStandardMaterial({
+        map: emptyTexture,
+        transparent: false,
+        opacity: 1.0, // Fully opaque empty slots
+        side: THREE.DoubleSide,
+        color: 0xffffff, // White base - texture carries the color
+      });
+    }
+  }, [texture, emptySlotColor, pattern, brightness]);
+
+  return (
+    <mesh
+      ref={meshRef}
+      material={material}
+      castShadow
+      receiveShadow
     >
-      <Canvas
-        camera={{ position: [0, 0, 30], fov: 75 }}
+      <planeGeometry args={[(size || 4.0) * (9/16), size || 4.0]} />
+    </mesh>
+  );
+}, (prevProps, nextProps) => {
+  // Custom comparison for memo - only re-render if key props changed
+  return (
+    prevProps.photo.id === nextProps.photo.id &&
+    prevProps.photo.url === nextProps.photo.url &&
+    prevProps.size === nextProps.size &&
+    prevProps.emptySlotColor === nextProps.emptySlotColor &&
+    prevProps.shouldFaceCamera === nextProps.shouldFaceCamera &&
+    prevProps.brightness === nextProps.brightness &&
+    prevProps.photo.targetPosition.every((pos, i) => 
+      Math.abs(pos - nextProps.photo.targetPosition[i]) < 0.001
+    )
+  );
+});
+
+// Photo renderer with stable keys
+const PhotoRenderer: React.FC<{ 
+  photosWithPositions: PhotoWithPosition[]; 
+  settings: SceneSettings;
+}> = ({ photosWithPositions, settings }) => {
+  const shouldFaceCamera = settings.animationPattern === 'float';
+  
+  return (
+    <group>
+      {photosWithPositions.map((photo) => (
+        <PhotoMesh
+          key={`${photo.id}-${photo.slotIndex}`} // CRITICAL: Stable key combining ID and slot
+          photo={photo}
+          size={settings.photoSize || 4.0}
+          emptySlotColor={settings.emptySlotColor || '#1A1A1A'}
+          pattern={settings.animationPattern || 'grid'}
+          shouldFaceCamera={shouldFaceCamera}
+          brightness={settings.photoBrightness || 1.0}
+        />
+      ))}
+    </group>
+  );
+};
+
+// Debug component to track photo changes
+const PhotoDebugger: React.FC<{ photos: Photo[] }> = ({ photos }) => {
+  useEffect(() => {
+    console.log('🔍 PHOTO DEBUGGER: Photos updated in scene');
+    console.log('🔍 Count:', photos?.length || 0);
+    console.log('🔍 IDs:', (photos || []).map(p => p.id.slice(-4)));
+  }, [photos]);
+  
+  return null;
+};
+
+// Main CollageScene component
+const CollageScene = forwardRef<HTMLCanvasElement, CollageSceneProps>(({ photos, settings, width = 1920, height = 1080, onSettingsChange }, ref) => {
+  const [photosWithPositions, setPhotosWithPositions] = useState<PhotoWithPosition[]>([]);
+  const internalCanvasRef = useRef<HTMLCanvasElement>(null);
+
+  // Combine the forwarded ref with our internal ref
+  const canvasRef = (ref || internalCanvasRef) as React.RefObject<HTMLCanvasElement>;
+
+  const safePhotos = Array.isArray(photos) ? photos : [];
+  const safeSettings = { ...settings };
+
+  // Background style for gradient backgrounds
+  const backgroundStyle = useMemo(() => {
+    if (safeSettings.backgroundGradient) {
+      return {
+        background: `linear-gradient(${safeSettings.backgroundGradientAngle || 45}deg, ${safeSettings.backgroundGradientStart || '#000000'}, ${safeSettings.backgroundGradientEnd || '#000000'})`
+      };
+    }
+    return {
+      background: safeSettings.backgroundColor || '#000000'
+    };
+  }, [
+    safeSettings.backgroundGradient,
+    safeSettings.backgroundColor,
+    safeSettings.backgroundGradientStart,
+    safeSettings.backgroundGradientEnd,
+    safeSettings.backgroundGradientAngle
+  ]);
+
+  console.log('🎬 COLLAGE SCENE RENDER:', {
+    photoCount: safePhotos.length,
+    settingsPhotoCount: safeSettings.photoCount,
+    positionsCount: photosWithPositions.length,
+    emptySlotColor: safeSettings.emptySlotColor
+  });
+
+  return (
+    <div style={backgroundStyle} className="w-full h-full">
+      <Canvas 
+        ref={canvasRef}
+        width={width}
+        height={height}
+        shadows={safeSettings.shadowsEnabled}
+        camera={{ 
+          position: [0, 0, 20], 
+          fov: 75,
+          near: 0.1,
+          far: 1000
+        }}
         gl={{ 
           antialias: true, 
-          alpha: true,
-          powerPreference: "high-performance"
+          alpha: safeSettings.backgroundGradient || false,
+          powerPreference: "high-performance",
+          preserveDrawingBuffer: true,
+          toneMapping: THREE.ACESFilmicToneMapping,
+          toneMappingExposure: 1.0,
         }}
-        style={{ 
-          background: 'transparent',
-          pointerEvents: 'none',
-          width: '100%',
-          height: '100%',
-          userSelect: 'none',
-          WebkitUserSelect: 'none'
+        onCreated={(state) => {
+          if (safeSettings.backgroundGradient) {
+            state.gl.setClearColor('#000000', 0);
+          }
+          state.gl.shadowMap.enabled = true;
+          state.gl.shadowMap.type = THREE.PCFSoftShadowMap;
+          state.gl.shadowMap.autoUpdate = true;
+          // Use a fixed pixel ratio of 1 for recording to ensure consistent quality
+          // For 4K, we need a higher pixel ratio
+          state.gl.setPixelRatio(width > 1920 ? 2 : 1);
         }}
-        onCreated={({ gl, scene }) => {
-          gl.toneMapping = THREE.ACESFilmicToneMapping;
-          gl.toneMappingExposure = 1.0;
-          // Debug: Log that canvas was created
-          console.log('🎨 LandingParticleBackground Canvas created');
-        }}
-        frameloop="always"
-        dpr={[1, 1.5]}
+        performance={{ min: 0.8 }}
+        linear={true}
       >
-        <Suspense fallback={null}>
-          <SubtleParticleSystem colorTheme={particleTheme} />
-          {/* Subtle ambient lighting for particles */}
-          <ambientLight intensity={0.1} />
-          <pointLight position={[10, 10, 10]} intensity={0.05} />
-        </Suspense>
+        <BackgroundRenderer settings={safeSettings} />
+        <CameraController settings={safeSettings} />
+        <CameraAnimationController config={safeSettings.cameraAnimation} />
+        
+        {/* Particle System */}
+        {safeSettings.particles?.enabled && (
+          <MilkyWayParticleSystem
+            colorTheme={getCurrentParticleTheme(safeSettings)}
+            intensity={safeSettings.particles?.intensity ?? 0.7}
+            enabled={safeSettings.particles?.enabled ?? true}
+            photoPositions={photosWithPositions.map(p => ({ position: p.targetPosition }))}
+          />
+        )}
+        
+        <SceneLighting settings={safeSettings} />
+        <Floor settings={safeSettings} />
+        <Grid settings={safeSettings} />
+        
+        <AnimationController
+          settings={safeSettings}
+          photos={safePhotos}
+          onPositionsUpdate={setPhotosWithPositions}
+        />
+        
+        <PhotoDebugger photos={safePhotos} />
+        
+        <PhotoRenderer 
+          photosWithPositions={photosWithPositions}
+          settings={safeSettings}
+        />
+        
+        <DynamicLightingSystem settings={safeSettings} />
       </Canvas>
     </div>
   );
-};
+});
+
+CollageScene.displayName = 'CollageScene';
+export default CollageScene;
